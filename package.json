@@ -1,0 +1,32 @@
+{
+  "name": "fiume-o-morte",
+  "_comment": "npm requires a lowercase, space-free name; the game is called Fiume o morte!",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Fiume o morte! — a historical political simulator of the Italian Regency of Carnaro, 1919-1924",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "start": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "test": "node tools/smoke.js",
+    "check:doc": "node tools/check_doc_claims.js",
+    "verify:ui": "node tools/verify_ui.js",
+    "verify": "npm run lint && npm test && npm run build"
+  },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/node": "22.15.30",
+    "@vitejs/plugin-react": "5.1.2",
+    "typescript": "5.8.3",
+    "vite": "6.4.3"
+  },
+  "engines": { "node": ">=20" }
+}

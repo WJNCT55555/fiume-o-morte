@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build_ui/
+build_geo/
+tmp/
+*.log
+.env
+.env.*

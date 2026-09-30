@@ -1,0 +1,479 @@
+/* UI 验证：用无头 Chrome 通过 CDP 加载页面，收集控制台错误、模拟操作、截图。
+   用法： node tools/verify_ui.js [outDir]                                  */
+'use strict';
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const ROOT = path.resolve(__dirname, '..');
+const OUT = process.argv[2] ? path.resolve(process.argv[2]) : path.join(ROOT, 'build_ui');
+fs.mkdirSync(OUT, { recursive: true });
+
+const CHROME = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+].find(p => { try { return fs.existsSync(p); } catch (e) { return false; } });
+
+if (!CHROME) { console.error('找不到 Chrome/Edge'); process.exit(2); }
+
+const PORT = 9333;
+const profile = path.join(os.tmpdir(), 'fiume-verify-' + Date.now());
+const args = [
+  '--headless=new',
+  '--disable-gpu',
+  '--hide-scrollbars',
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--disable-extensions',
+  '--allow-file-access-from-files',
+  '--window-size=1680,1100',
+  '--remote-debugging-port=' + PORT,
+  '--user-data-dir=' + profile,
+  'about:blank'
+].filter(a => !(process.env.FIUME_STRICT_FILE && a === '--allow-file-access-from-files'));
+
+const chrome = spawn(CHROME, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+const preview = spawn(process.execPath, [path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'),
+  'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'],
+  { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+let chromeErr = '';
+chrome.stderr.on('data', d => { chromeErr += d.toString(); });
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function httpJson(url) {
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function waitForDevtools(timeoutMs = 25000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    try {
+      const v = await httpJson('http://127.0.0.1:' + PORT + '/json/version');
+      if (v && v.webSocketDebuggerUrl) return v;
+    } catch (e) { /* not up yet */ }
+    await sleep(250);
+  }
+  throw new Error('DevTools 未就绪');
+}
+
+async function waitForPreview(timeoutMs = 25000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    try { const r = await fetch('http://127.0.0.1:4173/'); if (r.ok) return; } catch (e) { /* starting */ }
+    await sleep(250);
+  }
+  throw new Error('Vite preview 未就绪');
+}
+
+class CDP {
+  constructor(ws) { this.ws = ws; this.id = 0; this.pending = new Map(); this.handlers = []; }
+  static async connect(url) {
+    const ws = new WebSocket(url);
+    await new Promise((res, rej) => { ws.onopen = res; ws.onerror = e => rej(new Error('ws error')); });
+    const c = new CDP(ws);
+    ws.onmessage = ev => {
+      let msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (msg.id && c.pending.has(msg.id)) {
+        const { res, rej } = c.pending.get(msg.id); c.pending.delete(msg.id);
+        msg.error ? rej(new Error(JSON.stringify(msg.error))) : res(msg.result);
+      } else if (msg.method) {
+        c.handlers.forEach(h => h(msg));
+      }
+    };
+    return c;
+  }
+  send(method, params) {
+    const id = ++this.id;
+    return new Promise((res, rej) => {
+      this.pending.set(id, { res, rej });
+      this.ws.send(JSON.stringify({ id, method, params: params || {} }));
+      setTimeout(() => { if (this.pending.has(id)) { this.pending.delete(id); rej(new Error('timeout ' + method)); } }, 30000);
+    });
+  }
+  on(fn) { this.handlers.push(fn); }
+  close() { try { this.ws.close(); } catch (e) {} }
+}
+
+(async () => {
+  const problems = [];
+  let cdp;
+  try {
+    await waitForPreview();
+    await waitForDevtools();
+    const tab = await (await fetch('http://127.0.0.1:' + PORT + '/json/new?about:blank', { method: 'PUT' })).json();
+    cdp = await CDP.connect(tab.webSocketDebuggerUrl);
+
+    cdp.on(msg => {
+      if (msg.method === 'Runtime.exceptionThrown') {
+        const d = msg.params.exceptionDetails;
+        problems.push('EXCEPTION: ' + (d.exception && d.exception.description ? d.exception.description : d.text) +
+          ' @' + (d.url || '') + ':' + (d.lineNumber + 1));
+      } else if (msg.method === 'Runtime.consoleAPICalled' && /error|warning/.test(msg.params.type)) {
+        const txt = (msg.params.args || []).map(a => a.value != null ? a.value : (a.description || a.type)).join(' ');
+        if (!/DevTools|Autofill|font/i.test(txt)) problems.push('CONSOLE.' + msg.params.type + ': ' + txt);
+      } else if (msg.method === 'Log.entryAdded') {
+        const e = msg.params.entry;
+        if (e.level === 'error' && !/fonts\.googleapis|fonts\.gstatic|net::ERR_INTERNET|Failed to load resource/i.test(e.text)) {
+          problems.push('LOG: ' + e.text + ' ' + (e.url || ''));
+        }
+      }
+    });
+
+    await cdp.send('Runtime.enable');
+    await cdp.send('Log.enable');
+    await cdp.send('Page.enable');
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+
+    const url = 'http://127.0.0.1:4173/';
+    await cdp.send('Page.navigate', { url });
+    await sleep(3200);
+
+    async function evalJs(expr) {
+      const r = await cdp.send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error('eval: ' + JSON.stringify(r.exceptionDetails).slice(0, 400));
+      return r.result.value;
+    }
+    async function shot(name) {
+      const r = await cdp.send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(OUT, name), Buffer.from(r.data, 'base64'));
+    }
+
+    // 1. 启动画面
+    let boot;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      boot = await evalJs(`(() => {
+        const r = document.getElementById('root');
+        return { booted: !!window.Fiume?.Engine && !!r?.firstElementChild, rootChildren: r ? r.children.length : -1,
+                 bootErr: r && r.querySelector('.boot') ? r.querySelector('.boot').textContent : null,
+                 title: (document.querySelector('.splash__t')||{}).textContent || null,
+                 modes: [...document.querySelectorAll('.start-difficulty .pick')].map(x => ({ name: x.querySelector('.pick__n')?.textContent, selected: x.getAttribute('aria-pressed') })),
+                 force: document.querySelector('.start-force__pick.is-on .start-force__name')?.textContent || null,
+                 forces: document.querySelectorAll('.start-force__pick').length,
+                 lockedForces: document.querySelectorAll('.start-force__pick:disabled').length,
+                 emblems: [...document.querySelectorAll('.start-force__emblem')].filter(img => img.complete && img.naturalWidth > 0).length,
+                 leader: document.querySelector('.start-leader__plaque')?.textContent || null,
+                 leaderPortrait: (() => { const img = document.querySelector('.start-leader__portrait img'); return !!img && img.complete && img.naturalWidth > 0 && img.getAttribute('src')?.includes('Portrait_Dannunzio.png'); })(),
+                 leaderFrame: getComputedStyle(document.querySelector('.start-leader__frame')).backgroundImage.includes('leader_frame.png'),
+                 columns: (() => { const f = document.querySelector('.start-force')?.getBoundingClientRect(), l = document.querySelector('.start-leader')?.getBoundingClientRect(), d = document.querySelector('.start-difficulty')?.getBoundingClientRect(); return !!f && !!l && !!d && f.right <= l.left && l.right <= d.left; })(),
+                 removedTextVisible: /意大利卡尔纳罗摄政 · 1920|史实起点|52 000 人|史实线：|史料与致谢|史料基线：/.test(document.querySelector('.stage-full')?.textContent || '') };
+      })()`);
+      if (boot.booted || boot.bootErr) break;
+      await sleep(250);
+    }
+    console.log('启动检查:', JSON.stringify(boot));
+    if (!boot.booted || boot.bootErr) problems.push('BOOT: ' + (boot.bootErr || 'start screen did not load'));
+    if (boot.removedTextVisible || boot.force !== '军团' || boot.forces !== 3 || boot.lockedForces !== 0 || boot.emblems !== 3 || !boot.leader?.includes('邓南遮') || !boot.leaderPortrait || !boot.leaderFrame || !boot.columns || boot.modes?.length !== 2 || boot.modes[0]?.name !== '普通' || boot.modes[0]?.selected !== 'true' || boot.modes[1]?.name !== '沙盒') problems.push('START: faction, emblem, leader, or mode layout is incorrect');
+    await shot('01-start.png');
+
+    for (const [index, name, leaderName, filename] of [[1, '自治党', '扎内拉', '01-start-aut.png'], [2, '社会党', '迈伦德尔', '01-start-psi.png']]) {
+      await evalJs(`document.querySelectorAll('.start-force__pick')[${index}]?.click()`);
+      await sleep(200);
+      const selected = await evalJs(`(() => ({ force: document.querySelector('.start-force__pick.is-on .start-force__name')?.textContent,
+        leader: document.querySelector('.start-leader__plaque')?.textContent,
+        imageLoaded: (() => { const img = document.querySelector('.start-leader__portrait img'); return !!img && img.complete && img.naturalWidth > 0; })() }))()`);
+      if (selected.force !== name || !selected.leader?.includes(leaderName) || !selected.imageLoaded) problems.push('START: ' + name + ' cannot be selected');
+      await shot(filename);
+      await evalJs(`(() => { const b=[...document.querySelectorAll('.btn')].find(x=>x.textContent.includes('开始游戏')); b?.click(); return !!b; })()`);
+      await sleep(350);
+      const playing = await evalJs(`(() => ({ leader: document.querySelector('.comandante__n')?.textContent,
+        party: document.querySelector('.comandante__r')?.textContent,
+        hasGame: !!document.querySelector('.board') }))()`);
+      if (!playing.hasGame || !playing.leader?.includes(leaderName) || !playing.party?.includes(name === '自治党' ? 'Autonomo' : 'Socialista')) problems.push('GAME: ' + name + ' did not start as the selected force');
+      await cdp.send('Page.navigate', { url });
+      await sleep(1200);
+    }
+
+    await evalJs(`(() => { document.querySelectorAll('.start-difficulty .pick')[1]?.click(); return true; })()`);
+    await sleep(100);
+    const sandboxSelected = await evalJs(`document.querySelectorAll('.start-difficulty .pick')[1]?.getAttribute('aria-pressed') === 'true'`);
+    if (!sandboxSelected) problems.push('START: sandbox mode cannot be selected');
+    await evalJs(`(() => { document.querySelectorAll('.start-difficulty .pick')[0]?.click(); document.querySelector('.start-force__pick')?.click(); return true; })()`);
+    await sleep(100);
+
+    // 2. 开始游戏
+    await evalJs(`(() => { const b=[...document.querySelectorAll('.btn')].find(x=>x.textContent.includes('接受指挥')); if(b) b.click(); return !!b; })()`);
+    await sleep(900);
+    await shot('02a-event.png');
+    // 处理初始事件：先关事件看板，再选第一个可用项
+    let evCount = 0;
+    for (let i = 0; i < 8; i++) {
+      const ok = await evalJs(`(() => {
+        const m = document.querySelector('.scrim.show .modal');
+        if (!m) return false;
+        // 事件看板 → 点第一条待决事件
+        const row = m.querySelector('.evrow.is-current:not([disabled])') || m.querySelector('.evrow:not([disabled])');
+        if (row) { row.click(); return 'board'; }
+        // 决策弹窗 → 选第一个可用项
+        const o = [...m.querySelectorAll('button.opt')].find(b => !b.disabled);
+        if (o) { o.click(); return 'opt'; }
+        // 兜底关闭
+        const close = [...m.querySelectorAll('.btn')].find(b => b.textContent.trim() === '关闭');
+        if (close) { close.click(); return 'close'; }
+        return false;
+      })()`);
+      if (!ok) break;
+      if (ok === 'opt') evCount++;
+      await sleep(650);
+    }
+    console.log('已解决初始事件数:', evCount);
+    await shot('02-game.png');
+
+    const g1 = await evalJs(`(() => {
+      const t = document.querySelector('.resbar');
+      return { hasTopbar: !!t, stats: [...document.querySelectorAll('.resslot')].map(s=>s.textContent.trim().slice(0,30)),
+               leftPanels: document.querySelectorAll('.col--l .frame').length,
+               rightPanels: document.querySelectorAll('.col--r .frame').length,
+               nav: [...document.querySelectorAll('.navbtn')].map(t=>t.getAttribute('data-tab')),
+               tagArtwork: getComputedStyle(document.querySelector('.navbtn')).backgroundImage.includes('tag_header.png'),
+               hasAction: !!document.querySelector('.action-trigger') };
+    })()`);
+    console.log('主界面:', JSON.stringify(g1));
+    if (g1.nav.join(',') !== 'mappa,crisi,economia,assemblea,diplomazia,leggi,archivio' || !g1.tagArtwork || !g1.hasAction) problems.push('GAME: seven tag-header navigation tabs or action access missing');
+
+    for (const width of [1280, 960, 390]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: false });
+      await sleep(600);
+      await shot('02-game-' + width + '.png');
+      const overflow = await evalJs(`document.documentElement.scrollWidth > window.innerWidth + 2`);
+      if (overflow) problems.push(width + 'px viewport has horizontal overflow');
+      const controlsVisible = await evalJs(`(() => [...document.querySelectorAll('.resbar__motto button')].length === 3 &&
+        [...document.querySelectorAll('.resbar__motto button')].every(b => b.getBoundingClientRect().width > 0 &&
+          b.getBoundingClientRect().right <= window.innerWidth + 2 && getComputedStyle(b).visibility !== 'hidden'))()`);
+      if (!controlsVisible) problems.push(width + 'px viewport hides agenda/settings controls');
+      const mastheadVisible = await evalJs(`(() => { const e=document.querySelector('.masthead__t');
+        const r=e.getBoundingClientRect(); return r.width > 0 && r.left >= -2 && r.right <= innerWidth + 2 &&
+          getComputedStyle(e).visibility !== 'hidden'; })()`);
+      if (!mastheadVisible) problems.push(width + 'px viewport clips title');
+    }
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+
+    // 3. 逐页签截图
+    const svgInfo = {};
+    for (const key of ['mappa','economia','azioni','assemblea','diplomazia','leggi','crisi','archivio']) {
+      await evalJs(`(() => { const b=document.querySelector('${key === 'azioni' ? '.action-trigger' : '.navbtn[data-tab="' + key + '"]'}'); if(b) b.click(); return !!b; })()`);
+      await sleep(650);
+      await shot('03-tab-' + key + '.png');
+      svgInfo[key] = await evalJs(`(() => ({
+        parlSeats: document.querySelectorAll('.parl__seat').length,
+        mapPolys: document.querySelectorAll('g.mp').length,
+        markers: document.querySelectorAll('g.mk').length,
+        svgs: document.querySelectorAll('.board svg').length,
+        texts: document.querySelectorAll('.col .banner').length
+      }))()`);
+    }
+    console.log('图表:', JSON.stringify(svgInfo));
+    if (!svgInfo.mappa || !svgInfo.mappa.mapPolys) problems.push('地图未渲染多边形');
+    await evalJs(`(() => { const b=document.querySelector('.navbtn[data-tab="mappa"]'); if(b)b.click(); })()`);
+    await sleep(200);
+    const zoomBefore = await evalJs(`document.querySelector('.mapcanvas svg')?.getAttribute('viewBox')`);
+    await evalJs(`document.querySelector('.mapcanvas__zoom')?.click()`);
+    await sleep(150);
+    const zoomCheck = await evalJs(`(() => {
+      const map=document.querySelector('.mapcanvas svg');
+      const context=!!document.querySelector('.mapcanvas .context-place');
+      return { after:map?.getAttribute('viewBox'), context };
+    })()`);
+    console.log('地图缩放:', JSON.stringify(zoomCheck));
+    if (!zoomBefore || zoomBefore === zoomCheck.after || !zoomCheck.context) problems.push('地图缩放或周边地名未生效');
+    const periodLayers = await evalJs(`(() => {
+      const view=window.Fiume.MapView;
+      const first=view.render({date:{y:1919,m:9,d:12}});
+      const later=view.render({date:{y:1921,m:6,d:1}});
+      return {coastPoints:window.FIUME_GEO_COAST?.shoreline?.length,
+        shs1919:!!first.querySelector('.context-territory--shs'),
+        italy1921:!!later.querySelector('.context-territory--italy')};
+    })()`);
+    if (periodLayers.coastPoints < 900 || !periodLayers.shs1919 || !periodLayers.italy1921)
+      problems.push('精密海岸或 1921 年卡斯塔夫控制区切换未生效');
+    await evalJs(`(() => { const m=document.querySelector('.mapcanvas svg'); const r=m.getBoundingClientRect();
+      m.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:-120,
+        clientX:r.left+r.width*.72,clientY:r.top+r.height*.55})); })()`);
+    await sleep(150);
+    const wheelAfter = await evalJs(`document.querySelector('.mapcanvas svg')?.getAttribute('viewBox')`);
+    if (wheelAfter === zoomCheck.after) problems.push('地图滚轮缩放未生效');
+    await evalJs(`document.querySelector('g.mp[data-id="srdoci"]')?.dispatchEvent(new MouseEvent('click', { bubbles:true }))`);
+    await sleep(150);
+    const districtSelected = await evalJs(`document.querySelector('.district-detail')?.textContent.includes('瑟尔多齐')`);
+    if (!districtSelected) problems.push('缩放后地图地区点选未生效');
+    
+
+    // 4. 推进几个月
+    await evalJs(`(() => { document.querySelector('.action-trigger')?.click(); return true; })()`);
+    await sleep(300);
+    for (let m = 0; m < 10; m++) {
+      // 出牌
+      for (let k = 0; k < 4; k++) {
+        const played = await evalJs(`(() => {
+          const m = document.querySelector('.scrim.show .modal');
+          if (m) { const o=[...m.querySelectorAll('button.opt')].find(b=>!b.disabled); if(o){o.click();return true;} }
+          const t=document.querySelector('.deck:not(.is-off)');
+          if(t){t.click();return 'deck';}
+          const b=[...document.querySelectorAll('.slot--full .btn')].find(x=>!x.disabled);
+          if(!b) return false; b.click(); return true; })()`);
+        if (!played) break;
+        await sleep(300);
+        // Deck picker: take the first drawable card.
+        await evalJs(`(() => { const r=document.querySelector('.deckrow'); if(r){r.click();return true;} return false; })()`);
+        await sleep(300);
+        // A multi-option card opens a second modal: pick an option.
+        await evalJs(`(() => { const m=document.querySelector('.scrim.show .modal');
+          if(!m) return false; const o=[...m.querySelectorAll('button.opt')].find(b=>!b.disabled);
+          if(o){o.click();return true;} return false; })()`);
+        await sleep(200);
+      }
+      // 先把事件看板 / 决策清干净
+      for (let e = 0; e < 10; e++) {
+        const r = await evalJs(`(() => {
+          const m = document.querySelector('.scrim.show .modal');
+          if (!m) return false;
+          const row = m.querySelector('.evrow.is-current:not([disabled])') || m.querySelector('.evrow:not([disabled])');
+          if (row) { row.click(); return 'board'; }
+          const o = [...m.querySelectorAll('button.opt')].find(b => !b.disabled);
+          if (o) { o.click(); return 'opt'; }
+          const close = [...m.querySelectorAll('.btn')].find(b => b.textContent.trim() === '关闭');
+          if (close) { close.click(); return 'close'; }
+          return false;
+        })()`);
+        if (!r) break;
+        await sleep(420);
+      }
+      // 再看板可能重新弹出（关闭看板后直入决策），循环清一次
+      await evalJs(`(() => {
+        const m = document.querySelector('.scrim.show .modal');
+        if (!m) return false;
+        const close = [...m.querySelectorAll('.btn')].find(b => b.textContent.trim() === '关闭');
+        if (close) close.click();
+        return true; })()`);
+      await sleep(200);
+      const advanced = await evalJs(`(() => {
+        const b=[...document.querySelectorAll('.btn--primary')].find(x=>x.textContent.includes('推进到下一周'));
+        if(!b||b.disabled) return 'blocked'; b.click(); return 'ok'; })()`);
+      await sleep(520);
+      // 解决事件
+      for (let e = 0; e < 4; e++) {
+        const ok = await evalJs(`(() => {
+          const m=document.querySelector('.scrim.show .modal'); if(!m) return false;
+          const o=[...m.querySelectorAll('button.opt')].find(b=>!b.disabled); if(!o) return false;
+          o.click(); return true; })()`);
+        if (!ok) break;
+        await sleep(420);
+      }
+      if (advanced === 'blocked') break;
+    }
+    const g2 = await evalJs(`(() => ({
+      date: (document.querySelector('.resbar__d1')||{}).textContent,
+      ending: !!document.querySelector('.ending__t'),
+      endingTitle: (document.querySelector('.ending__t')||{}).textContent || null,
+      traffic: window.Fiume.Sel.Save.load('auto')?.economy?.traffic ?? null,
+      coup: window.Fiume.Sel.Save.load('auto')?.order?.coup ?? null,
+      logLines: document.querySelectorAll('.logline').length
+    }))()`);
+    console.log('推进后:', JSON.stringify(g2));
+    await shot('04-advanced.png');
+
+    // React settings and save manager must remain interactive after the migration.
+    const settingsOpened = await evalJs(`(() => { const b=document.querySelector('.resbar__motto button:last-child'); if (!b) return false; b.click(); return true; })()`);
+    await sleep(120);
+    const savesOpened = await evalJs(`(() => { const b=[...document.querySelectorAll('.setbtn')].find(x=>x.textContent.includes('存档')); if (!b) return false; b.click(); return true; })()`);
+    await sleep(120);
+    const saved = await evalJs(`(() => { const b=document.querySelector('.save-list .opt:nth-child(2) button:first-child'); if (!b) return false; b.click(); return true; })()`);
+    await sleep(120);
+    const loaded = await evalJs(`(() => { const b=document.querySelector('.save-list .opt:nth-child(2) button:nth-child(2)'); if (!b || b.disabled) return false; b.click(); return true; })()`);
+    const saveFlow = settingsOpened && savesOpened && saved && loaded ? 'ok' : 'failed';
+    console.log('设置与存档:', saveFlow);
+    if (saveFlow !== 'ok') problems.push('SAVE FLOW: ' + saveFlow);
+    await sleep(400);
+
+    // 5. 打开"关于"
+    await evalJs(`(() => { const b=[...document.querySelectorAll('.btn')].find(x=>x.textContent.trim()==='关于'); if(b) b.click(); return !!b; })()`);
+    await sleep(500);
+    await shot('05-about.png');
+    await evalJs(`(() => { const b=[...document.querySelectorAll('.btn')].find(x=>x.textContent.trim()==='关闭'); if(b) b.click(); return !!b; })()`);
+    await sleep(300);
+
+    // 6. 跑到结局（快速模式只验证前述关键交互）
+    if (!process.env.FIUME_VERIFY_QUICK) {
+    let reachedEnding = false;
+    for (let m = 0; m < 270; m++) {
+      const isEnd = await evalJs(`!!document.querySelector('.ending__t')`);
+      if (isEnd) { reachedEnding = true; break; }
+      for (let k = 0; k < 4; k++) {
+        const played = await evalJs(`(() => {
+          const m = document.querySelector('.scrim.show .modal');
+          if (m) { const o=[...m.querySelectorAll('button.opt')].find(b=>!b.disabled); if(o){o.click();return true;} }
+          const t=document.querySelector('.deck:not(.is-off)');
+          if(t){t.click();return 'deck';}
+          const b=[...document.querySelectorAll('.slot--full .btn')].find(x=>!x.disabled);
+          if(!b) return false; b.click(); return true; })()`);
+        if (!played) break;
+        await sleep(220);
+        await evalJs(`(() => { const r=document.querySelector('.deckrow'); if(r){r.click();return true;} return false; })()`);
+        await sleep(200);
+        await evalJs(`(() => { const m=document.querySelector('.scrim.show .modal');
+          if(!m) return false; const o=[...m.querySelectorAll('button.opt')].find(b=>!b.disabled);
+          if(o){o.click();return true;} return false; })()`);
+        await sleep(140);
+      }
+      // 清事件看板 / 决策
+      for (let e = 0; e < 4; e++) {
+        const r = await evalJs(`(() => {
+          const m = document.querySelector('.scrim.show .modal');
+          if (!m) return false;
+          const row = m.querySelector('.evrow.is-current:not([disabled])') || m.querySelector('.evrow:not([disabled])');
+          if (row) { row.click(); return 'board'; }
+          const o = [...m.querySelectorAll('button.opt')].find(b => !b.disabled);
+          if (o) { o.click(); return 'opt'; }
+          const close = [...m.querySelectorAll('.btn')].find(b => b.textContent.trim() === '关闭');
+          if (close) { close.click(); return 'close'; }
+          return false;
+        })()`);
+        if (!r) break;
+        await sleep(300);
+      }
+      await evalJs(`(() => {
+        const b=[...document.querySelectorAll('.btn--primary')].find(x=>x.textContent.includes('推进到下一周'));
+        if(b&&!b.disabled) b.click(); return true; })()`);
+      await sleep(240);
+      for (let e = 0; e < 5; e++) {
+        const ok = await evalJs(`(() => {
+          const m=document.querySelector('.scrim.show .modal'); if(!m) return false;
+          const o=[...m.querySelectorAll('button.opt')].find(b=>!b.disabled); if(!o) return false;
+          o.click(); return true; })()`);
+        if (!ok) break;
+        await sleep(200);
+      }
+    }
+    const g3 = await evalJs(`(() => ({
+      ending: !!document.querySelector('.ending__t'),
+      title: (document.querySelector('.ending__t')||{}).textContent || null,
+      tag: (document.querySelector('.ending__tag')||{}).textContent || null,
+      turn: window.Fiume.Sel.Save.load('auto')?.turn ?? null,
+      date: (() => { const d=window.Fiume.Sel.Save.load('auto')?.date; return d ? d.y+'-'+d.m : null; })()
+    }))()`);
+    console.log('结局:', JSON.stringify(g3));
+    if (g3.ending) { await shot('06-ending.png'); reachedEnding = true; }
+    if (!reachedEnding) problems.push('270 周后仍未到达结局');
+    }
+
+    cdp.close();
+  } catch (e) {
+    problems.push('HARNESS: ' + e.message);
+    console.error(e);
+  } finally {
+    try { chrome.kill(); } catch (e) {}
+    try { preview.kill(); } catch (e) {}
+    await sleep(400);
+    try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) {}
+  }
+
+  console.log('\n=== 问题清单 ===');
+  if (!problems.length) console.log('无控制台错误 / 异常 ✓');
+  else problems.slice(0, 40).forEach(p => console.log(' · ' + p));
+  console.log('截图目录: ' + OUT);
+  process.exit(problems.length ? 1 : 0);
+})();

@@ -1,0 +1,400 @@
+/* ===========================================================================
+   D'Annunzio layer — the card page and the event page
+   ---------------------------------------------------------------------------
+   Fiume's visual language is not modernist: it is the printed proclamation, the
+   engraved decree, the theatre handbill. This file dresses the two pages the
+   player reads most in that language.
+
+   House rules for this file:
+     - No gradients. Every field is a flat colour.
+     - No depth. No blur, no glow, no inner shadow, no lift on hover. The only
+       shadow permitted is the hard offset block the rest of the project already
+       uses, and even that is used sparingly.
+     - State changes are signalled by colour and rule weight, not by motion.
+
+   Loaded last, so it may override the flat/print pass with `!important`.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   1. The declaration — the event decision panel
+   A proclamation has a rubric (the crimson heading), an engraved rule, and a
+   body set generously. That is the whole structure; no ornament beyond it.
+   --------------------------------------------------------------------------- */
+.inline-event .modal__hd {
+  background: #5E0F17 !important;
+  border-bottom: none !important;
+  padding: 18px 28px 15px !important;
+  position: relative;
+}
+/* Engraved rule: two gold hairlines separated by a gap. */
+.inline-event .modal__hd::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  border-top: 1px solid var(--gold);
+  border-bottom: 1px solid rgba(201, 162, 39, .45);
+}
+.inline-event .modal__ttl {
+  font-size: 27px !important;
+  letter-spacing: .05em !important;
+  text-shadow: none !important;
+}
+.inline-event .modal__it {
+  font-size: 13.5px !important;
+  letter-spacing: .04em;
+  color: rgba(255, 236, 206, .68) !important;
+}
+
+/* The body is a printed sheet, flat. */
+.inline-event .modal {
+  background: #EFE4C8 !important;
+  border: 1px solid #A98C55 !important;
+  box-shadow: none !important;
+}
+.inline-event .modal::before {
+  inset: 7px !important;
+  border: 1px solid rgba(93, 69, 36, .28) !important;
+}
+.inline-event .modal__bd {
+  padding: 22px 30px 96px !important;   /* room for the last option's panel */
+}
+.inline-event .modal__body { font-size: 16.5px !important; line-height: 1.85 !important; }
+
+/* ---------------------------------------------------------------------------
+   2. The choices — sealed alternatives, with the effect on hover
+   Each option is a sealed envelope on the sheet: a heavy rule on the left and
+   a hairline frame. The consequence list is not printed on the envelope; it
+   appears as a panel when the option is pointed at, mirroring the reference
+   project's EffectPreviewTooltip.
+   --------------------------------------------------------------------------- */
+.inline-event .opt {
+  position: relative;
+  background: #F7EFDB !important;
+  border: 1px solid #C0A97A !important;
+  border-left: 4px solid var(--crimson) !important;
+  box-shadow: none !important;
+  padding: 15px 20px 14px !important;
+  margin-bottom: 9px;
+}
+.inline-event .opt:hover:not(:disabled) {
+  background: #FFFBF0 !important;
+  border-color: #8C2630 !important;
+  border-left-color: #A31621 !important;
+}
+.inline-event .opt:hover,
+.inline-event .opt:focus-visible { z-index: 6; }
+.inline-event .opt__n {
+  font-size: 17px !important;
+  line-height: 1.3 !important;
+  color: #1F1710 !important;
+}
+.inline-event .opt__i {
+  font-size: 12.5px !important;
+  color: rgba(42, 30, 16, .5) !important;
+}
+
+/* The effect panel. Hidden until the option is hovered or focused. */
+.inline-event .opt__p {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: 100%;
+  margin: 0 !important;
+  padding: 11px 13px 12px !important;
+  background: #FBF4E2 !important;
+  border: 1px solid #2B2118 !important;
+  box-shadow: 3px 3px 0 rgba(43, 33, 24, 1) !important;
+  flex-direction: column;
+  gap: 5px !important;
+}
+.inline-event .opt:hover .opt__p,
+.inline-event .opt:focus-visible .opt__p { display: flex; }
+
+/* Panel heading, as in the reference: small caps, letter-spaced, ruled off. */
+.inline-event .opt__p::before {
+  content: '选项效果';
+  display: block;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(43, 33, 24, .2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: rgba(43, 33, 24, .6);
+}
+
+/* One line per consequence: label, then tone. No chip, no frame. */
+.inline-event .opt__pv {
+  display: block !important;
+  border: none !important;
+  background: none !important;
+  padding: 0 !important;
+  font-family: var(--font-mono);
+  font-size: 11.5px !important;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  text-align: left;
+  color: #2B2118 !important;
+}
+.inline-event .opt__pv.up { color: #2F5D18 !important; }
+.inline-event .opt__pv.dn { color: #A31621 !important; }
+
+/* A locked option states its reason on the sheet, not in a panel. */
+.inline-event .opt__lock {
+  color: #8E2233 !important;
+  font-style: italic;
+  border-top: 1px solid rgba(140, 112, 62, .3);
+  padding-top: 7px;
+  margin-top: 8px;
+}
+.inline-event .opt:disabled { background: #EDE3CB !important; border-left-color: #B9A98A !important; }
+
+/* ---------------------------------------------------------------------------
+   3. The card table — decks and reserved slots
+   Deck tiles are card backs: a rule inside a rule. Slots are the fields they
+   land on. Flat ink on flat paper throughout.
+   --------------------------------------------------------------------------- */
+.decks { gap: 11px !important; }
+.deck {
+  position: relative;
+  background: #12100C !important;
+  border: 1px solid var(--gold) !important;
+  box-shadow: none !important;
+  padding: 12px 13px !important;
+  min-height: 82px !important;
+}
+/* Corner ticks, the way an engraved plate is trimmed. */
+.deck::before,
+.deck::after {
+  content: '';
+  position: absolute;
+  width: 9px; height: 9px;
+  border: 1px solid var(--gold-lit);
+  pointer-events: none;
+}
+.deck::before { top: 4px; left: 4px; border-right: none; border-bottom: none; }
+.deck::after { bottom: 4px; right: 4px; border-left: none; border-top: none; }
+.deck:hover:not(:disabled) {
+  background: #1C1810 !important;
+  border-color: var(--gold-lit) !important;
+}
+.deck__n { font-size: 14px !important; letter-spacing: .06em; }
+.deck__s { font-size: 10px !important; color: var(--gold-dim) !important; }
+.deck__ic svg { width: 26px; height: 26px; }
+
+/* Slots: a ruled field. Empty ones show the slot number as a ghosted numeral. */
+.slots { gap: 11px !important; }
+.slot {
+  background: #0B0A07 !important;
+  border: 1px solid rgba(201, 162, 39, .3) !important;
+  padding: 12px !important;
+  min-height: 196px !important;
+  position: relative;
+}
+.slot--empty { border-color: rgba(201, 162, 39, .16) !important; }
+.slot--empty::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px dashed rgba(201, 162, 39, .14);
+  pointer-events: none;
+}
+.slot__i { font-size: 30px !important; color: rgba(201, 162, 39, .16) !important; }
+.slot__e { font-size: 9.5px !important; letter-spacing: .22em !important; }
+.slot--full { border-color: var(--gold) !important; }
+.slot--full::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--gold);
+}
+.slot--full.card--governo { border-color: #B39A3E !important; }
+.slot--full.card--governo::before { background: #B39A3E; }
+.slot__deck {
+  font-size: 9.5px !important;
+  letter-spacing: .2em !important;
+  color: var(--gold-dim) !important;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(201, 162, 39, .2);
+  margin-bottom: 7px;
+}
+.slot__n { font-size: 15.5px !important; margin: 0 0 5px !important; }
+.slot__t { font-size: 12px !important; line-height: 1.6 !important; color: rgba(233, 220, 188, .68) !important; }
+.slot__cost {
+  font-size: 10px !important;
+  padding-top: 7px;
+  border-top: 1px solid rgba(201, 162, 39, .16);
+  margin-top: 8px !important;
+}
+
+/* ---------------------------------------------------------------------------
+   4. The event board — a playbill
+   --------------------------------------------------------------------------- */
+.evboard__t { letter-spacing: .06em; }
+.evrow {
+  position: relative;
+  border-left: 4px solid rgba(140, 112, 62, .5) !important;
+  padding: 11px 14px !important;
+}
+.evrow.is-current { border-left-color: var(--crimson) !important; }
+.evrow.is-done { border-left-color: rgba(140, 112, 62, .25) !important; }
+.evrow__r {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  letter-spacing: .08em !important;
+}
+.evrow__t { font-size: 16px !important; letter-spacing: .04em !important; }
+
+/* ---------------------------------------------------------------------------
+   5. Selection and focus
+   --------------------------------------------------------------------------- */
+.deckrow, .deck, .slot--full, .opt, .evrow { outline-offset: 2px; }
+.deckrow:focus-visible, .deck:focus-visible, .opt:focus-visible, .evrow:focus-visible,
+.inline-event button:focus-visible {
+  outline: 2px solid var(--gold-lit);
+}
+
+/* ---------------------------------------------------------------------------
+   6. Wide screens: the effect panel moves beside the option
+   Below this width it opens underneath, which is what a narrow sheet allows.
+   --------------------------------------------------------------------------- */
+@media (min-width: 1180px) {
+  .inline-event .opt__p {
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 240px;
+  }
+  .inline-event .modal__bd { padding-right: 288px !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   7. The three measures, under the portrait
+   Flat rules; no gradient, no frame of their own.
+   --------------------------------------------------------------------------- */
+.cmdr-gauge { padding: 4px 11px 10px; }
+/* The shared .field helper is a flex row (label left, value right). A gauge
+   needs a column instead: heading row on top, the rule beneath it. */
+.cmdr-gauge .field { display: block; padding: 4px 0; }
+.cmdr-gauge .field + .field { margin-top: 5px; }
+.cmdr-gauge__h {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  color: var(--gold-dim); margin-bottom: 4px;
+}
+.cmdr-gauge__v { color: var(--gold-pale); font-weight: 700; }
+.cmdr-gauge .bar { height: 5px; }
+
+/* The card's one-line frame, under its name. */
+.slot__sub {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--gold-dim);
+  margin: -2px 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(201, 162, 39, .16);
+}
+
+/* ---------------------------------------------------------------------------
+   8. Party relations matrix
+   Flat cells; warmth is carried by colour only.
+   --------------------------------------------------------------------------- */
+.relmat { display: grid; gap: 1px; background: var(--hair-soft); padding: 1px; margin: 4px 11px 0; }
+.relmat__h {
+  background: #0E0A06; padding: 7px 4px; text-align: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  letter-spacing: .1em; color: var(--gold-dim);
+}
+.relmat__h--l { text-align: left; padding-left: 10px; letter-spacing: .06em; }
+.relmat__l {
+  display: flex; align-items: center; gap: 6px; background: #0E0A06;
+  padding: 7px 10px; font-family: var(--font-display); font-weight: 700;
+  font-size: 11.5px; letter-spacing: .08em; color: var(--gold-pale);
+}
+.relmat__l.is-player { color: #FFF0D2; box-shadow: inset 3px 0 var(--gold); }
+.relmat__dot { width: 7px; height: 7px; flex: 0 0 7px; }
+.relmat__c {
+  display: flex; align-items: center; justify-content: center;
+  background: #0B0806; padding: 8px 2px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em;
+  color: rgba(233, 220, 188, .42);
+}
+.relmat__c.is-warm { background: #14200F; color: #8FBF6A; }
+.relmat__c.is-cold { background: #200F10; color: #D08A85; }
+.relmat__c.is-flat { background: #0B0806; color: rgba(233, 220, 188, .55); }
+
+/* ---------------------------------------------------------------------------
+   9. Settings menu on parchment
+   The flat theme styles .setbtn / .setlang for a dark background. Inside the
+   redesigned modal the sheet is parchment (see redesign.css), so the light
+   text and the pale disabled state become unreadable. Restate them in ink.
+   --------------------------------------------------------------------------- */
+.modal .setbtn {
+  color: #281F18;
+  border-color: #A78A52;
+}
+.modal .setbtn svg { stroke: #6B5334; }
+.modal .setbtn:hover:not(:disabled) { background: var(--gold); color: #140E06; }
+.modal .setbtn:hover:not(:disabled) svg { stroke: #140E06; }
+.modal .setbtn:disabled {
+  color: rgba(42, 30, 16, .40);
+  border-color: rgba(120, 96, 52, .32);
+  background: rgba(120, 96, 52, .06);
+}
+.modal .setbtn:disabled svg { stroke: rgba(42, 30, 16, .30); }
+.modal .setbtn__s { color: rgba(42, 30, 16, .55); }
+.modal .setbtn:disabled .setbtn__s { color: rgba(42, 30, 16, .40); }
+
+.modal .setlang { border-color: #A78A52; }
+.modal .setlang__t { color: #281F18; }
+.modal .setlang__t svg { stroke: #6B5334; }
+.modal .langbtn {
+  border-color: rgba(120, 96, 52, .5);
+  color: #281F18;
+}
+.modal .langbtn:hover:not(:disabled) { border-color: var(--gold); background: rgba(183, 154, 92, .18); }
+.modal .langbtn.is-on { border-color: #8A7A2E; background: var(--gold); color: #140E06; }
+.modal .langbtn.is-off { opacity: .48; }
+.modal .langbtn__s { color: rgba(42, 30, 16, .55); }
+
+/* ---------------------------------------------------------------------------
+   10. The commander's name, inside the frame
+   The photograph in .comandante__ph stops 43px short of the container's foot
+   (see redesign.css), which is the band the name is meant to occupy. The old
+   header strip below the frame is gone; these rules place the same two lines
+   on that band instead.
+   --------------------------------------------------------------------------- */
+.comandante__name {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 8px;
+  z-index: 4;
+  text-align: center;
+  pointer-events: none;
+}
+.comandante__name .comandante__n {
+  font-size: 15px;
+  line-height: 1.15;
+  letter-spacing: .04em;
+  color: var(--gold-pale);
+}
+.comandante__name .comandante__r {
+  margin-top: 2px;
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--gold-lit);
+  opacity: .85;
+}
+
+/* The strip that used to hold them is empty now. */
+.comandante__header { display: none; }
+.comandante__body { padding-top: 8px; }
