@@ -40,9 +40,9 @@ for (let i = 0; i < 40 && s.phase !== 'ended'; i++) {
 const persia = seen.filter(x => x.ev === 'ev_1919_10_persia');
 const comunali = seen.filter(x => x.ev === 'ev_1919_10_comunali');
 ok(persia.length === 1, `波斯号触发 ${persia.length} 次`);
-ok(persia[0] && persia[0].y === 1919 && persia[0].m === 10 && persia[0].d === 12,
+ok(persia[0] && persia[0].y === 1919 && persia[0].m === 10 && persia[0].d === 15,
    persia[0] ? `触发于 ${persia[0].y}-${persia[0].m}-${persia[0].d}` : '未触发');
-ok(comunali.length === 1 && comunali[0].d === 27,
+ok(comunali.length === 1 && comunali[0].d === 31,
    comunali[0] ? `市政选举在同月 ${comunali[0].d} 日触发（不冲突）` : '市政选举未触发');
 
 console.log('顾问解锁门控');

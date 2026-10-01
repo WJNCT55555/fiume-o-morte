@@ -13,23 +13,23 @@ export const ev192011Rapallo: GameEvent = {
     options: [
       {
         id: 'guerra', text: { zh: '宣布战争状态，占领韦利亚与阿尔贝两岛', it: 'Proclamare lo stato di guerra e occupare Veglia e Arbe' },
-        preview: [{ zh: '事态 ++', label: 'assedio ++' }, { zh: '热忱 ++', label: 'fervore ++' }, { zh: '国际声誉 −−', label: 'legittimità internazionale −−' }],
+        preview: [{ zh: '事态 ++', label: 'assedio ++' }, { zh: '民众热忱 ++', label: 'fervore ++' }, { zh: '国际声誉 −−', label: 'legittimità internazionale −−' }],
         effect: function () { return { order: { coup: 26, fervour: 12, authority: 4, squadre: 4 }, diplo: { italy: -14, uk: -6, france: -6, league: -8 }, support: [['artigiani', 'LEG', 3]], flags: { occupied_islands: true } }; }
       },
       {
         id: 'negoziare', text: { zh: '不做军事回应，把条约提交国际舆论', it: 'Nessuna risposta militare: portare il trattato davanti all\'opinione internazionale' },
-        preview: [{ zh: '国联/英美法 +', label: 'SDN/UK/FR/US +' }, { zh: '事态 +', label: 'assedio +' }, { zh: '民族派异议 +', label: 'Fascio +' }],
+        preview: [{ zh: '国联/英美法 +', label: 'SDN/UK/FR/US +' }, { zh: '事态 +', label: 'assedio +' }, { zh: '法西斯派异议 +', label: 'Fascio +' }],
         effect: function () { return { order: { coup: 12, fervour: -6 }, diplo: { league: 10, uk: 6, france: 5, usa: 5, italy: -6 }, economy: { recognition: 6 }, support: [['impiegati', 'LEG', 3], ['borghesia', 'LEG', 2]], factions: { fascisti: { dis: 12 }, futuristi: { dis: 6 }, sindacalisti: { dis: -6 } }, journals: ['garanzia'] }; }
       },
       {
         id: 'trattare', text: { zh: '派密使去罗马，试探承认摄政的可能', it: 'Mandare un emissario a Roma per saggiare un riconoscimento' },
-        preview: [{ zh: '意大利 +', label: 'Italia +' }, { zh: '军队立场 +', label: 'presidio +' }, { zh: '民族派异议 ++', label: 'Fascio ++' }],
+        preview: [{ zh: '意大利 +', label: 'Italia +' }, { zh: '军队立场 +', label: 'presidio +' }, { zh: '工团派异议 ++', label: 'Falange ++' }],
         effect: function () { return { order: { coup: 6, garrison: 12 }, diplo: { italy: 12, league: -4 }, support: [['borghesia', 'LEG', 4], ], factions: { sindacalisti: { dis: 8 } }, flags: { rome_talks: true } }; }
       },
       {
         id: 'cedere', text: { zh: '接受条约。把摄政转化为自由邦的第一届政府。', it: 'Accettare il trattato. Trasformare la Reggenza nel primo governo dello Stato libero.' },
-        preview: [{ zh: '合法性 +', label: 'legittimità +' }, { zh: '事态 −−', label: 'assedio −−' }, { zh: '军团兵异议 +++', label: 'Legionari +++' }, { zh: '转向自由邦路线', label: 'via dello Stato libero' }],
-        effect: function () { return { order: { coup: -34, garrison: 16, fervour: -14, violence: -8 }, laws: { elettorale: 1, statuto: 1 }, diplo: { italy: 14, league: 8, uk: 5, france: 5 }, factions: { arditi: { dis: 20 }, sindacalisti: { dis: -30 } }, flags: { accept_rapallo: true }, journals: ['statuto'] }; }
+        preview: [{ zh: '选举法 +1', label: 'legge elettorale +1' }, { zh: '事态 −−', label: 'assedio −−' }, { zh: '阿迪蒂异议 +++', label: 'Arditi +++' }, { zh: '转向自由邦路线', label: 'via dello Stato libero' }],
+        effect: function () { return { order: { coup: -34, garrison: 16, fervour: -14, violence: -8 }, laws: { elettorale: 1 }, diplo: { italy: 14, league: 8, uk: 5, france: 5 }, factions: { arditi: { dis: 20 }, sindacalisti: { dis: -30 } }, flags: { accept_rapallo: true } }; }
       }
     ]
   };

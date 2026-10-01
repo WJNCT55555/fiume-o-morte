@@ -42,7 +42,7 @@
           !leader.portrait ? h('div', { class: 'comandante__photo-note' }, T('start.portraitPending')) : null,
         ]),
         h('div', { class: 'comandante__body' }, [
-          party.id === 'LEG' ? field('运动成员', Core.fmt(st.militants)) : field('全国支持', (mine ? mine.value : 0).toFixed(1) + '%'),
+          party.id === 'LEG' ? field('军团兵力', Core.fmt(st.order.milizia)) : field('全国支持', (mine ? mine.value : 0).toFixed(1) + '%'),
           party.id === 'LEG' ? field(T('cmd.dissenso'), R.factionDissent(st).toFixed(1)) : field('议会席位', String(st.assembly[party.id] || 0)),
         ])
       ]);
@@ -55,10 +55,10 @@
 function gauges(st) {
   var rows = [
     { zh: '军团民意', v: st.legitimacy,
-      hint: '各阶层对军团的支持，按阶层人口加权；不计投票率。' },
+      hint: '各阶层支持按人口加权，加上短期党派声望修正，再归一化；不计投票率。事件通过改变支持或声望间接影响民意。' },
     { zh: '领袖权威', v: st.order.authority,
       hint: '命令被执行的程度。财政欠款会削弱它，公共秩序法会加强它。' },
-    { zh: '民众狂热', v: st.order.fervour,
+    { zh: '民众热忱', v: st.order.fervour,
       hint: '街头的亢奋。它推高紧张度，既是本钱也是危险。' }
   ];
   var body = h('div', { class: 'cmdr-gauge' });
@@ -152,7 +152,10 @@ function gauges(st) {
             h('span', { class: 'fac__i' }, x.inf.toFixed(0) + ' · ' + x.dis.toFixed(0))
           ]),
           h('div', { class: 'fac__bars' }, [
-            (function () { var d = h('div', {}, [h('div', { class: 'fac__lb' }, T('ideologia.inf'))]); d.appendChild(bar(x.inf, 45, x.color)); return d; })(),
+            /* Influence is a float (sub-integer drift accumulates), so both the
+               label and the bar's scale round. The old fixed max of 45 clipped
+               any faction that ever got past it. */
+            (function () { var d = h('div', {}, [h('div', { class: 'fac__lb' }, T('ideologia.inf'))]); d.appendChild(bar(x.inf, Math.max(45, Math.ceil(x.inf / 5) * 5), x.color)); return d; })(),
             (function () { var d = h('div', {}, [h('div', { class: 'fac__lb' }, T('ideologia.dis'))]); d.appendChild(bar(x.dis, 100, x.dis > 50 ? '#A31621' : x.dis > 30 ? '#C9A227' : '#7BA05B')); return d; })()
           ])
         ]));

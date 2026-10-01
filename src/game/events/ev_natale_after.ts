@@ -17,12 +17,12 @@ export const evNataleAfter: GameEvent = {
       },
       {
         id: 'andare', text: { zh: '回加尔达湖。让这座城市自己去处理它的事。', it: 'Tornare sul Garda. Che la città si occupi delle sue cose.' },
-        preview: [{ zh: '离开', label: 'partenza' }, { zh: '热忱 −−−', label: 'fervore −−−' }],
+        preview: [{ zh: '离开', label: 'partenza' }, { zh: '民众热忱 −−−', label: 'fervore −−−' }],
         effect: function () { return { order: { fervour: -26, violence: -8 }, flags: { dannunzio_left: true }, factions: { arditi: { dis: 20 } }, forceEnding: 'ending_fuga' }; }
       },
       {
         id: 'congiura', text: { zh: '转入地下。让军团兵网络变成一个政党。', it: 'Passare alla clandestinità. Trasformare la rete legionaria in un partito.' },
-        preview: [{ zh: '组建选举机器', label: 'macchina elettorale' }, { zh: '合法性 −', label: 'legittimità −' }, { zh: '法西斯 +', label: 'Fascio +' }],
+        preview: [{ zh: '组建选举机器', label: 'macchina elettorale' }, { zh: '手工业者支持军团 +', label: 'artigiani + LEG' }, { zh: '法西斯派影响力 +', label: 'Fascio +' }],
         effect: function () { return { order: { authority: -4, squadre: 6 }, support: [['artigiani', 'LEG', 3]], factions: { fascisti: { inf: 2, dis: -6 } }, flags: { underground: true }, journals: ['elezioni'] }; }
       }
     ]

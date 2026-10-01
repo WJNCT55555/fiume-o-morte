@@ -4,7 +4,11 @@ type LegacyElement = Element & { __fiumeListeners?: Record<string, (event: any) 
 
 const eventNames: Record<string, string> = {
   click: 'onClick', keydown: 'onKeyDown', keyup: 'onKeyUp', input: 'onInput',
-  change: 'onChange', focus: 'onFocus', blur: 'onBlur', mouseenter: 'onMouseEnter',
+  change: 'onChange', focus: 'onFocus', blur: 'onBlur',
+  // mouseover/mouseout bubble, so React handles them directly; mouseenter and
+  // mouseleave are synthesised from them and kept for simpler callers.
+  mouseenter: 'onMouseEnter', mouseleave: 'onMouseLeave',
+  mouseover: 'onMouseOver', mouseout: 'onMouseOut',
 };
 
 function reactStyle(element: HTMLElement | SVGElement): Record<string, string> | undefined {

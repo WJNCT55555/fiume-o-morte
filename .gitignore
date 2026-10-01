@@ -3,6 +3,7 @@ dist/
 build_ui/
 build_geo/
 tmp/
+tools/
 *.log
 .env
 .env.*

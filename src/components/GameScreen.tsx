@@ -22,13 +22,19 @@ export function GameScreen() {
   const inline = pending
     ? legacyToReact(legacyUI.Views.eventModal(state, actions), refresh, 'event')
     : null;
-  return <div className="app">
+  return <div className={ui.tab === 'leggi' ? 'app app--laws' : 'app'}>
     <TopBar nodes={top} refresh={refresh} />
     <div className="board">
       <SidePanel node={columns[0]} refresh={refresh} />
       <div className="col col--c">
-        {inline && <div className="inline-event">{inline}</div>}
-        {ui.tab === 'mappa' ? <MapView node={columns[1]} refresh={refresh} /> : <MainArea node={columns[1]} refresh={refresh} />}
+        {/* While an event is pending the sheet REPLACES the tab area rather than
+            sitting above it. Leaving the action panel (decks, hand, advisors)
+            visible next to an unresolved decision invites the player to keep
+            playing a month that has not been answered yet — and ADVANCE is
+            refused until it is, so the tabs would be a dead end anyway. */}
+        {inline
+          ? <div className="inline-event">{inline}</div>
+          : (ui.tab === 'mappa' ? <MapView node={columns[1]} refresh={refresh} /> : <MainArea node={columns[1]} refresh={refresh} />)}
       </div>
       <EventBoard node={columns[2]} refresh={refresh} />
     </div>

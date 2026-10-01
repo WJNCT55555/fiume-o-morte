@@ -13,7 +13,7 @@ export const ev192104Elezioni: GameEvent = {
     options: [
       {
         id: 'listone', text: { zh: '与法西斯和民族派共组「国民集团」名单', it: 'Presentare il Blocco Nazionale con fascisti e nazionalisti' },
-        preview: [{ zh: '按阶层支持计票', label: 'spoglio' }, { zh: '法西斯影响力 +', label: 'Fascio +' }],
+        preview: [{ zh: '按阶层支持计票', label: 'spoglio' }, { zh: '法西斯派影响力 +', label: 'Fascio +' }],
         effect: function () { return { runElection: true, factions: { fascisti: { inf: 3 }, sindacalisti: { dis: 8 }, futuristi: { dis: 6 } }, journals: ['elezioni'] }; }
       },
       {
@@ -29,7 +29,7 @@ export const ev192104Elezioni: GameEvent = {
       },
       {
         id: 'boicottare', text: { zh: '抵制选举。街垒比选票更诚实。', it: 'Boicottare. Le barricate sono più oneste delle schede.' },
-        preview: [{ zh: '议会被自治派占据', label: 'Assemblea agli autonomi' }, { zh: '合法性 −−', label: 'legittimità −−' }, { zh: '热忱 +', label: 'fervore +' }],
+        preview: [{ zh: '军团抵制投票', label: 'boicottaggio legionario' }, { zh: '议会被自治派占据', label: 'Assemblea agli autonomi' }, { zh: '民众热忱 +', label: 'fervore +' }],
         effect: function () {
           return {
             runElection: true, boycott: true,

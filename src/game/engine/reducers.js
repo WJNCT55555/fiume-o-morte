@@ -1,5 +1,5 @@
 /* ==========================================================================
-   引擎 · 状态构造 / action 路由 / 周回合与月度结算
+   引擎 · 状态构造 / action 路由 / 半月回合与月度结算
    单一状态模型 + 唯一写入漏斗。见 ARCHITECTURE 风格与 docs/设计案.md 第 6 章。
    ========================================================================== */
 (function (root, factory) {
@@ -34,7 +34,7 @@
       var playerForce = W.PARTY_BY_ID[forceId] && W.PARTY_BY_ID[forceId].player ? forceId : W.PLAYER.id;
       var start = scn.start;
       var s = {
-        version: 4,
+        version: 13,
         scenario: scn.id, difficulty: dif.id,
         seed: seed || 20251005, rngTick: 0,
         date: { y: start.y, m: start.m, d: start.d || 12 },
@@ -44,11 +44,10 @@
 
         funds: 2400,
         arms: 220,
-        militants: 2600,
         legitimacy: 40,
         supportBias: {},
 
-        classes: {}, factions: {}, organizations: {},
+        classes: {}, factions: {},
 
         revenueBoost: { porto: 0, dogana: 0, consumo: 0, reddito: 0 },
         taxRates: { porto: 0.60, dogana: 0.50, consumo: 0.45, reddito: 0.0 },
@@ -57,12 +56,12 @@
           traffic: 34, hinterland: 20, delta: 14, works: 32, recognition: 26,
           strike: 8, unemployment: 24, inflation: 8, population: 52000,
           treasury: 0, debt: 1800, arrears: 0, capitalConfidence: 38,
-          lastRevenue: 0, lastSpending: 0, lastNet: 0
+          lastRevenue: 0
         },
 
         laws: {
-          statuto: 0, elettorale: 0, lingua: 0, portofranco: 1, cittadinanza: 0,
-          ordine: 0, stampa: 1, scuola: 0, dogana: 0, lavoro: 0, fisco: 0
+          elettorale: 0, lingua: 0, portofranco: 1, cittadinanza: 0,
+          ordine: 0, stampa: 1, scuola: 0, dogana: 0, orario: 0, lavoro: 0, fisco: 0
         },
 
         assembly: {},
@@ -73,7 +72,8 @@
         order: {
           authority: 46, garrison: 22, fervour: 92, squadre: 12, violence: 22,
           tension: 0, coup: 8, coupMilestones: [],
-          milizia: 2500, civicGuard: 0, police: 120, legionari: 2500, carabinieri: 120, garrisonTroops: 6000
+          subversion: 0, subversionMilestones: [],
+          milizia: 2500, police: 120, carabinieri: 120
         },
 
         diplo: {}, posture: 'equidistant',
@@ -85,7 +85,7 @@
         journals: {}, advisors: { roster: [], active: [], lastAction: -99, cooldown: 6 },
         flags: {}, log: [], achievements: [], ending: null,
         counters: { strikes: 0, violenceEvents: 0, emigrants: 0, exileMonths: 0, resistMonths: 0, calmMonths: 0, electionsHeld: 0 },
-        monotonic: { populationLost: 0, minViolenceOK: true, minDissentOK: true, coupHappened: false, guardDissolved: false, electionsWon: 0, electionsHeld: 0 },
+        monotonic: { populationLost: 0, minViolenceOK: true, minDissentOK: true, coupHappened: false, electionsWon: 0, electionsHeld: 0 },
         sandbox: { open: false },
         series: { traffic: [34], unemployment: [24], coup: [8], legitimacy: [40], population: [52000] }
       };
@@ -102,8 +102,12 @@
         };
       });
       W.FACTIONS.forEach(function (f) { s.factions[f.id] = { inf: f.inf, dis: f.dis }; });
-      W.ORGANIZATIONS.forEach(function (o) { s.organizations[o.id] = { active: !!o.active }; });
-      W.DIPLO_ACTORS.forEach(function (a) { s.diplo[a.id] = a.init; });
+        W.DIPLO_ACTORS.forEach(function (a) { s.diplo[a.id] = a.init; });
+      /* The forces outside Fiume keep their own map: their attitude toward the
+         Legion is a relationship, not a diplomatic standing, so it must not
+         enter diplomacy and faction relationships. */
+      s.forze = {};
+      W.FORZE.forEach(function (f) { s.forze[f.id] = f.init; });
       W.DISTRICTS.forEach(function (d) {
         s.districts[d.id] = {
           control: d.control, agitation: d.agitation, unemployment: d.unemployment,
@@ -119,10 +123,9 @@
       if (sd.garrison != null) s.order.garrison = sd.garrison;
       if (sd.coup != null) s.order.coup = sd.coup;
       if (sd.violence != null) s.order.violence = sd.violence;
-      if (sd.milizia != null) { s.order.milizia = sd.milizia; s.order.legionari = sd.milizia; }
+      if (sd.milizia != null) s.order.milizia = sd.milizia;
       if (sd.exile) { s.flags.exile = true; s.flags.coup_done = true; s.phase = 'exile'; }
       if (sd.contested) s.flags.contested = true;
-      if (sd.fascioSplit) s.flags.fascio_enemy = true;
       if (sd.runElection) s.flags.run_election_now = true;
 
       s.order.tension = R.tension(s);
@@ -144,7 +147,7 @@
     Eng.resourceSnapshot = function (s) {
       return {
         tesoro: s.funds, legittimita: s.legitimacy, fervore: s.order.fervour,
-        milizia: s.order.milizia, produzione: R.produzione(s), pressione: R.pressione(s),
+        milizia: s.order.milizia,
         traffic: s.economy.traffic, unemployment: s.economy.unemployment, population: s.economy.population
       };
     };
@@ -164,38 +167,75 @@
        effect when it has no options), then discards the card and starts
        its cooldown. Shared by PLAY_CARD and RESOLVE_CARD_OPTION.
        --------------------------------------------------------------- */
-    Eng.settleCard = function (state, card, option) {
-      if (card.cost) {
-        if (card.cost.ap) state.ap = Math.max(0, state.ap - card.cost.ap);
-        if (card.cost.funds) state.funds = Math.max(0, state.funds - card.cost.funds);
-        if (card.cost.arms) state.arms = Math.max(0, state.arms - card.cost.arms);
-      }
-      var src = option || card;
-      if (src.effect) {
-        var eff = typeof src.effect === 'function' ? src.effect(state) : src.effect;
-        if (eff) R.applyEffect(state, eff);
-      }
-      R.normalizeFactions(state);
+    /* Deduct the card's declared cost. Paid once, the moment the card is
+       played, whether or not it opens a choice menu. */
+    Eng.payCardCost = function (state, card) {
+      if (!card.cost) return;
+      if (card.cost.ap) state.ap = Math.max(0, state.ap - card.cost.ap);
+      if (card.cost.funds) state.funds = Math.max(0, state.funds - card.cost.funds);
+      if (card.cost.arms) state.arms = Math.max(0, state.arms - card.cost.arms);
+    };
+
+    /* Discard the card and start its cooldown. Also paid on play: the card is
+       spent by being played, not by being resolved. */
+    Eng.commitCard = function (state, card) {
       var hi = state.hand.indexOf(card.id);
       if (hi >= 0) state.hand.splice(hi, 1);
       state.discard.push(card.id);
-      // A turn is presented to the player as a week, so a cooldown written in
-        // weeks is simply a number of turns. Do not convert to months.
-        state.eventCooldowns['c_' + card.id] = state.monthIndex + (card.cooldown == null ? 4 : card.cooldown);
-      state.log.push({
-        turn: state.turn, kind: 'card',
-        zh: '打出：' + Core.L(card.name) + (option ? ' — ' + Core.L(option.text) : ''),
-        it: Core.L(card.name, 'it') + (option ? ' — ' + Core.L(option.text, 'it') : '')
-      });
+      // A turn is half a month, so a cooldown written in turns is simply a
+      // count of half-months. Do not convert to whole months.
+      state.eventCooldowns['c_' + card.id] = state.monthIndex + (card.cooldown == null ? 4 : card.cooldown);
+      state.log.push({ turn: state.turn, kind: 'card', zh: '打出：' + Core.L(card.name),
+        it: Core.L(card.name, 'it') });
     };
 
-    /* Option view model for the card choice menu: adds availability and
-       the rendered outcome preview. */
+    /* Apply the chosen option, or the card's own effect when it has none. */
+    Eng.applyCardEffect = function (state, card, option) {
+      var src = option || card;
+      var eff = null;
+      if (src.effect) {
+        eff = typeof src.effect === 'function' ? src.effect(state) : src.effect;
+        if (eff) R.applyEffect(state, eff);
+      }
+      R.normalizeFactions(state);
+      if (option) {
+        state.log.push({ turn: state.turn, kind: 'card', zh: '抉择：' + Core.L(option.text),
+          it: Core.L(option.text, 'it') });
+      }
+      /* Hand over to another card's menu. This is how one card routes into
+         another (宣传攻势 → 与意大利力量之间的关系), and it deliberately bypasses
+         that card's cooldown and its AP cost: the target is not being played from
+         hand, it is being opened as the consequence of a choice already paid for.
+         Its own `require` gates still apply through cardOptions, so a locked
+         option stays locked. The patch is the one computed above — never call an
+         effect function twice, it may read state. */
+      var target = eff && eff.openCard;
+      if (target) {
+        if (CARD_BY_ID[target]) state.pendingCard = target;
+        else state.log.push({ turn: state.turn, kind: 'card',
+          zh: '跳转目标不存在：' + target, it: 'Carta di destinazione inesistente: ' + target });
+      }
+      /* Report the handover, if any. The caller MUST NOT clear pendingCard
+         afterwards when this is set — that is exactly what silently ate the jump
+         the first time round. */
+      return target && CARD_BY_ID[target] ? target : null;
+    };
+
+    /* Cost, effect and discard in one step. Used by the option-less path and
+       kept for any caller that wants the whole sequence at once. */
+    Eng.settleCard = function (state, card, option) {
+      Eng.payCardCost(state, card);
+      Eng.commitCard(state, card);
+      Eng.applyCardEffect(state, card, option);
+    };
+
+    /* The engine only validates availability. The selector simulates the
+       chosen action to produce its actual, current-state effect preview. */
     Eng.cardOptions = function (state, card) {
       return (card.options || []).map(function (o) {
         var ok = !o.require || o.require(state);
         return {
-          id: o.id, text: o.text, preview: o.preview || [],
+          id: o.id, text: o.text, subtitle: o.subtitle,
           enabled: !!ok, reason: ok ? null : (o.requireText || { zh: '条件不满足', it: 'Condizioni non soddisfatte' })
         };
       });
@@ -214,7 +254,28 @@
       if (card.cost && card.cost.funds > state.funds) return { ok: false, reason: { zh: '经费不足', it: 'Cassa insufficiente' } };
       if (card.cost && card.cost.arms > state.arms) return { ok: false, reason: { zh: '军备不足', it: 'Armi insufficienti' } };
       if (card.require && !card.require(state)) return { ok: false, reason: card.requireText || { zh: '条件不满足', it: 'Condizioni non soddisfatte' } };
+      /* The cooldown. `commitCard` has always written
+         eventCooldowns['c_' + id], but nothing ever read it, so a card could be
+         re-fetched with DRAW_CARD the instant it was played and spammed. The
+         deck tiles hid that by filtering on other grounds; the dispatcher did
+         not. Turns are half-months, so the stored value is a monthIndex. */
+      var cd = state.eventCooldowns && state.eventCooldowns['c_' + card.id];
+      if (cd != null && cd > state.monthIndex) {
+        return { ok: false, reason: { zh: '仍在冷却（还需 ' + (cd - state.monthIndex) + ' 个半回合）', it: 'In ricarica (' + (cd - state.monthIndex) + ' mezzi turni)' } };
+      }
       return { ok: true };
+    };
+
+    /* The cards a deck can currently offer: in that deck, not already in hand,
+       and passing canPlayCard — which is where AP, funds, arms, `require` and
+       the cooldown are all enforced. Both the picker (S.decks) and the random
+       draw go through this, so the two can never offer different sets. */
+    Eng.drawableIn = function (state, deckId) {
+      return Cards.filter(function (c) {
+        if (c.deck !== deckId) return false;
+        if (state.hand.indexOf(c.id) >= 0) return false;
+        return Eng.canPlayCard(state, c).ok;
+      });
     };
 
     Eng.availableCards = function (state) {
@@ -302,6 +363,10 @@
 
       switch (action.type) {
         /* ---------- Draw from a deck into a free reserved slot ---------- */
+        /* By id: the picker path, used by sandbox (and by the UI when the player
+           is allowed to choose). `deck` instead of `cardId` draws a RANDOM card
+           from that deck — see DRAW_RANDOM below, which is what the ordinary
+           difficulties use. */
         case 'DRAW_CARD': {
           var dc = CARD_BY_ID[action.cardId];
           if (!dc) { result.toast = { kind: 'warn', text: 'No such card' }; break; }
@@ -313,7 +378,27 @@
           var dchk = Eng.canPlayCard(next, dc);
           if (!dchk.ok) { result.toast = { kind: 'warn', text: Core.L(dchk.reason) }; return { state: state, toast: result.toast }; }
           next.hand.push(dc.id);
-          result.toast = { kind: 'ok', text: Core.L(dc.name) + Core.L({ zh: ' — 已入预留处', it: ' — in riserva' }) };
+          break;
+        }
+
+        /* ---------- Draw a random card from a deck ---------- */
+        /* The ordinary mode: the player picks a DECK, not a card. Candidates are
+           exactly the cards the picker would have offered — not in hand and
+           passing canPlayCard, which is where the cooldown gate lives, so a card
+           on cooldown can never come up. The pick uses the dispatcher's seeded
+           rng, so a run stays reproducible from its seed. */
+        case 'DRAW_RANDOM': {
+          if (next.hand.length >= next.handLimit) {
+            result.toast = { kind: 'warn', text: Core.L({ zh: '预留处已满', it: 'Slot esauriti' }) };
+            break;
+          }
+          var pool = Eng.drawableIn(next, action.deck);
+          if (!pool.length) {
+            result.toast = { kind: 'warn', text: Core.L({ zh: '这个牌堆暂时没有可抽的牌', it: 'Nessuna carta disponibile in questo mazzo' }) };
+            break;
+          }
+          var picked = pool[Math.floor(rng() * pool.length) % pool.length];
+          next.hand.push(picked.id);
           break;
         }
 
@@ -329,17 +414,21 @@
           var card = CARD_BY_ID[action.cardId];
           var chk = Eng.canPlayCard(next, card);
           if (!chk.ok) { result.toast = { kind: 'warn', text: Core.L(chk.reason) }; return { state: state, toast: result.toast }; }
-          // A card with options opens a choice menu first; nothing is spent until the player picks.
+          // The cost is paid and the card discarded the instant it is played.
+          // If it opens a choice menu, that menu must then be answered: there
+          // is no backing out. This is how the reference project settles a
+          // card, and it is why the menu carries no cancel button.
+          Eng.payCardCost(next, card);
+          Eng.commitCard(next, card);
           if (card.options && card.options.length) {
             next.pendingCard = card.id;
-            break;
+          } else {
+            Eng.applyCardEffect(next, card, null);
           }
-          Eng.settleCard(next, card, null);
-          result.toast = { kind: 'ok', text: Core.L(card.name) + Core.L({ zh: ' — 已执行', it: ' — eseguita' }) };
           break;
         }
 
-        /* ---------- Card option ---------- */
+        /* ---------- Resolve the card's choice ---------- */
         case 'RESOLVE_CARD_OPTION': {
           var pc = next.pendingCard ? CARD_BY_ID[next.pendingCard] : null;
           if (!pc) { result.toast = { kind: 'warn', text: 'No card awaiting a choice' }; break; }
@@ -350,15 +439,21 @@
             result.toast = { kind: 'warn', text: Core.L((chosen && chosen.reason) || { zh: '该选项不可用', it: 'Opzione non disponibile' }) };
             break;
           }
-          Eng.settleCard(next, pc, chosen);
-          next.pendingCard = null;
-          result.toast = { kind: 'ok', text: Core.L(pc.name) + ' — ' + Core.L(chosen.text) };
-          break;
-        }
-
-        /* ---------- Close the card menu (nothing is settled, nothing is charged) ---------- */
-        case 'CANCEL_CARD': {
-          next.pendingCard = null;
+          /* `chosen` is the view model from cardOptions — it carries id, text,
+             subtitle, enabled and reason, but NOT the effect. Handing
+             it to applyCardEffect meant src.effect was always undefined, so every
+             multi-option card in the game resolved as a no-op. The authored
+             option is looked up fresh from the card and that is what gets
+             applied; the view model is only used for the enabled check above. */
+          var authored = null;
+          (pc.options || []).forEach(function (o) { if (o.id === chosen.id) authored = o; });
+          if (!authored) { result.toast = { kind: 'warn', text: 'No such option' }; break; }
+          // Cost and discard already happened at play time; only the effect remains.
+          // applyCardEffect returns a card id when this choice hands over to
+          // another card's menu (`openCard`); in that case the new pendingCard
+          // must survive, or the handover is lost.
+          var jumped = Eng.applyCardEffect(next, pc, authored);
+          next.pendingCard = jumped || null;
           break;
         }
 
@@ -369,13 +464,15 @@
           var opt = null;
           ev.options.forEach(function (op) { if (op.id === action.optionId) opt = op; });
           if (!opt) break;
-          var patch = typeof opt.effect === 'function' ? opt.effect(next) : opt.effect;
-          patch = patch || {};
+          // The authoring object is shared by every run. Remove routing keys
+          // from a copy, otherwise resolving once erases `next` for later games.
+          var patch = Object.assign({}, (typeof opt.effect === 'function' ? opt.effect(next) : opt.effect) || {});
           var nextEvt = patch.next || null;
           var queued = patch.queueEvents || patch.queue || [];
           delete patch.next; delete patch.queueEvents; delete patch.queue;
           var forced = patch.forceEnding; delete patch.forceEnding;
           var doElection = patch.runElection; delete patch.runElection;
+          var doMunicipal = patch.runMunicipal; delete patch.runMunicipal;
           var forcedCheck = patch.forceEndingCheck; delete patch.forceEndingCheck;
           var phaseSet = patch.phase; delete patch.phase;
 
@@ -386,6 +483,7 @@
           next.log.push({ turn: next.turn, kind: 'event', zh: ev.title.zh + ' → ' + Core.L(opt.text), it: ev.title.it });
 
           if (doElection) Eng.runElection(next, rng);
+          if (doMunicipal) Eng.runMunicipal(next);
           queued.forEach(function (q) { Eng.pushEvent(next, q); });
           if (phaseSet) next.phase = phaseSet;
           if (forced) { next.currentEvent = null; next.ending = forced; next.phase = 'ended'; break; }
@@ -487,8 +585,16 @@
       var o = s.order;
       ['authority', 'garrison', 'fervour', 'squadre', 'violence'].forEach(function (k) { o[k] = clamp(o[k], 0, 100); });
       o.coup = clamp(o.coup, 0, 140);
+      o.subversion = clamp(o.subversion || 0, 0, 140);
       o.milizia = Math.max(0, o.milizia);
-      o.legionari = o.milizia;
+      // Old saves carried two extra headcounts. The armed Legion is now the
+      // single canonical value used by the UI, elections and effects.
+      delete s.militants;
+      delete o.legionari;
+      delete o.civicGuard;
+      delete s.laws.statuto;
+      if (s.journals) delete s.journals.guardia;
+      if (s.monotonic) { delete s.monotonic.guardCreated; delete s.monotonic.guardDissolved; }
       // Legion public opinion is derived here and nowhere else. It replaced the
       // old stored legitimacy: the same number now has a definition the player
       // can read off the class matrix.
@@ -522,8 +628,6 @@
       if (s.order.violence > 15) s.monotonic.minViolenceOK = false;
       if (R.factionDissent(s) > 10) s.monotonic.minDissentOK = false;
       if (s.flags.coup_done) s.monotonic.coupHappened = true;
-      if (s.laws.ordine < 2 && s.monotonic.guardCreated) s.monotonic.guardDissolved = true;
-      if (s.order.civicGuard > 0) s.monotonic.guardCreated = true;
       // A quiet period after Bloody Christmas: the fascist threat needs time to rebuild
       if (s.flags.natale_done && !s.counters.graceUntil) s.counters.graceUntil = s.monthIndex + 5;
       // Achievements (not granted in sandbox)
@@ -580,6 +684,36 @@
       return res;
     };
 
+    /* The municipal vote, kept deliberately apart from the general one above.
+       runElection also reshuffles the cabinet, reforms the coalition and bumps
+       counters.electionsHeld — and that counter is exactly what the `elezioni`
+       journal and the forty-seat achievement are waiting on, so a city council
+       election in October 1919 must not touch it. This writes the tally and a
+       log line, and nothing else. */
+    Eng.runMunicipal = function (s) {
+      var res = R.municipalElection(s);
+      s.municipalDetail = res.detail;
+      s.municipalSeats = res.seats;
+      var d = res.detail;
+      if (d.noElection) {
+        s.log.push({ turn: s.turn, kind: 'election',
+          zh: '市政厅被直接接管，没有举行选举。',
+          it: 'Il Municipio è occupato: nessuna elezione.' });
+        return res;
+      }
+      var names = d.ranked.map(function (p) {
+        var nm = W.PARTY_BY_ID[p] || { zh: p };
+        return nm.zh + ' ' + res.seats[p];
+      }).join(' · ');
+      s.log.push({
+        turn: s.turn, kind: 'election',
+        zh: '市政选举结果：' + names + '（共 ' + d.council + ' 席，投票率 ' + d.turnout + '%'
+          + (d.singleList ? ' · 自治派与克罗地亚人弃权' : '') + '）',
+        it: 'Elezioni municipali: ' + names
+      });
+      return res;
+    };
+
     /* ==========================================================
        半月回合；每一回合都运行一次完整结算
        ========================================================== */
@@ -610,8 +744,6 @@
       var net = rev.total - sp.total;
       s.funds = Math.max(0, s.funds + net);
       s.economy.lastRevenue = rev.total;
-      s.economy.lastSpending = sp.total;
-      s.economy.lastNet = net;
       if (net >= 0) {
         if (s.economy.debt > 0) {
           var repay = Math.min(s.economy.debt, net * 0.5); s.economy.debt -= repay;
@@ -635,7 +767,7 @@
       var it2 = R.inflationTarget(s);
       s.economy.inflation = Core.approach(s.economy.inflation, it2, 0.1);
       s.economy.capitalConfidence = Core.approach(s.economy.capitalConfidence,
-        clamp(70 - 0.5 * s.economy.strike + 0.25 * (s.economy.traffic - 40) - 0.3 * s.order.violence + 0.2 * s.legitimacy, 0, 100), 0.075);
+        R.confidenceTarget(s), 0.075);
 
       // 4. Emigration and population
       var em = R.emigration(s);
@@ -679,7 +811,8 @@
       var ero = 4.0
         + 0.6 * Math.max(0, (25 - e.traffic) / 25)
         - 0.6 * (s.legitimacy / 100)
-        - 0.25 * s.laws.statuto
+        - 0.25 * R.charterProgress(s).score
+        - 0.11 * s.laws.orario
         - 0.175 * s.laws.lavoro
         - 0.15 * s.laws.lingua;
       if (s.flags.natale_done) ero *= 0.62;
@@ -691,21 +824,11 @@
       });
       R.shiftClassSupport(s, 'contadini', 'AUT', 0.35);
 
-      // 6c. Class turnout drift and faction drift
+      // 6c. Class turnout drift. Faction influence is NOT drifted here: every
+      // automatic change to faction power has to be attributable to a journal or
+      // a law, and the historical fascist growth is now the `impresa` journal's
+      // monthly effect (meta.js), where the panel can show it.
       R.updateClasses(s);
-      R.factionDrift(s);
-
-      // 7. Monthly organization effects
-      W.ORGANIZATIONS.forEach(function (o) {
-        var st = s.organizations[o.id];
-        if (!st || !st.active) return;
-        if (o.id === 'porto_fed') s.economy.strike = clamp(s.economy.strike - 0.6, 0, 100);
-        if (o.id === 'societa') s.funds += 4.0;
-        if (o.id === 'reduci') s.order.squadre = clamp(s.order.squadre - 0.5, 0, 100);
-        if (o.id === 'contadini') R.shiftClassSupport(s, 'contadini', 'AUT', 0.25);
-        if (o.id === 'guardia') s.order.civicGuard = Math.min(1400, s.order.civicGuard + 7.0);
-        if (o.id === 'giovine') s.order.fervour = clamp(s.order.fervour + 0.2, 0, 100);
-      });
 
 
       // 9. Journals
@@ -735,17 +858,45 @@
       // 11. Crisis
       var d = R.coupDelta(s, dif.coupMul);
       s.order.coup = clamp(s.order.coup + d, 0, 140);
-      R.coupMilestones(s).forEach(function (m) {
+      R.siegeMilestones(s).forEach(function (m) {
         if (s.order.coup >= m.at && s.order.coupMilestones.indexOf(m.id) < 0) {
           s.order.coupMilestones.push(m.id);
           s.log.push({ turn: s.turn, kind: 'crisis', zh: '事态 ' + m.at + '：' + m.zh, it: m.it });
         }
       });
+      /* The second crisis, tracked separately: see R.subversionDelta. */
+      var sd = R.subversionDelta(s, dif.coupMul);
+      s.order.subversion = clamp(s.order.subversion + sd, 0, 140);
+      R.subversionMilestones().forEach(function (m) {
+        if (s.order.subversion >= m.at && s.order.subversionMilestones.indexOf(m.id) < 0) {
+          s.order.subversionMilestones.push(m.id);
+          s.log.push({ turn: s.turn, kind: 'crisis', zh: '党内 ' + m.at + '：' + m.zh, it: m.it });
+        }
+      });
       // Legionary reinforcement and attrition (short supplies during a siege cost men)
       if (!s.flags.natale_done) {
-        s.order.milizia += (s.funds > 400 ? 90 : -60);
+        /* Recruitment is bounded by what the treasury can actually pay, not by a
+           flat figure. A flat +90 caps the Legion near 3 200 over a whole game —
+           measured in .analysis/probe_ceiling.js — which makes any design that
+           needs a ten-thousand-man column impossible by construction. Scaling
+           with revenue keeps the original intent (you cannot feed men you cannot
+           pay for) while letting a genuinely rich Regency raise the column the
+           1920 march would need: half the turn's take, floored at 60 so an
+           early-game Regency still recruits, capped at 900 per turn. The cap is
+           deliberately high: the army's own salary bill (0.013 per man per turn,
+           so 130 K£ a turn at ten thousand) and the 400 K£ floor below are what
+           actually limit the column, not this figure. */
+        var rev = s.economy.lastRevenue || 0;
+        var recruit = clamp(Math.round(rev * 0.8), 60, 900);
+        s.order.milizia += (s.funds > 400 ? recruit : -60);
       } else if (s.factions.arditi.inf > 12) {
-        s.order.milizia += 40;
+        /* After the siege the Legion still recruits, but at half the pre-war
+           rate: the arditi are the cadres left, and what they can raise depends
+           on the same treasury. A flat +40 here capped the Legion at about
+           7 800 no matter how well the Regency was doing, which put any
+           ten-thousand-man design out of reach by construction. */
+        var rev2 = s.economy.lastRevenue || 0;
+        s.order.milizia += clamp(Math.round(rev2 * 0.4), 40, 400);
       } else {
         s.order.milizia -= 30;
       }
@@ -757,6 +908,18 @@
       belgrade: { yugoslavia: 0.8, italy: -0.6, league: -0.1 },
       internation: { uk: 0.55, france: 0.55, usa: 0.4, league: 0.7, italy: -0.5, yugoslavia: -0.3 } }[po.id] || {};
       for (var dk in drift) s.diplo[dk] = clamp(s.diplo[dk] + drift[dk], 0, 100);
+      // The forces outside Fiume drift on their own: Rome keeps working on the
+      // officer corps, and the communist left loses patience with a movement
+      // that has not delivered a social programme. The officer corps also reads
+      // the size of the Legion, which is the only thing that can raise it.
+      if (s.forze) {
+        var fdrift = W.FORZA_DRIFT || {};
+        for (var fk in fdrift) if (Object.prototype.hasOwnProperty.call(fdrift, fk)) {
+          if (s.forze[fk] == null) continue;
+          var fDelta = fdrift[fk] + (W.forzaMiliziaDelta ? W.forzaMiliziaDelta(s, fk) : 0);
+          s.forze[fk] = clamp(s.forze[fk] + fDelta, -40, 100);
+        }
+      }
       // Fascist pressure transmitted from Italy
       if (s.date.y > 1922 || (s.date.y === 1922 && s.date.m >= 11)) {
         s.order.squadre = clamp(s.order.squadre + 0.35, 0, 100);
@@ -788,9 +951,11 @@
       ser.traffic.push(Core.round1(s.economy.traffic));
       ser.unemployment.push(Core.round1(s.economy.unemployment));
       ser.coup.push(Core.round1(s.order.coup));
+      if (!ser.subversion) ser.subversion = [];
+      ser.subversion.push(Core.round1(s.order.subversion || 0));
       ser.legitimacy.push(Core.round1(s.legitimacy));
       ser.population.push(Math.round(s.economy.population));
-      ['traffic', 'unemployment', 'coup', 'legitimacy', 'population'].forEach(function (k) {
+      ['traffic', 'unemployment', 'coup', 'subversion', 'legitimacy', 'population'].forEach(function (k) {
         if (ser[k].length > 120) ser[k].shift();
       });
       }
@@ -799,7 +964,7 @@
       var ne = Eng.pickEvent(s, rng);
       if (ne) s.currentEvent = ne.id; else { s.currentEvent = null; s.phase = 'action'; }
 
-      // 17. Record the resource snapshot for next week's delta display
+      // 17. Record the resource snapshot for next turn's delta display
       s.prev = Eng.resourceSnapshot(s);
 
       Eng.checkEnd(s);
@@ -815,7 +980,7 @@
       // 16 March 1924: the annexation is proclaimed and anyone not in exile reaches the endgame
       if (s.flags.treaty_rome && s.date.y >= 1924 && s.date.m >= 3 && !s.flags.exile) hardEnd = true;
       // Taken over by the fascists without going into exile or staying: settle immediately
-      if (s.flags.coup_done && !s.flags.exile && !s.flags.stay && !s.flags.march_on_rome) hardEnd = true;
+      if (s.flags.coup_done && !s.flags.exile && !s.flags.stay) hardEnd = true;
       // An exile movement that lasts twenty-four months comes to a close
       if (s.flags.exile && (s.counters.exileMonths || 0) >= 24) hardEnd = true;
       if (s.flags.stay && (s.counters.resistMonths || 0) >= 24) hardEnd = true;

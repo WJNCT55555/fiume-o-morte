@@ -17,7 +17,7 @@ export const evBlockade: GameEvent = {
       },
       {
         id: 'b', text: { zh: '转向西部边境的走私路线。', it: 'Passare al contrabbando sulla frontiera occidentale.' },
-        preview: [{ zh: '金库 ++', label: 'Tesoro ++' }, { zh: '合法性 −−', label: 'legittimità −−' }, { zh: '暴力 +', label: 'violenza +' }],
+        preview: [{ zh: '金库 ++', label: 'Tesoro ++' }, { zh: '码头劳工支持军团 +', label: 'portuali + LEG' }, { zh: '政治暴力 +', label: 'violenza +' }],
         effect: function () { return { funds: 240, economy: { capitalConfidence: -5, traffic: 4 }, order: { violence: 6, squadre: 4 }, support: [['portuali', 'LEG', 3]], flags: { smuggle: true } }; }
       },
       {

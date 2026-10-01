@@ -10,12 +10,12 @@ export const evCoupFight: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '接受驻军干预——但要求同时解除法西斯武装。', it: 'Accettare l\'intervento — ma chiedendo il disarmo dei fascisti.' },
-        preview: [{ zh: '暴力 −−', label: 'violenza −−' }, { zh: '领袖权威 −', label: 'autorità −' }, { zh: '驻军 +', label: 'presidio +' }],
+        preview: [{ zh: '政治暴力 −−', label: 'violenza −−' }, { zh: '摄政领袖权威 −', label: 'autorità −' }, { zh: '驻军 +', label: 'presidio +' }],
         effect: function () { return { order: { violence: -20, authority: -8, garrison: 10, squadre: -12, coup: -25 }, flags: { coup_done: true, italian_occupation: true }, diplo: { italy: 6, league: -4 } }; }
       },
       {
         id: 'b', text: { zh: '拒绝。守到天亮。', it: 'Rifiutare. Resistere fino all\'alba.' },
-        preview: [{ zh: '暴力 ++', label: 'violenza ++' }, { zh: '合法性 ++', label: 'legittimità ++' }, { zh: '进入内战边缘', label: 'guerra civile' }],
+        preview: [{ zh: '政治暴力 ++', label: 'violenza ++' }, { zh: '军团民意 ++', label: 'legittimità ++' }, { zh: '进入内战边缘', label: 'guerra civile' }],
         effect: function () { return { order: { violence: 15, authority: 4, squadre: -6, coup: -30, fervour: 8 }, support: [['operai', 'LEG', 4], ['portuali', 'LEG', 4]], flags: { coup_done: true, civic_resistance: true } }; }
       },
       {

@@ -4,6 +4,7 @@ import { game } from './runtime';
 export interface ViewState {
   screen: 'start' | 'game' | 'ending';
   tab: string;
+  lawFocus: string;
   mapMode: string;
   district: string;
   modal: string | null;
@@ -34,7 +35,7 @@ function createGameStore(): GameStore {
   const auto = Sel.Save.load('auto');
   let snapshot: Snapshot = {
     state: null,
-    ui: { screen: 'start', tab: 'azioni', mapMode: 'adriatic', district: 'centro',
+    ui: { screen: 'start', tab: 'azioni', lawFocus: 'elettorale', mapMode: 'adriatic', district: 'centro',
       modal: null, deck: null, scenario: '1919-09', difficulty: 'open', force: 'LEG' },
     notice: null,
     resume: auto && auto.date && !auto.ending ? auto : null,
@@ -46,42 +47,58 @@ function createGameStore(): GameStore {
   const refresh = () => publish({ ...snapshot });
   const notice = (kind: string, text: string) => change({ notice: { kind, text, id: Date.now() } });
   const dispatch = (action: any) => {
-    if (!snapshot.state) return;
+    if (!snapshot.state) return null;
     const result = Engine.dispatch(snapshot.state, action);
-    if (!result) { refresh(); return; }
+    if (!result) { refresh(); return null; }
     const state = result.state;
     Sel.Save.save(state, 'auto');
     const uiPatch: Partial<ViewState> = state.ending ? { screen: 'ending', modal: null } : {};
     if (!state.ending && state.currentEvent && snapshot.ui.modal == null) uiPatch.modal = 'event';
-    change({ state }, uiPatch);
+    // A decision's own panel already names the card or event. Clear any older
+    // notice so its bottom toast cannot linger behind the new decision.
+    const decisionFlow = ['DRAW_CARD', 'DRAW_RANDOM', 'PLAY_CARD', 'RESOLVE_CARD_OPTION', 'RESOLVE_EVENT', 'ADVANCE'];
+    change({ state, notice: decisionFlow.includes(action.type) ? null : snapshot.notice }, uiPatch);
     if (result.toast) notice(result.toast.kind, Core.L(result.toast.text));
+    /* The state this dispatch produced. Callers must use THIS, not
+       `snapshot.state`, which is still the pre-dispatch value — reading the
+       snapshot after dispatching was how a card-to-card handover got lost. */
+    return state;
   };
   const actions: Record<string, (...args: any[]) => void> = {
     setScenario: (scenario: string) => change({}, { scenario }),
     setDifficulty: (difficulty: string) => change({}, { difficulty }),
     setForce: (force: string) => { if (World.PARTY_BY_ID[force]?.player) change({}, { force }); },
     setTab: (tab: string) => change({}, { tab }),
+    setLawFocus: (lawFocus: string) => {
+      if (World.LAWS.some((law: { id: string }) => law.id === lawFocus)) change({}, { lawFocus });
+    },
     setMapMode: (mapMode: string) => change({}, { mapMode }),
     selectDistrict: (district: string) => change({}, { district, mapMode: 'fiume' }),
     start: () => {
       const state = Engine.createState(snapshot.ui.scenario, snapshot.ui.difficulty, Date.now() % 100000 + 1, snapshot.ui.force);
-      change({ state, resume: null }, { screen: 'game', tab: 'azioni', modal: state.currentEvent ? 'event' : null });
-      notice('ok', state.playerForce === 'LEG' ? I18N.t('toast.start') :
-        I18N.t('toast.start.party', { name: World.PARTY_BY_ID[state.playerForce].zh }));
+      change({ state, resume: null, notice: null }, { screen: 'game', tab: 'azioni', modal: state.currentEvent ? 'event' : null });
     },
     restart: () => change({ state: null }, { screen: 'start', modal: null }),
     openDeck: (deck: string) => change({}, { deck, modal: 'deck' }),
     closeDeck: () => change({}, { deck: null, modal: null }),
     drawCard: (cardId: string) => { dispatch({ type: 'DRAW_CARD', cardId }); change({}, { deck: null, modal: null }); },
+    /* The ordinary mode: pick a deck, get a random card. Sandbox keeps the picker
+       so a run can be driven deliberately. */
+    drawRandom: (deck: string) => { dispatch({ type: 'DRAW_RANDOM', deck }); change({}, { deck: null, modal: null }); },
     discardCard: (cardId: string) => dispatch({ type: 'DISCARD_CARD', cardId }),
     resolveCardOption: (optionId: string) => {
-      dispatch({ type: 'RESOLVE_CARD_OPTION', optionId });
-      change({}, { modal: snapshot.state?.pendingCard ? 'card' : null });
+      const next = dispatch({ type: 'RESOLVE_CARD_OPTION', optionId });
+      /* Keep the card menu open when the choice handed over to another card
+         (`openCard`), so the player actually sees the card they were routed to.
+         Reading `snapshot.state` here would be the stale pre-dispatch value and
+         would close the menu instead. */
+      change({}, { modal: next?.pendingCard ? 'card' : null });
     },
-    cancelCard: () => { if (snapshot.state?.pendingCard) dispatch({ type: 'CANCEL_CARD' }); change({}, { modal: null }); },
     playCard: (cardId: string) => {
-      dispatch({ type: 'PLAY_CARD', cardId });
-      if (snapshot.state?.pendingCard) change({}, { modal: 'card' });
+      const next = dispatch({ type: 'PLAY_CARD', cardId });
+      // The card is already paid for and discarded; if it opened a choice menu
+      // that menu is now mandatory, so it is shown straight away.
+      if (next?.pendingCard) change({}, { modal: 'card' });
     },
     openSettings: () => change({}, { modal: 'settings' }),
     openAchievements: () => change({}, { modal: 'ach' }),

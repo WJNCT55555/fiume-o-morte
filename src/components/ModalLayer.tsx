@@ -7,13 +7,13 @@ import { assetUrl } from '../lib/assetUrl';
 /** UI string lookup. The catalogue lives in the legacy i18n module. */
 const T = (key: string): string => legacyUI.UI.T(key);
 
-function Dialog({ title, subtitle, children, footer, close, wide = false }: {
+function Dialog({ title, subtitle, children, footer, close, wide = false, variant }: {
   title: string; subtitle?: string; children: ReactNode; footer?: ReactNode;
-  close: () => void; wide?: boolean;
+  close: () => void; wide?: boolean; variant?: string;
 }) {
   return <div className="scrim show" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}
     onKeyDown={event => { if (event.key === 'Escape') close(); }}>
-    <div className={'modal' + (wide ? ' modal--wide' : '')} role="dialog" aria-modal="true" aria-label={title}>
+    <div className={'modal' + (wide ? ' modal--wide' : '') + (variant ? ' modal--' + variant : '')} role="dialog" aria-modal="true" aria-label={title}>
       <div className="modal__hd"><div className="modal__ttl">{title}</div>{subtitle && <div className="modal__it">{subtitle}</div>}</div>
       <div className="modal__bd">{children}</div>
       <div className="modal__ft">{footer || <button className="btn btn--primary" onClick={close}>关闭</button>}</div>
@@ -119,15 +119,40 @@ export function ModalLayer() {
     </Dialog>;
   }
   if (modal === 'ach') {
-    const unlocked: string[] = state?.achievements || [];
-    return <Dialog title="成就" subtitle="Obiettivi" close={actions.closeModal} wide>
-      <p className="tiny">已解锁 {unlocked.length} / {legacyUI.Meta.ACHIEVEMENTS.length}</p>
-      <div className="achgrid">{legacyUI.Meta.ACHIEVEMENTS.map((achievement: any) =>
-        <div className={'achievement' + (unlocked.includes(achievement.id) ? ' is-on' : '')} key={achievement.id}>
-          <div className="ach__n">{unlocked.includes(achievement.id) ? '★ ' : '☆ '}{achievement.zh}</div>
-          <div className="ach__it">{achievement.it}</div>
-          <div className="ach__d">{legacyUI.Core.L(achievement.desc)}</div>
-        </div>)}</div>
+    const all = legacyUI.Meta.ACHIEVEMENTS;
+    const unlocked: string[] = (state?.achievements || []).filter((id: string) =>
+      all.some((achievement: { id: string }) => achievement.id === id));
+    const pct = all.length ? Math.round((unlocked.length / all.length) * 100) : 0;
+    /* A list, one achievement to a row, in the manner of the reference
+       project: medallion, text, tick. A grid made every entry a different
+       width, which made the set hard to scan; a column of rows reads
+       down the names in one sweep. */
+    return <Dialog title="成就" subtitle="Obiettivi" close={actions.closeModal} variant="ach">
+      <div className="achbar">
+        <div className="achbar__r">
+          <span>完成进度</span>
+          <span>{unlocked.length} / {all.length}（{pct}%）</span>
+        </div>
+        <div className="achbar__t"><i style={{ width: pct + '%' }} /></div>
+      </div>
+      <div className="achlist">{all.map((achievement: any) => {
+        const on = unlocked.includes(achievement.id);
+        return <div className={'achrow' + (on ? ' is-on' : '')} key={achievement.id}>
+          <div className="achrow__ic">
+            {on
+              ? legacyToReact(legacyUI.Orn.icon('laurel', 30), refresh, 'ach-' + achievement.id)
+              : <span className="achrow__lk" aria-hidden="true" />}
+          </div>
+          <div className="achrow__tx">
+            <div className="achrow__n">{achievement.zh}</div>
+            <div className="achrow__it">{achievement.it}</div>
+            <div className="achrow__d">{legacyUI.Core.L(achievement.desc)}</div>
+          </div>
+          <div className="achrow__ck">
+            <span className="achrow__box">{on ? '✓' : ''}</span>
+          </div>
+        </div>;
+      })}</div>
     </Dialog>;
   }
   if (modal === 'about') return <Dialog title="关于游戏" subtitle="FIUME O MORTE!" close={actions.closeModal} wide>

@@ -172,7 +172,7 @@
 .spirit, .adv, .fac, .jrn { background-image: none !important; }
 .ticker { background: #0B0806 !important; background-image: none !important; border-top: 1px solid var(--hair) !important; }
 .ticker__h { background: var(--crimson) !important; background-image: none !important; box-shadow: none !important; }
-.achievement, .ach { background: #100C08 !important; background-image: none !important; box-shadow: var(--flat-shadow-sm) !important; border: 1px solid var(--hair-soft) !important; }
+.ach { background: #100C08 !important; background-image: none !important; box-shadow: var(--flat-shadow-sm) !important; border: 1px solid var(--hair-soft) !important; }
 .ornat { opacity: .5; }
 .splash__art, .decpanel__photo img { box-shadow: var(--flat-shadow) !important; }
 .ending__tag { background: var(--crimson) !important; background-image: none !important; box-shadow: var(--flat-shadow-sm) !important; }
@@ -323,21 +323,11 @@
 .langbtn.is-off { opacity: .40; cursor: not-allowed; }
 .langbtn__s { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; }
 
-/* 成就一览 */
-.achievement {
-  padding: 10px 12px; background: #100C08; border: 1px solid rgba(201,162,39,.16);
-  box-shadow: var(--flat-shadow-sm); opacity: .58;
-}
-.achievement.is-on { opacity: 1; border-color: var(--gold); background: #1A1309; }
+/* Achievements — the ending screen still lists them this way; the in-game
+   panel was changed to a row-per-entry list (see dannunzio.css §14), which is
+   why .achievement / .ach__it / .ach__st are gone. */
 .ach__n { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: rgba(233,220,188,.9); }
-.achievement.is-on .ach__n { color: var(--gold-lit); }
-.ach__it { font-family: var(--font-serif); font-style: italic; font-size: 11.5px; color: rgba(233,220,188,.46); margin: 1px 0 5px; }
 .ach__d { font-size: 11.5px; color: rgba(233,220,188,.68); line-height: 1.5; }
-.ach__st {
-  margin-top: 6px; font-family: var(--font-mono); font-size: 9px; letter-spacing: .16em;
-  color: rgba(233,220,188,.34);
-}
-.achievement.is-on .ach__st { color: var(--gold); }
 
 /* ============================================================
    Decks and reserved slots (mirrors the cnt-fai deck row)
@@ -371,6 +361,15 @@
 .slot__cost { display: flex; gap: 7px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 9px; color: var(--gold); margin-top: 5px; }
 
 .decklist { display: flex; flex-direction: column; gap: 7px; max-height: 54vh; overflow-y: auto; padding-right: 4px; }
+
+/* The ordinary mode: the deck is drawn from, not browsed. One panel, one button —
+   the player chooses the deck and then learns what came up. */
+.deckdraw {
+  padding: 16px 14px; background: #140F09; border: 1px solid var(--hair);
+  box-shadow: var(--flat-shadow-sm); text-align: center;
+}
+.deckdraw__n { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #FFE9C8; }
+.deckdraw__t { font-size: 11.5px; color: rgba(233,220,188,.62); margin-top: 7px; line-height: 1.6; }
 .deckrow {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
   padding: 10px 12px; background: #140F09; border: 1px solid var(--hair);

@@ -8,9 +8,9 @@ export type Effect = EffectPatch | ((state: SimulationState) => EffectPatch);
 export interface CardOption {
   id: string;
   text: LocalizedText;
-  /** The line under the option: what it means, not what it does. Optional;
-      when absent the renderer falls back to the Italian of the option text. */
+  /** The option's second line. Only options carry one; cards do not. */
   subtitle?: LocalizedText;
+  /** Legacy authored hint. The UI computes its preview from the settled effect. */
   preview: string[];
   effect: Effect;
   require?: (state: SimulationState) => boolean;
@@ -23,13 +23,11 @@ export interface Card {
   forces?: string[];
   ministry?: string;
   name: LocalizedText;
-  /** A one-line frame for the card, drawn under its name. */
-  subtitle: LocalizedText;
   text: LocalizedText;
   /** Optional while the resource layer is unbuilt. Readers must guard. */
   cost?: { ap: number; funds?: number; arms?: number };
-  /** Turns before the card can be drawn again. A turn is presented as a
-      week, so this is a number of weeks. Defaults to 4. */
+  /** Turns before the card can be drawn again. A turn is half a month, so
+      this counts half-months. Defaults to 4. */
   cooldown?: number;
   require?: (state: SimulationState) => boolean;
   requireText?: LocalizedText;
@@ -50,10 +48,24 @@ export interface Advisor {
 export interface EventOption {
   id: string;
   text: LocalizedText;
+  /** The option's second line, drawn under its text. */
+  subtitle?: LocalizedText;
+  /** Legacy authored hint. The UI computes its preview from the settled effect. */
   preview?: Array<string | { zh: string; label: string }>;
   effect: Effect;
   condition?: (state: SimulationState) => boolean;
   requireText?: LocalizedText;
+}
+
+export interface EventResult {
+  /** A heading over the tally, e.g. 计票结果. */
+  title?: LocalizedText;
+  /** A line of prose under the heading. */
+  body?: LocalizedText;
+  /** The tally itself, one row per entry. */
+  rows?: { label: LocalizedText; value: string; tone?: 'good' | 'bad' }[];
+  /** A closing line, set apart. */
+  note?: LocalizedText;
 }
 
 export interface GameEvent {
@@ -68,5 +80,10 @@ export interface GameEvent {
   chain?: boolean;
   superEvent?: boolean;
   condition?: (state: SimulationState) => boolean;
+  /** A tally shown under the body, worked out when the event opens. `body` is
+      fixed prose; anything that has to be counted — seats, votes, a division —
+      belongs here rather than written into the text. The second argument is the
+      engine, so the figure can be computed live instead of stored. */
+  result?: (state: SimulationState, api?: any) => EventResult | null;
   options: EventOption[];
 }

@@ -1,0 +1,124 @@
+/* Carnaro legal folios: flat ink, paper, vermilion and brass. No gradients. */
+body:has(.app--laws)::before { background: #0e0c0a; }
+.app--laws .laws-atlas, .app--laws .laws-atlas * { background-image: none; }
+.laws-atlas { --law-ink: #33291f; --law-paper: #eee3c9; --law-edge: #ae9670; padding: 20px; background: #17130f; }
+.laws-atlas__intro { display: flex; justify-content: space-between; align-items: end; gap: 22px; margin-bottom: 20px; padding: 3px 2px 13px; border-bottom: 3px double #9b7647; }
+.laws-atlas__eyebrow, .law-dossier__eyebrow { display: block; font: 700 10px var(--font-display); letter-spacing: .24em; color: #dabb7d; text-transform: uppercase; }
+.laws-atlas__intro p { max-width: 60ch; margin: 7px 0 0; color: #c9bba1; font-size: 12px; line-height: 1.65; }
+.laws-atlas__stats { display: flex; flex: none; gap: 0; border: 1px solid #765b38; }
+.laws-atlas__stats > div { min-width: 78px; padding: 7px 10px; border-right: 1px solid #765b38; background: #241b14; text-align: center; }
+.laws-atlas__stats > div:last-child { border-right: 0; }
+.laws-atlas__stats strong { display: block; color: #e4c589; font: 700 24px var(--font-display); line-height: 1.05; }
+.laws-atlas__stats span { display: block; margin-top: 5px; color: #c2b393; font-size: 10px; white-space: nowrap; }
+
+/* The charter reads like a printed proclamation above the ordinary statutes. */
+.charter-board { position: relative; margin-bottom: 20px; border: 1px solid #9f7850; outline: 1px solid #3e2b1c; outline-offset: -5px; background: #272019; color: #eee0c4; }
+.charter-board::before { content: '✦'; position: absolute; top: -10px; left: 50%; z-index: 1; padding: 0 10px; background: #272019; color: #dab876; font-size: 18px; transform: translateX(-50%); }
+.charter-board__head { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 22px 24px 17px; border-bottom: 1px solid #755938; }
+.charter-board__eyebrow { color: #dcb977; font: 700 10px var(--font-display); letter-spacing: .21em; }
+.charter-board h2 { margin: 7px 0 5px; color: #f2dcaf; font: 700 clamp(20px,2.2vw,29px) var(--font-display); letter-spacing: .05em; }
+.charter-board p { max-width: 69ch; margin: 0; color: #c9b99b; font-size: 12px; line-height: 1.6; }
+.charter-board__progress { flex: none; min-width: 95px; padding: 8px 10px; border: 1px solid #9b7545; text-align: center; }
+.charter-board__progress strong { display: block; color: #e6c584; font: 700 24px var(--font-display); }
+.charter-board__progress span { color: #c9b99b; font-size: 10px; }
+.charter-board__stages { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 1px; margin: 0; padding: 1px 0; background: #755938; list-style: none; }
+.charter-board__stage { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 11px 9px; background: #1d1713; color: #8f816b; font-size: 11px; }
+.charter-board__stage.is-done { background: #493024; color: #f0dfbc; }
+.charter-board__stage-number { color: #d7b16f; font: 700 10px var(--font-mono); }
+.charter-board__caption { padding: 14px 22px 8px; color: #c9b99b; font-size: 11px; }
+.charter-board__requirements { display: grid; grid-template-columns: repeat(auto-fit,minmax(175px,1fr)); gap: 6px; padding: 0 22px 20px; }
+.charter-board__requirement { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 11px; border: 1px solid #73563b; background: #251b15; color: #eee0c4; text-align: left; cursor: pointer; }
+.charter-board__requirement:hover, .charter-board__requirement:focus-visible { border-color: #e4c184; background: #3a291e; }
+.charter-board__requirement.is-met { border-color: #af9f6a; background: #35402d; }
+.charter-board__check { color: #d9b574; }
+.charter-board__requirement.is-met .charter-board__check { color: #d6d89c; }
+.charter-board__requirement strong { margin-left: auto; color: #efd099; font: 700 11px var(--font-mono); white-space: nowrap; }
+
+/* Three paper chapters give the laws a deliberate reading order. */
+.law-chapter { margin-bottom: 16px; padding: 13px 15px 16px; border: 1px solid #9f855d; background: var(--law-paper); color: var(--law-ink); box-shadow: 4px 4px 0 #090807; }
+.law-chapter__heading { display: flex; align-items: center; gap: 14px; margin-bottom: 11px; padding-bottom: 10px; border-bottom: 3px double #aa8b63; }
+.law-chapter__roman { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border: 2px solid #7b2a30; color: #7b2a30; font: 700 22px var(--font-display); }
+.law-chapter__it { color: #926546; font: 700 9px var(--font-display); letter-spacing: .18em; }
+.law-chapter__heading h3 { margin: 2px 0 0; color: #4c3026; font: 700 18px var(--font-display); letter-spacing: .08em; }
+.law-chapter__count { margin-left: auto; color: #7a6851; font: 11px var(--font-mono); white-space: nowrap; }
+.laws-atlas__grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(158px,1fr)); gap: 8px; }
+.law-tile { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 145px; padding: 11px 12px 12px; border: 1px solid #ab9677; border-left: 4px solid #a98854; border-radius: 0; background: #f8f1e3; color: #3e3025; text-align: left; cursor: pointer; transition: border-color .14s, background .14s, transform .14s; }
+.law-tile:hover { border-color: #7b2a30; background: #fff9ed; transform: translateY(-2px); }
+.law-tile.is-selected { border-color: #6e232a; border-left-color: #dfbb73; background: #67272c; color: #fff0d1; }
+.law-tile:focus-visible, .law-dossier__action:focus-visible { outline: 2px solid #d6a951; outline-offset: 2px; }
+.law-tile__top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+.law-tile__index { color: #956944; font: 700 11px var(--font-mono); }
+.law-tile__level { color: #703538; font: 700 11px var(--font-mono); }
+.law-tile.is-selected .law-tile__index, .law-tile.is-selected .law-tile__level { color: #e7c57f; }
+.law-tile__name { display: block; font: 700 17px var(--font-display); line-height: 1.2; letter-spacing: .035em; }
+.law-tile__current { display: -webkit-box; overflow: hidden; margin: 7px 0 9px; color: #746451; font-size: 11px; line-height: 1.35; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.law-tile.is-selected .law-tile__current { color: #e0ccb0; }
+.law-tile__target, .law-tile__independent { display: inline-block; align-self: flex-start; margin-bottom: 8px; padding: 2px 6px; border: 1px solid #a18b6c; color: #694c30; font-size: 10px; }
+.law-tile__target.is-met { border-color: #58734e; color: #435d3e; }
+.law-tile.is-selected .law-tile__target, .law-tile.is-selected .law-tile__independent { border-color: #d1ad74; color: #f0d6a7; }
+.law-tile__steps { display: flex; gap: 3px; margin-top: auto; }
+.law-tile__step { flex: 1; height: 4px; background: #d5c6aa; }
+.law-tile__step.is-lower { background: #a9824c; }
+.law-tile__step.is-current { background: #792b31; }
+.law-tile.is-selected .law-tile__step { background: #805256; }
+.law-tile.is-selected .law-tile__step.is-lower { background: #b89965; }
+.law-tile.is-selected .law-tile__step.is-current { background: #f2d392; }
+
+/* The selected decree is a larger, annotated document. */
+.law-dossier { overflow: hidden; border: 1px solid #a58d69; background: #f2e9d3; color: #352719; scroll-margin-top: 12px; }
+.law-dossier:focus { outline: none; }
+.law-dossier__head { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 17px 22px; border-bottom: 3px double #b29469; background: #64272c; color: #f8ebd1; }
+.law-dossier__eyebrow { color: #e8c58e; }
+.law-dossier__name h2 { margin: 4px 0 2px; font: 700 clamp(21px,2vw,29px) var(--font-display); letter-spacing: .04em; line-height: 1.2; }
+.law-dossier__it { color: #e4cdb7; font: italic 13px var(--font-body); }
+.law-dossier__seal { display: flex; align-items: baseline; justify-content: center; flex: none; width: 60px; height: 60px; padding-top: 8px; border: 2px solid #ddbd86; border-radius: 50%; color: #ffe7b7; font-family: var(--font-mono); }
+.law-dossier__seal strong { font-size: 28px; line-height: 1; }
+.law-dossier__seal span { font-size: 12px; }
+.law-dossier__current { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 14px; padding: 11px 22px; border-bottom: 1px solid #b9a98c; background: #dfcdaa; }
+.law-dossier__current span { color: #76503d; font: 700 10px var(--font-display); letter-spacing: .13em; white-space: nowrap; }
+.law-dossier__current strong { font: 700 15px var(--font-body); }
+.law-dossier__charter { padding: 8px 22px; border-bottom: 1px solid #b9a98c; color: #6f272b; font: 700 11px var(--font-display); }
+.law-dossier__effect { display: flex; align-items: baseline; gap: 16px; margin: 0; padding: 11px 22px; border-bottom: 1px solid #b9a98c; background: #e8d9b8; }
+.law-dossier__effect-label { flex: none; color: #782c30; font: 700 10px var(--font-display); letter-spacing: .12em; }
+.law-dossier__effect p { margin: 0; color: #48382a; font-size: 12px; line-height: 1.5; }
+.law-course { position: relative; display: grid; gap: 0; margin: 0; padding: 11px 22px 13px; list-style: none; }
+.law-course__item { position: relative; display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 12px; min-height: 58px; }
+.law-course__item:not(:last-child)::before { content: ''; position: absolute; top: 25px; bottom: -5px; left: 17px; width: 1px; background: #ae9d80; }
+.law-course__number { position: relative; z-index: 1; display: grid; place-items: center; width: 35px; height: 35px; margin-top: 8px; border: 1px solid #b4a487; border-radius: 50%; background: #f2e9d3; color: #897a65; font: 700 11px var(--font-mono); }
+.law-course__copy { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #d2c1a4; }
+.law-course__label { font-size: 13px; line-height: 1.45; }
+.law-course__status { flex: none; padding: 3px 7px; border: 1px solid #c4b294; color: #796a55; font-size: 10px; white-space: nowrap; }
+.law-course__item--lower .law-course__label { color: #806f5a; }
+.law-course__item--current .law-course__number { border-color: #76272b; background: #76272b; color: #fff2d8; box-shadow: 0 0 0 3px #f2e9d3, 0 0 0 4px #76272b; }
+.law-course__item--current .law-course__label { color: #5f2425; font-weight: 700; }
+.law-course__item--current .law-course__status { border-color: #8e4b47; background: #76272b; color: #fff0d1; }
+.law-course__item--future .law-course__number { border-style: dashed; }
+.law-course__item--future .law-course__label { color: #54493a; }
+.law-dossier__foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 9px 16px; padding: 11px 22px; border-top: 1px solid #b9a98c; color: #5a4434; font-size: 11px; }
+.law-dossier__action { padding: 8px 13px; border: 1px solid #76272b; background: #76272b; color: #fff0d1; font: 700 11px var(--font-display); letter-spacing: .04em; cursor: pointer; }
+.law-dossier__action:hover { background: #93383c; }
+
+@media (max-width: 960px) { .app--laws .col--c { order: -1; } }
+@media (max-width: 720px) {
+  .laws-atlas__intro { align-items: stretch; flex-direction: column; }
+  .laws-atlas__stats { align-self: flex-start; }
+  .charter-board__stages { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .charter-board__stage:last-child { grid-column: span 2; }
+}
+@media (max-width: 450px) {
+  .laws-atlas { padding: 10px; }
+  .laws-atlas__grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .law-chapter { padding: 10px; }
+  .law-chapter__roman { width: 35px; height: 35px; font-size: 18px; }
+  .law-chapter__heading h3 { font-size: 16px; }
+  .charter-board__head { align-items: flex-start; padding: 17px 13px 13px; }
+  .charter-board__progress { min-width: 68px; }
+  .charter-board__progress strong { font-size: 18px; }
+  .charter-board__caption { padding: 10px 13px 7px; }
+  .charter-board__requirements { grid-template-columns: 1fr; padding: 0 13px 13px; }
+  .law-dossier__head, .law-dossier__current, .law-dossier__foot { padding-left: 13px; padding-right: 13px; }
+  .law-dossier__charter, .law-dossier__effect { padding-left: 13px; padding-right: 13px; }
+  .law-dossier__effect { flex-direction: column; gap: 4px; }
+  .law-course { padding-left: 13px; padding-right: 13px; }
+  .law-course__copy { align-items: flex-start; flex-direction: column; gap: 3px; }
+}

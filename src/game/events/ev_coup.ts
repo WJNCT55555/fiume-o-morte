@@ -4,7 +4,12 @@ import type { GameEvent } from '../content/types';
 export const evCoup: GameEvent = {
     id: 'ev_coup', superEvent: true,
     condition: function (s) {
-      return s.order.coup >= 100 && !s.flags.coup_done &&
+      /* The FASCIST TAKEOVER reads `subversion`, not `coup`: coming up the stairs
+         of the Palazzo is Mussolini's business, not Rome's. The two pressures are
+         tracked independently (see R.subversionDelta in rules.js), so a game can
+         now be under siege for years without a coup — or be taken from inside
+         while Rome is still negotiating. */
+      return s.order.subversion >= 100 && !s.flags.coup_done &&
         (s.date.y > 1922 || (s.date.y === 1922 && s.date.m >= 3));
     },
     title: { zh: '1922 年 3 月 3 日：省督府', it: '3 marzo 1922: il Palazzo' },
@@ -17,8 +22,8 @@ export const evCoup: GameEvent = {
     options: [
       {
         id: 'resistere', text: { zh: '抵抗。让军团兵和阿迪蒂守住楼梯。', it: 'Resistere. Legionari e arditi tengono le scale.' },
-        requireText: { zh: '需要军团兵力 ≥ 600 或公民卫队 ≥ 300', it: 'Richiede Milizia ≥ 600 o Guardia Civica ≥ 300' },
-        condition: function (s) { return s.order.milizia >= 600 || s.order.civicGuard >= 300; },
+        requireText: { zh: '需要军团兵力 ≥ 600', it: 'Richiede almeno 600 legionari' },
+        condition: function (s) { return s.order.milizia >= 600; },
         effect: function () { return { next: 'ev_coup_fight' }; }
       },
       {
@@ -27,7 +32,7 @@ export const evCoup: GameEvent = {
       },
       {
         id: 'fuggire', text: { zh: '从屋顶走。带着还能带走的人去布卡里。', it: 'Sui tetti. Con chi resta, verso Buccari.' },
-        preview: [{ zh: '合法性 −−', label: 'legittimità −−' }, { zh: '保留组织', label: 'organizzazione salva' }],
+        preview: [{ zh: '军团兵力 −700', label: 'milizia −700' }, { zh: '转入流亡', label: 'esilio' }],
         effect: function () { return { order: { coup: 100, authority: -20, milizia: -700 }, flags: { coup_done: true, exile: true }, phase: 'exile', journals: ['esilio'] }; }
       }
     ]

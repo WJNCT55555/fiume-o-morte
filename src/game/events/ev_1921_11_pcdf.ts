@@ -13,17 +13,17 @@ export const ev192111Pcdf: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '按法律登记它。让最小的党拿到最大的合法性。', it: 'Registrarlo: dare al partito più piccolo la legittimità più grande.' },
-        preview: [{ zh: '合法性 +', label: 'legittimità +' }, { zh: '工人支持 +', label: 'operai +' }, { zh: '教廷 −', label: 'Santa Sede −' }],
+        preview: [{ zh: '军团民意 +', label: 'legittimità +' }, { zh: '产业工人支持 +', label: 'operai +' }, { zh: '教廷 −', label: 'Santa Sede −' }],
         effect: function () { return { support: [['operai', 'LEG', 2], ['portuali', 'LEG', 2]], parties: { PSI: 2 }, diplo: { vatican: -5, comintern: 8 }, order: { fervour: 3 } }; }
       },
       {
         id: 'b', text: { zh: '让宪兵盯着他们，但不动手。', it: 'Farli sorvegliare, senza toccarli.' },
-        preview: [{ zh: '领袖权威 +', label: 'autorità +' }, { zh: '合法性 −', label: 'legittimità −' }],
+        preview: [{ zh: '摄政领袖权威 +', label: 'autorità +' }, { zh: '军团民意 −', label: 'legittimità −' }],
         effect: function () { return { order: { authority: 3, violence: 2, fervour: -2 }, parties: { PSI: 1 } }; }
       },
       {
         id: 'c', text: { zh: '把他们的经济纲领抄进宪章。', it: 'Copiare il loro programma economico nella Carta.' },
-        preview: [{ zh: '工人支持 ++', label: 'operai ++' }, { zh: '商业派异议 ++', label: 'Fiumani ++' }],
+        preview: [{ zh: '产业工人支持 ++', label: 'operai ++' }, { zh: '工团派异议 ++', label: 'Falange ++' }],
         effect: function () { return { support: [['operai', 'LEG', 4], ['portuali', 'LEG', 3]], parties: { PSI: 2 }, laws: { lavoro: 1 }, factions: { sindacalisti: { dis: 14 } }, order: { fervour: 4 } }; }
       }
     ]

@@ -11,7 +11,7 @@ export const evNataleDeal: GameEvent = {
       {
         id: 'a', text: { zh: '接受。把摄政交给一个临时政府，自己退到幕后。', it: 'Accettare. Lasciare la Reggenza a un governo provvisorio e ritirarti.' },
         preview: [{ zh: '转向自由邦', label: 'Stato libero' }, { zh: '军团兵离城', label: 'legionari via' }, { zh: '保留影响力', label: 'influenza' }],
-        effect: function () { return { order: { coup: -100, milizia: -1600, violence: -14, fervour: -12 }, laws: { statuto: 1, elettorale: 1 }, diplo: { italy: 10, league: 6 }, support: [['borghesia', 'LEG', 4], ['impiegati', 'LEG', 4]], factions: { arditi: { dis: 18 } }, flags: { natale_done: true, behind_scenes: true }, journals: ['statuto'], next: 'ev_natale_after' }; }
+        effect: function () { return { order: { coup: -100, milizia: -1600, violence: -14, fervour: -12 }, laws: { elettorale: 1 }, diplo: { italy: 10, league: 6 }, support: [['borghesia', 'LEG', 4], ['impiegati', 'LEG', 4]], factions: { arditi: { dis: 18 } }, flags: { natale_done: true, behind_scenes: true }, next: 'ev_natale_after' }; }
       },
       {
         id: 'b', text: { zh: '拒绝解散。只接受停火与撤出岛屿。', it: 'Rifiutare lo scioglimento. Accettare solo il cessate il fuoco e lo sgombero delle isole.' },

@@ -12,19 +12,19 @@ export const evWhitehead: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '由摄政出面接管，转为国营兵工厂。', it: 'Requisire: trasformarla in arsenale di Stato.' },
-        preview: [{ zh: '金库 −−', label: 'Tesoro −−' }, { zh: '失业 −', label: 'disoccupazione −' }],
+        preview: [{ zh: '金库 −−', label: 'Tesoro −−' }, { zh: '失业率 −', label: 'disoccupazione −' }],
         effect: function () { return { funds: -420, economy: { unemployment: -4, capitalConfidence: -8, traffic: 2 }, support: [['operai', 'LEG', 5], ['portuali', 'LEG', 3], ['borghesia', 'LEG', -3]], laws: { fisco: 1 } }; }
       },
       {
         id: 'b', text: { zh: '交给工团派：让工人合作社接管。', it: 'Darla alla Falange: che la rilevi una cooperativa operaia.' },
         requireText: { zh: '需要工团派影响力 ≥ 16', it: 'Richiede Falange ≥ 16' },
         condition: function (s) { return s.factions.sindacalisti.inf >= 16; },
-        preview: [{ zh: '工人支持 ++', label: 'operai ++' }, { zh: '资本信心 −−', label: 'fiducia −−' }],
+        preview: [{ zh: '产业工人支持 ++', label: 'operai ++' }, { zh: '资本信心 −−', label: 'fiducia −−' }],
         effect: function () { return { economy: { unemployment: -4, capitalConfidence: -14 }, support: [['operai', 'LEG', 6], ['portuali', 'LEG', 5], ['borghesia', 'LEG', -6]], order: { fervour: 8, squadre: 6 }, factions: { sindacalisti: { dis: 14 } }, flags: { worker_control: true } }; }
       },
       {
         id: 'c', text: { zh: '让它在市场上自生自灭。', it: 'Lasciarla al mercato.' },
-        preview: [{ zh: '失业 ++', label: 'disoccupazione ++' }, { zh: '资本信心 +', label: 'fiducia +' }, { zh: '人口流失', label: 'emigrazione +' }],
+        preview: [{ zh: '失业率 ++', label: 'disoccupazione ++' }, { zh: '资本信心 +', label: 'fiducia +' }, { zh: '人口流失', label: 'emigrazione +' }],
         effect: function () { return { economy: { unemployment: 7, capitalConfidence: 8, population: -420 }, support: [['operai', 'LEG', -6], ['portuali', 'LEG', -3], ['borghesia', 'LEG', 4]], order: { fervour: 8 } }; }
       },
       {

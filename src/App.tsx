@@ -4,6 +4,7 @@ import { StartScreen } from './components/StartScreen';
 import { GameScreen } from './components/GameScreen';
 import { EndingScreen } from './components/EndingScreen';
 import { ModalLayer } from './components/ModalLayer';
+import { EffectPreviewTooltip } from './components/EffectPreviewTooltip';
 
 function GameContent() {
   const { ui, notice, actions } = useGame();
@@ -15,6 +16,7 @@ function GameContent() {
   return <>
     {ui.screen === 'start' ? <StartScreen /> : ui.screen === 'ending' ? <EndingScreen /> : <GameScreen />}
     <ModalLayer />
+    <EffectPreviewTooltip />
     {notice && <div className={`toast toast--${notice.kind} show`} role="status">{notice.text}</div>}
   </>;
 }

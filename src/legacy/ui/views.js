@@ -31,8 +31,9 @@
       ['ev_1920_11_rapallo', V.IMG.scudetto], ['ev_natale', V.IMG.foto_fiume],
       ['ev_natale_fight', V.IMG.foto_fiume], ['ev_natale_deal', V.IMG.proclama],
       ['ev_natale_after', V.IMG.esilio], ['ev_1921_04_elezioni', V.IMG.proclama],
-      ['ev_coup', V.IMG.hostventuri], ['ev_fascio_split', V.IMG.hostventuri],
-      ['ev_1922_10_roma', V.IMG.popolo], ['ev_1924_01_rome', V.IMG.giolitti]
+      ['ev_coup', V.IMG.hostventuri],
+      /* ev_1922_10_roma was removed with the 1922 march line. */
+      ['ev_1924_01_rome', V.IMG.giolitti]
     ];
 
     function icon(name, size, cls) { return Orn.icon(name, { size: size || 18, cls: cls }); }
@@ -99,8 +100,8 @@
       var crisis = Sel.crisis(st);
       var era = Sel.eraYear(st);
       var slots = [h('div', { class: 'resbar__date' }, [
-        h('div', { class: 'resbar__d1' }, st.date.y + ' · ' + Core.monthNameIt(st.date.m).toUpperCase() + ' ' + st.date.d),
-        h('div', { class: 'resbar__d2' }, 'ANNO ' + Core.roman(era) + ' DELL\'IMPRESA')
+        h('div', { class: 'resbar__d1' }, Core.dateLabel(st.date)),
+        h('div', { class: 'resbar__d2' }, T('bar.era') + ' 第 ' + Core.roman(era) + ' 年')
       ])];
       [res[0], res[1], res[3]].forEach(function (r) {
         slots.push(h('div', { class: 'resslot', title: r.it }, [
@@ -120,7 +121,7 @@
       ]));
       slots.push(h('div', { class: 'resslot resslot--ap' }, [
         h('div', { class: 'resslot__b' }, [
-          h('div', { class: 'resslot__k' }, '本周行动点'),
+          h('div', { class: 'resslot__k' }, '本回合行动点'),
           h('div', { class: 'resslot__v' }, st.ap + ' / ' + st.maxAp)
         ])
       ]));
@@ -333,19 +334,48 @@
       return frame('', [banner(T('adv.title'), T('adv.sub')), body]);
     }
 
+    /* One labelled block inside an expanded journal: a heading plus a list.
+       Empty lists collapse to a single "none" line, which is how a journal
+       with no failure path (esilio) reads. */
+    function jrnBlock(title, items) {
+      var box = h('div', { class: 'jrn__block' });
+      box.appendChild(h('div', { class: 'jrn__block-k' }, title));
+      var list = h('ul', { class: 'jrn__list' });
+      if (items && items.length) {
+        items.forEach(function (x) { list.appendChild(h('li', {}, Core.L(x))); });
+      } else {
+        list.appendChild(h('li', { class: 'jrn__none' }, T('dia.noEffect')));
+      }
+      box.appendChild(list);
+      return box;
+    }
+
     function diariPanel(st) {
       var jr = Sel.journals(st);
       var body = h('div', { style: { padding: '8px 11px' } });
       if (!jr.length) body.appendChild(h('div', { class: 'empty' }, T('dia.empty')));
       jr.forEach(function (j) {
-        body.appendChild(h('div', { class: 'jrn' + (j.done ? ' jrn--done' : j.failed ? ' jrn--fail' : '') }, [
-          h('div', { class: 'row row--between' }, [
-            h('span', { style: { fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '13px' } }, j.zh),
+        var g = j.goal || {}, o = j.outcome || {};
+        /* Every activated journal is expandable: completion and failure
+           conditions, and what each outcome does. The four blocks come from
+           meta.js's goal / outcome fields via Sel.journals. */
+        var det = h('details', { class: 'jrn' + (j.done ? ' jrn--done' : j.failed ? ' jrn--fail' : '') }, [
+          h('summary', { class: 'jrn__summary' }, [
+            h('div', { class: 'jrn__head' }, [
+              h('div', { class: 'jrn__title' }, j.zh),
+              h('div', { class: 'jrn__desc tiny dim' }, Core.L(j.desc))
+            ]),
             h('span', { class: 'chip' + (j.done ? ' chip--ok' : j.failed ? ' chip--bad' : '') },
               j.done ? T('dia.done') : j.failed ? T('dia.failed') : T('dia.months', { n: j.months }))
           ]),
-          h('div', { class: 'tiny dim', style: { marginTop: '2px' } }, Core.L(j.desc))
-        ]));
+          h('div', { class: 'jrn__body' }, [
+            jrnBlock(T('dia.goal'), g.complete),
+            jrnBlock(T('dia.fail'), g.fail && g.fail.length ? g.fail : [T('dia.noFail')]),
+            jrnBlock(T('dia.onComplete'), o.onComplete),
+            jrnBlock(T('dia.onFail'), o.onFail)
+          ])
+        ]);
+        body.appendChild(det);
       });
       return frame('', [banner(T('dia.title'), T('dia.sub')), body]);
     }
@@ -366,34 +396,246 @@
     /* ============================================================
        中央页签
        ============================================================ */
+    /* ============================================================
+       Economy
+       Laid out the way a political-sim economy screen is usually laid out:
+       the two human totals as trends first (unemployment, population), then the
+       six port and confidence measures as one comparable block, then the budget
+       as two side-by-side donuts. Every figure on this tab is either a chart or
+       a labelled readout — no bare rows of numbers.
+       ============================================================ */
+    function ecoText(zh, it) { return Core.L({ zh: zh, it: it }); }
+
+    function ecoStat(label, value, unit, note, tone) {
+      var v = h('div', { class: 'eco-kpi__value num' }, String(value));
+      if (unit) v.appendChild(h('span', { class: 'eco-kpi__unit' }, unit));
+      return h('div', { class: 'eco-kpi' + (tone ? ' eco-kpi--' + tone : '') }, [
+        h('div', { class: 'eco-kpi__label' }, label), v,
+        h('div', { class: 'eco-kpi__note' }, note)
+      ]);
+    }
+
+    /* Six measures on one 0-100 scale, drawn as a grid of compact bars so they
+       can be compared at a glance instead of read one by one. The bar sits to the
+       left and the label to its right, so a row reads "▬▬▬▬ 腹地通达 20". */
+    function ecoMeasureGrid(rows) {
+      var grid = h('div', { class: 'ecometrics' });
+      rows.forEach(function (r) {
+        var cell = h('div', { class: 'ecometric' });
+        var track = h('div', { class: 'bar ecometric__bar' });
+        track.appendChild(h('div', { class: 'bar__fill', style: { width: Core.clamp(r[1], 0, 100) + '%', background: r[2] } }));
+        cell.appendChild(track);
+        cell.appendChild(h('span', { class: 'ecometric__k ellip', title: r[0] }, r[0]));
+        cell.appendChild(h('span', { class: 'ecometric__v num' }, Core.round1(r[1]).toFixed(0)));
+        grid.appendChild(cell);
+      });
+      return grid;
+    }
+
+    function ecoBudget(title, items, total, centerLabel, signed) {
+      var box = h('div', { class: 'ecobudget' });
+      box.appendChild(h('div', { class: 'ecobudget__hd' }, [
+        h('span', {}, title),
+        h('span', { class: 'num ' + (signed ? (total >= 0 ? 'up' : 'dn') : '') }, Core.fmt(total) + ' K£')
+      ]));
+      var body = h('div', { class: 'ecobudget__body' });
+      body.appendChild(Charts.donut(items.map(function (it) {
+        return { zh: it[0], value: it[1], color: it[2] };
+      }), { size: 116, stroke: 15, center: Core.fmt(total), centerSub: centerLabel }));
+      var legend = h('div', { class: 'ecobudget__legend' });
+      var sum = items.reduce(function (a, it) { return a + Math.max(0, it[1]); }, 0) || 1;
+      items.forEach(function (it) {
+        legend.appendChild(h('div', { class: 'ecoleg' }, [
+          h('span', { class: 'ecoleg__sw', style: { background: it[2] } }),
+          h('span', { class: 'ecoleg__k ellip' }, it[0]),
+          h('span', { class: 'ecoleg__v num' }, Core.fmt(it[1])),
+          h('span', { class: 'ecoleg__p num' }, Math.round(Math.max(0, it[1]) / sum * 100) + '%')
+        ]));
+      });
+      body.appendChild(legend);
+      box.appendChild(body);
+      return box;
+    }
+
+    function ecoFormula(label, formula, current) {
+      return h('div', { class: 'eco-formula' }, [
+        h('div', { class: 'eco-formula__heading' }, [
+          h('strong', {}, label), h('span', { class: 'num' }, current)
+        ]),
+        h('div', { class: 'eco-formula__math' }, formula)
+      ]);
+    }
+
+    function ecoFormulaBook(st, ec) {
+      var e = st.economy;
+      var book = h('details', { class: 'eco-formulas' });
+      book.appendChild(h('summary', { class: 'eco-formulas__summary' }, [
+        h('span', {}, ecoText('经济模型 · 公式与结算顺序', 'Modello economico · formule e liquidazione')),
+        h('span', { class: 'eco-formulas__hint' }, ecoText('展开查看', 'Apri'))
+      ]));
+      var body = h('div', { class: 'eco-formulas__body' });
+      body.appendChild(h('p', { class: 'eco-formulas__intro' }, ecoText(
+        '每半月先按当前状态结算收支，再依次更新港口、失业、通胀、信心和人口。目标值不是即时跳变；每轮只追近一部分。clamp 表示限制在括号中的范围。',
+        'Ogni mezzo mese si salda il bilancio con lo stato attuale, poi si aggiornano porto, disoccupazione, inflazione, fiducia e popolazione. I valori convergono gradualmente; clamp limita il risultato.'
+      )));
+      var grid = h('div', { class: 'eco-formulas__grid' });
+      var flow = h('section', { class: 'eco-formulas__group' }, [
+        h('h4', {}, ecoText('港口 → 生产 → 就业', 'Porto → produzione → lavoro')),
+        ecoFormula(ecoText('吞吐目标', 'Obiettivo portuale'),
+          ecoText('clamp(11 + 0.32×腹地 + 5×自由港等级 + 0.17×三角洲 + 0.13×工程 + 0.12×承认 − 0.20×暴力 − 0.10×罢工, 0, 100)',
+            'clamp(11 + 0.32×entroterra + 5×livello porto franco + 0.17×delta + 0.13×opere + 0.12×riconoscimento − 0.20×violenza − 0.10×scioperi, 0, 100)'),
+          ec.trafficTarget.toFixed(1)),
+        ecoFormula(ecoText('工业活跃度', 'Attività industriale'),
+          ecoText('clamp(0.60×工程 + 0.40×(100 − 罢工), 0, 100)', 'clamp(0.60×opere + 0.40×(100 − scioperi), 0, 100)'), ec.industryActivity.toFixed(1)),
+        ecoFormula(ecoText('失业目标', 'Obiettivo disoccupazione'),
+          ecoText('clamp(46 − 0.42×当前吞吐 − 0.12×工业活跃度, 4, 45)', 'clamp(46 − 0.42×traffico attuale − 0.12×attività industriale, 4, 45)'), ec.unemploymentTarget.toFixed(1) + '%'),
+        ecoFormula(ecoText('通胀目标', 'Obiettivo inflazione'),
+          ecoText('clamp(4 + 0.25×max(失业−12, 0) + 0.12×罢工 + 0.004×max(债务−2500, 0), 1, 55)',
+            'clamp(4 + 0.25×max(disoccupazione−12, 0) + 0.12×scioperi + 0.004×max(debito−2500, 0), 1, 55)'),
+          ec.inflationTarget.toFixed(1) + '%')
+      ]);
+      var confidence = h('section', { class: 'eco-formulas__group' }, [
+        h('h4', {}, ecoText('信心与人口', 'Fiducia e popolazione')),
+        ecoFormula(ecoText('资本信心目标', 'Obiettivo fiducia'),
+          ecoText('clamp(70 − 0.50×罢工 + 0.25×(吞吐−40) − 0.30×暴力 + 0.20×合法性, 0, 100)',
+            'clamp(70 − 0.50×scioperi + 0.25×(traffico−40) − 0.30×violenza + 0.20×legittimità, 0, 100)'),
+          ec.confidenceTarget.toFixed(1)),
+        ecoFormula(ecoText('迁出人口', 'Emigrazione'),
+          ecoText('clamp(20×(失业−12) + 4×(暴力−40), 0, 900)', 'clamp(20×(disoccupazione−12) + 4×(violenza−40), 0, 900)'), Core.fmt(Math.round(ec.emigration))),
+        ecoFormula(ecoText('下轮人口', 'Popolazione successiva'),
+          ecoText('max(30000, 当前人口 − 迁出人口 + 30)', 'max(30000, popolazione attuale − emigrazione + 30)'), Core.fmt(Math.max(30000, e.population - ec.emigration + 30))),
+        ecoFormula(ecoText('每轮追近幅度', 'Convergenza per turno'),
+          ecoText('新值 = 旧值 + (目标−旧值)×比例；吞吐 9%，失业 12.5%，通胀 10%，信心 7.5%',
+            'nuovo = vecchio + (obiettivo−vecchio)×quota; porto 9%, disoccupazione 12.5%, inflazione 10%, fiducia 7.5%'),
+          ecoText('每半月', 'mezzo mese'))
+      ]);
+      var fiscal = h('section', { class: 'eco-formulas__group eco-formulas__group--wide' }, [
+        h('h4', {}, ecoText('每半月财政 · 单位 K£', 'Bilancio semimensile · K£')),
+        ecoFormula(T('eco.tax.porto'),
+          ecoText('吞吐×3.1×港口税率×(0.75+0.005×资本信心)×(1+港口增收修正)',
+            'traffico×3.1×aliquota portuale×(0.75+0.005×fiducia)×(1+bonus portuale)'), Core.fmt(ec.revenue.porto)),
+        ecoFormula(T('eco.tax.dogana'),
+          ecoText('吞吐×2.5×关税率×(1+0.05×关税法等级)×(1+关税增收修正)',
+            'traffico×2.5×aliquota doganale×(1+0.05×livello dazi)×(1+bonus doganale)'), Core.fmt(ec.revenue.dogana)),
+        ecoFormula(T('eco.tax.consumo'),
+          ecoText('(100−失业率)×0.45×消费税率×(1+消费税增收修正)',
+            '(100−disoccupazione)×0.45×aliquota sui consumi×(1+bonus consumi)'), Core.fmt(ec.revenue.consumo)),
+        ecoFormula(ecoText('有效所得税率', 'Aliquota effettiva sul reddito'),
+          ecoText('财政法 < 2 级为 0；2 级取 max(设定税率, 0.30)；3 级取 max(设定税率, 0.45)',
+            'Livello fiscale < 2: 0; livello 2: max(aliquota impostata, 0.30); livello 3: max(aliquota impostata, 0.45)'),
+          Math.round(ec.incomeTaxRate * 100) + '%'),
+        ecoFormula(T('eco.tax.reddito'),
+          ecoText('(100−失业率)×0.70×有效所得税率×(1+所得税增收修正)×(1+0.04×财政法等级)',
+            '(100−disoccupazione)×0.70×aliquota effettiva×(1+bonus reddito)×(1+0.04×livello fiscale)'), Core.fmt(ec.revenue.reddito)),
+        ecoFormula(T('eco.spending'),
+          ecoText('行政 42 + 市警 (6+警员/40) + 军团 (人数×0.013) + 工程 (工程/100×12) + 债务 (债务×0.0035) + 救济 (max(失业−12,0)×1.7 + 劳动保障等级×2)',
+            'amministrazione 42 + polizia (6+agenti/40) + legione (uomini×0.013) + opere (opere/100×12) + interessi (debito×0.0035) + soccorso (max(disoccupazione−12,0)×1.7 + tutele×2)'), Core.fmt(ec.spending.total)),
+        ecoFormula(T('eco.net'),
+          ecoText('四项收入合计 − 六项支出合计；盈余的最多 50% 用于偿债，赤字先用储备，再按 1.15 倍举债；债务达到 6500 后记入欠款。',
+            'Quattro entrate meno sei spese; fino al 50% dell’avanzo ripaga il debito. Il disavanzo usa le riserve, poi genera debito ×1.15; da 6500 viene registrato come arretrato.'),
+          Core.signed(ec.net, 1))
+      ]);
+      grid.appendChild(flow); grid.appendChild(confidence); grid.appendChild(fiscal);
+      body.appendChild(grid); book.appendChild(body);
+      return book;
+    }
+
     function tabEconomia(st) {
       var ec = Sel.economy(st);
       var col = h('div', { class: 'col' });
-      var b = h('div', { style: { padding: '9px 11px' } });
-      b.appendChild(h('div', { class: 'row row--between' }, [
-        h('span', { class: 'tiny', style: { letterSpacing: '.12em' } }, T('eco.traffic')),
-        h('span', { class: 'num', style: { fontSize: '14px', color: 'var(--gold-lit)' } }, ec.traffic.toFixed(1))
+      var body = h('div', { class: 'eco-dashboard' });
+
+      body.appendChild(h('div', { class: 'eco-kpis' }, [
+        ecoStat(T('eco.net'), Core.signed(ec.net, 1), ' K£',
+          ecoText('预计每半月收支', 'Saldo previsto ogni mezzo mese'), ec.net >= 0 ? 'good' : 'bad'),
+        ecoStat(T('eco.debt'), Core.fmt(ec.debt), ' K£',
+          ecoText('盈余会逐步偿债', 'Il surplus ripaga il debito'), 'bad'),
+        ecoStat(T('cri.unemp'), ec.unemployment.toFixed(1), '%',
+          ecoText('目标 ' + ec.unemploymentTarget.toFixed(1) + '%', 'Obiettivo ' + ec.unemploymentTarget.toFixed(1) + '%'), ec.unemployment > 25 ? 'bad' : ''),
+        ecoStat(T('eco.infl'), ec.inflation.toFixed(1), '%',
+          ecoText('目标 ' + ec.inflationTarget.toFixed(1) + '%', 'Obiettivo ' + ec.inflationTarget.toFixed(1) + '%'), ec.inflation > 16 ? 'bad' : '')
       ]));
-      b.appendChild(bar(ec.traffic, 100, 'linear-gradient(90deg,#7C0023,#C9A227,#7BA05B)', 'bar--tall'));
-      if (st.series.traffic.length > 1) b.appendChild(Charts.sparkline(st.series.traffic,
-        { color: '#EBD07A', fillColor: 'rgba(201,162,39,.14)', guide: 75, height: 44 }));
-      b.appendChild(h('div', { class: 'divider' }, icon('star', 11)));
-      [[T('eco.hinterland'), ec.hinterland, '#6E8B3D'], [T('eco.delta'), ec.delta, '#3E8E7E'],
-       [T('eco.works'), ec.works, '#D8AC63'], [T('eco.recognition'), ec.recognition, '#3C7FA8'],
-       [T('eco.strike'), ec.strike, '#A31621'], [T('eco.confidence'), ec.capitalConfidence, '#C9A227']].forEach(function (r) {
-        b.appendChild(Charts.barRow(r[0], null, r[1], 100, r[2]));
+
+      body.appendChild(h('div', { class: 'eco-sectionhead' }, [
+        h('span', {}, T('eco.blocks.port')),
+        h('small', {}, ecoText('指标 0—100 · 每半月结算', 'Indici 0—100 · ogni mezzo mese'))
+      ]));
+      body.appendChild(h('div', { class: 'ecoport-grid' }, [(function () {
+        var head = h('div', { class: 'ecometric--lead' });
+        head.appendChild(h('div', { class: 'ecometric__hd' }, [
+          h('span', { class: 'ecometric__k' }, T('eco.traffic')),
+          h('span', { class: 'ecometric__v num' }, ec.traffic.toFixed(1))
+        ]));
+        head.appendChild(h('div', { class: 'eco-target' }, [
+          h('span', {}, ecoText('当前目标', 'Obiettivo attuale')),
+          h('strong', { class: 'num' }, ec.trafficTarget.toFixed(1))
+        ]));
+        var tr = h('div', { class: 'bar eco-trafficbar' });
+        tr.appendChild(h('div', { class: 'bar__fill', style: { width: Core.clamp(ec.traffic, 0, 100) + '%' } }));
+        tr.appendChild(h('div', { class: 'eco-trafficbar__target', style: { left: Core.clamp(ec.trafficTarget, 0, 100) + '%' } }));
+        head.appendChild(tr);
+        head.appendChild(h('div', { class: 'eco-leadnote' }, ecoText('金线标记目标；吞吐影响税收、就业与政治支持', 'La linea dorata indica l’obiettivo; il porto incide su entrate, lavoro e consenso')));
+        if (st.series.traffic.length > 1) head.appendChild(Charts.lines([{ values: st.series.traffic, color: '#EBD07A', fill: 'rgba(201,162,39,.14)' }], { height: 86, grid: 2, floor0: true }));
+        return head;
+      })(), ecoMeasureGrid([
+        [T('eco.hinterland'), ec.hinterland, '#6E8B3D'],
+        [T('eco.delta'), ec.delta, '#3E8E7E'],
+        [T('eco.works'), ec.works, '#D8AC63'],
+        [T('eco.recognition'), ec.recognition, '#3C7FA8'],
+        [T('eco.strike'), ec.strike, '#A31621'],
+        [T('eco.confidence'), ec.capitalConfidence, '#C9A227']
+      ])]));
+
+      body.appendChild(h('div', { class: 'eco-sectionhead' }, [
+        h('span', {}, ecoText('人口与就业轨迹', 'Popolazione e lavoro')),
+        h('small', {}, ecoText('随半月结算更新', 'Aggiornamento semimensile'))
+      ]));
+      var trendRow = h('div', { class: 'ecotrends' });
+      [[T('cri.unemp'), st.series.unemployment, '%', '#A31621', 'rgba(163,22,33,.16)'],
+       [T('cri.pop'), st.series.population, '', '#3C7FA8', 'rgba(60,127,168,.16)']].forEach(function (cfg) {
+        var cell = h('div', { class: 'ecotrend' });
+        var last = cfg[1].length ? cfg[1][cfg[1].length - 1] : 0;
+        var prev = cfg[1].length > 1 ? cfg[1][cfg[1].length - 2] : last;
+        var delta = last - prev;
+        /* Label on its own line, figure on the next: the two collided when they
+           shared a baseline (the traffic caption is a long string). */
+        cell.appendChild(h('div', { class: 'ecotrend__k' }, cfg[0]));
+        cell.appendChild(h('div', { class: 'ecotrend__row' }, [
+          h('span', { class: 'ecotrend__v num' }, cfg[2] === '%' ? last.toFixed(1) + '%' : Core.fmt(last)),
+          h('span', { class: 'ecotrend__d num ' + (delta > 0 ? 'up' : delta < 0 ? 'dn' : 'dim2') },
+            (delta > 0 ? '+' : '') + (cfg[2] === '%' ? delta.toFixed(1) : Core.fmt(delta)))
+        ]));
+        if (cfg[1].length > 1) cell.appendChild(Charts.lines([{ values: cfg[1], color: cfg[3], fill: cfg[4] }],
+          { height: 82, grid: 3, floor0: true }));
+        else cell.appendChild(h('div', { class: 'ecotrend__empty' }, ecoText('下次结算后形成趋势', 'La tendenza apparirà al prossimo turno')));
+        trendRow.appendChild(cell);
       });
-      b.appendChild(h('div', { class: 'divider' }, icon('coins', 11)));
-      b.appendChild(field(T('eco.revenue'), Core.fmt(ec.revenue.total) + ' K£', true));
-      b.appendChild(field('　' + T('eco.tax.porto') + ' / ' + T('eco.tax.dogana'), Core.fmt(ec.revenue.porto) + ' / ' + Core.fmt(ec.revenue.dogana)));
-      b.appendChild(field('　' + T('eco.tax.consumo') + ' / ' + T('eco.tax.reddito'), Core.fmt(ec.revenue.consumo) + ' / ' + Core.fmt(ec.revenue.reddito)));
-      b.appendChild(field(T('eco.spending'), Core.fmt(ec.spending.total) + ' K£'));
-      b.appendChild(field('　' + T('eco.legion'), Core.fmt(ec.spending.legion || 0) + ' K£'));
-      b.appendChild(field(T('eco.net'), Core.signed(ec.net, 1) + ' K£', true));
-      b.appendChild(field(T('eco.debt'), Core.fmt(ec.debt) + ' / ' + Core.fmt(ec.arrears) + ' K£'));
-      b.appendChild(field(T('eco.pop'), Core.fmt(ec.population)));
-      b.appendChild(field(T('eco.unemp'), ec.unemployment.toFixed(1) + '% / ' + ec.inflation.toFixed(1) + '%'));
-      col.appendChild(frame('', [banner(T('eco.title'), T('eco.sub')), b]));
+      body.appendChild(trendRow);
+      body.appendChild(h('div', { class: 'eco-sectionhead' }, [
+        h('span', {}, T('eco.blocks.budget')),
+        h('small', {}, ecoText('按当前状态预估', 'Stima sullo stato attuale'))
+      ]));
+      body.appendChild(h('div', { class: 'ecobudgets' }, [
+            ecoBudget(T('eco.revenue'), [
+              [T('eco.tax.porto'), ec.revenue.porto, '#C9A227'],
+              [T('eco.tax.dogana'), ec.revenue.dogana, '#6E8B3D'],
+              [T('eco.tax.consumo'), ec.revenue.consumo, '#A31621'],
+              [T('eco.tax.reddito'), ec.revenue.reddito, '#3C7FA8']
+            ], ec.revenue.total, T('eco.revShort')),
+            ecoBudget(T('eco.spending'), [
+              [T('eco.legion'), ec.spending.legion || 0, '#A31621'],
+              [T('eco.admin'), ec.spending.admin || 0, '#6E8B3D'],
+              [T('eco.police'), ec.spending.police || 0, '#3C7FA8'],
+              [T('eco.relief'), ec.spending.relief || 0, '#D8AC63'],
+              [T('eco.worksS'), ec.spending.works || 0, '#8A6FB0'],
+              [T('eco.debtS'), ec.spending.debt || 0, '#8A2A2A']
+            ], ec.spending.total, T('eco.spShort'))
+      ]));
+      if (ec.arrears > 0) body.appendChild(h('div', { class: 'eco-arrears' }, [
+        h('span', {}, T('eco.arrears')), h('strong', { class: 'num' }, Core.fmt(ec.arrears) + ' K£')
+      ]));
+      body.appendChild(ecoFormulaBook(st, ec));
+      col.appendChild(frame('', [banner(T('eco.title'), T('eco.sub')), body]));
 
       return col;
     }
@@ -503,32 +745,50 @@
       var decks = Sel.decks(st);
       var slots = Sel.slots(st);
 
-      /* Three deck tiles. Clicking one opens its drawable-card picker. */
+      /* Three deck tiles. Clicking one draws straight into a free slot.
+         In the ordinary difficulties that is a random draw (the tile IS the
+         draw); sandbox keeps the picker, so there the tile still opens the list. */
       var tiles = h('div', { class: 'decks' });
       decks.forEach(function (d) {
+        var picks = d.mode === 'pick';
         tiles.appendChild(h('button', {
           class: 'deck' + (d.drawable ? '' : ' is-off'),
           disabled: !d.drawable,
           style: { borderColor: d.drawable ? d.color : 'rgba(201,162,39,.18)' },
-          onclick: function () { act.openDeck(d.id); }
+          title: picks ? T('deck.pickHint') : T('deck.drawHint'),
+          onclick: function () {
+            if (picks) act.openDeck(d.id); else act.drawRandom(d.id);
+          }
         }, [
           h('div', { class: 'deck__ic' }, icon(d.icon, 22)),
           h('div', { class: 'deck__b' }, [
             h('div', { class: 'deck__n', style: { color: d.drawable ? 'var(--gold-pale)' : 'rgba(233,220,188,.4)' } }, d.zh),
-            h('div', { class: 'deck__s' }, d.drawable ? T('deck.draw') + ' · ' + d.available : (d.available ? T('deck.full') : T('deck.none')))
+            h('div', { class: 'deck__s' }, d.drawable
+              ? (picks ? T('deck.pickShort') : T('deck.draw')) + ' · ' + d.available
+              : (d.available ? T('deck.full') : T('deck.none')))
           ])
         ]));
       });
 
-      /* Reserved slots: empty ones are placeholders, filled ones hold a card. */
+      /* Reserved slots. ALL of them are drawn, empty ones included: the row is a
+         fixed set of slots, so the player can see how much room is left and where
+         a card will land. Empty slots used to be skipped, which left the row
+         either blank or short and hid the hand limit entirely. */
       var slotRow = h('div', { class: 'slots' });
       slots.forEach(function (sl) {
-        if (sl.empty) return;
+        if (sl.empty) {
+          /* `slot--empty` is the existing style for an unfilled slot (dashed
+             inner rule, dim border); only the label is new. */
+          slotRow.appendChild(h('div', { class: 'slot slot--empty' }, [
+            h('div', { class: 'slot__deck' }, T('deck.slot', { n: sl.index + 1 })),
+            h('div', { class: 'slot__ph' }, T('deck.empty'))
+          ]));
+          return;
+        }
         var card = sl.card;
         var c = h('div', { class: 'slot slot--full card--' + card.deck });
         c.appendChild(h('div', { class: 'slot__deck' }, T('az.deck.' + card.deck).toUpperCase()));
         c.appendChild(h('div', { class: 'slot__n' }, Core.L(card.name)));
-        if (card.subtitle) c.appendChild(h('div', { class: 'slot__sub' }, Core.L(card.subtitle)));
         c.appendChild(h('div', { class: 'slot__t' }, Core.L(card.text)));
         var cost = h('div', { class: 'slot__cost' });
         cost.appendChild(h('span', {}, T('az.cost.ap', { n: (card.cost || {}).ap || 0 })));
@@ -546,8 +806,10 @@
         ]));
         slotRow.appendChild(c);
       });
+      /* The row now always holds handLimit slots, so this branch only shows when
+         the limit itself is zero. Kept as a guard. */
       if (!slotRow.childNodes.length) slotRow.appendChild(h('div', { class: 'empty' },
-        '手牌为空。选择上方牌堆抽取本周可用的行动。'));
+        '手牌为空。选择上方牌堆抽取本回合可用的行动。'));
 
       return h('div', { class: 'col' }, [
         frame('', [
@@ -583,7 +845,7 @@
       if (cr.milizia < 500 && !st.flags.natale_done) alerts.push(['bad', '军团兵力仅 ' + Core.fmt(cr.milizia) + '：不足以守住省督府。']);
       var active = Sel.journals(st).filter(function (j) { return j.active; });
       if (active.length) alerts.push(['info', '进行中的日志：' + active.map(function (j) { return j.zh; }).join('、')]);
-      if (!alerts.length) alerts.push(['ok', '本周没有紧急警报。']);
+      if (!alerts.length) alerts.push(['ok', '本回合没有紧急警报。']);
 
       var grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '8px' } });
       [['港口吞吐', ec.traffic.toFixed(1), '目标 ' + ec.trafficTarget.toFixed(1), '#EBD07A'],
@@ -608,7 +870,9 @@
     }
 
     /* The option's second line: its subtitle in the active language, falling
-       back to the Italian of the option text when no subtitle is written. */
+       back to the Italian of the option text when no subtitle is written.
+       Returns a plain string so callers can place it inline, the way the event
+       modal does; an empty string means there is nothing to show. */
     function optionLine(o) {
       if (o.subtitle) return Core.L(o.subtitle);
       return Core.sub(o.text);
@@ -619,40 +883,135 @@
        A matrix of how each party regards each other. Warm cells are parties
        that can be worked with; cold ones are the ones that will not.
        ============================================================ */
+    /* ============================================================
+       Party relations
+       A chord diagram of how the parties stand to one another: the ring is
+       each party's electoral weight, the cords are their feelings. An
+       alliance is a silk band that widens with warmth; a feud is a hatched
+       crimson thread. The exact numbers stay available in the fold below,
+       because a diagram should not be the only copy of the arithmetic.
+       ============================================================ */
     function relationsPanel(st) {
       var rel = Sel.relations(st);
-      var CAMP = { annessione: '兼并', autonomia: '自治', cattolico: '天主教', classe: '阶级' };
-      var grid = h('div', {
-        class: 'relmat',
-        style: { gridTemplateColumns: '104px repeat(' + rel.cols.length + ', minmax(52px, 1fr))' }
+      var sup = Sel.support(st).national;
+      var byId = {};
+      sup.forEach(function (p) { byId[p.id] = p.value; });
+
+      var parties = rel.rows.map(function (r) {
+        return { id: r.id, zh: r.zh, short: r.short, color: r.color, camp: r.camp,
+          weight: Math.max(4, byId[r.id] || 0) };
+      });
+      var lookup = {};
+      rel.rows.forEach(function (r) {
+        r.cells.forEach(function (c) { lookup[r.id + '|' + c.id] = c.v; });
       });
 
-      grid.appendChild(h('div', { class: 'relmat__h relmat__h--l' }, '党际关系'));
-      rel.cols.forEach(function (b) {
-        grid.appendChild(h('div', {
-          class: 'relmat__h', style: { color: b.color }, title: b.zh + ' · ' + (CAMP[b.camp] || '')
-        }, b.short));
-      });
-      rel.rows.forEach(function (row) {
-        grid.appendChild(h('div', {
-          class: 'relmat__l' + (row.player ? ' is-player' : ''), title: row.zh
-        }, [
-          h('span', { class: 'relmat__dot', style: { background: row.color } }),
-          h('span', {}, row.short)
-        ]));
-        row.cells.forEach(function (cell) {
-          grid.appendChild(h('div', {
-            class: 'relmat__c is-' + cell.tone,
-            title: row.zh + ' → ' + W.PARTY_BY_ID[cell.id].zh + '  ' + cell.v.toFixed(1)
-          }, (cell.v > 0 ? '+' : '') + cell.v.toFixed(0)));
-        });
+      var chart = Charts.chord({
+        parties: parties,
+        value: function (a, b) {
+          var v = lookup[a + '|' + b];
+          if (v == null) v = lookup[b + '|' + a];
+          return v == null ? 0 : v;
+        }
       });
 
-      var legend = h('div', { class: 'tiny dim2', style: { marginTop: '8px' } },
-        '暖色 = 可以合作；冷色 = 不会。数值由「是否同属一个选举阵营」与「在法条上是否同向投票」推导，' +
-        '每月向基准回摆；同处内阁会把它推高。当前内阁平均互信 ' + rel.regard.toFixed(1) + '。');
+      /* The plate's own title, set the way a printed map is headed. */
+      var head = h('div', { class: 'chordhead' }, [
+        h('div', { class: 'chordhead__t' }, 'FIUME · MCMXIX'),
+        h('div', { class: 'chordhead__s' }, '阜姆 · 各党派关系弦图'),
+        h('div', { class: 'chordhead__r' }, [h('i', {}), h('b', {}), h('i', {})])
+      ]);
 
-      return frame('', [banner('党际关系', 'RAPPORTI FRA PARTITI'), grid, legend]);
+      /* Share of the electorate — the length of each arc. It lives in the rail
+         because it is party reference data of the same kind as the emblems
+         above it, and because the plate below is then a clean square that can
+         be sized to meet the rail without a ragged caption under it. */
+      var caption = h('div', { class: 'chordrail__sec' }, [
+        h('div', { class: 'chordrail__sh' }, [
+          h('span', { class: 'chordrail__ht' }, '各党支持度'),
+          h('span', { class: 'chordrail__hs' }, 'CONSENSO')
+        ])
+      ].concat(parties.map(function (p) {
+        return h('div', { class: 'chordrail__s', title: p.zh }, [
+          h('i', { class: 'chordrail__ssw', style: { background: p.color } }),
+          h('span', { class: 'chordrail__sk' }, p.short),
+          h('span', { class: 'chordrail__sn2' }, p.zh),
+          h('span', { class: 'chordrail__sv' }, p.weight.toFixed(1) + '%')
+        ]);
+      })));
+
+      /* One bar, read left to right: cold to warm. */
+      var scale = h('div', { class: 'chordkey' }, [
+        h('span', { class: 'chordkey__e' }, '对立'),
+        h('i', { class: 'chordkey__scale' }, [h('b'), h('b'), h('b')]),
+        h('span', { class: 'chordkey__e' }, '亲近'),
+        h('span', { class: 'chordkey__i' },
+          h('span', {}, '丝带越宽、越绿，关系越好；越窄、越红，关系越差'))
+      ]);
+
+      var note = h('div', { class: 'tiny dim2', style: { marginTop: '8px' } },
+        '各党关系的基准是写定的史实立场，不随法条投票或选举阵营变动。每回合向基准回摆；同处内阁会把它推高。');
+
+      /* ---- the player's own row, stood up beside the plate ----
+         The old numeric grid was six rows by five, and every cell outside the
+         player's own row was the mirror of one inside it. What the player
+         actually asks is "how does each of them stand with me", so that single
+         row is what survives, sorted best-first. Width and colour come from
+         the same two functions the plate uses.
+
+         The party emblems live here too: they were drawn for the start screen
+         only, which shows the playable parties, so the two the player cannot
+         pick had nowhere to appear at all. */
+      var mine = rel.rows.filter(function (r) { return r.player; })[0];
+      var myName = mine ? mine.zh : '';
+      var rail = h('div', { class: 'chordrail' }, [
+        h('div', { class: 'chordrail__h' }, [
+          h('span', { class: 'chordrail__ht' }, '与' + myName + '的关系'),
+          h('span', { class: 'chordrail__hs' }, 'RAPPORTI')
+        ])
+      ].concat(
+        (mine ? mine.cells.slice() : []).sort(function (a, b) { return b.v - a.v; })
+          .map(function (c) {
+            var p = W.PARTY_BY_ID[c.id] || { zh: c.id, short: c.id, color: '#888' };
+            var col = Charts.warmthColor(c.v);
+            var badge = p.emblem
+              ? h('img', { class: 'chordrail__em', src: p.emblem, alt: '' })
+              : h('span', { class: 'chordrail__em chordrail__em--flat', style: { background: p.color } });
+            return h('div', { class: 'chordrail__r', title: myName + ' ↔ ' + p.zh + '：' + c.v.toFixed(1) }, [
+              h('i', { class: 'chordrail__fill',
+                style: { width: Core.round1(Charts.warmth(c.v) * 100) + '%', background: col } }),
+              badge,
+              h('span', { class: 'chordrail__tx' }, [
+                h('span', { class: 'chordrail__n' }, p.zh),
+                h('span', { class: 'chordrail__k' }, p.short)
+              ]),
+              h('span', { class: 'chordrail__v', style: { color: col } },
+                (c.v > 0 ? '+' : '') + c.v.toFixed(0))
+            ]);
+          })
+      ).concat([
+        /* The scale explains the ribbons and the bars alike, so it belongs with
+           the thing that uses both readings. */
+        h('div', { class: 'chordrail__f' }, [
+          h('div', { class: 'chordrail__sc' }, [
+            h('span', { class: 'chordkey__e' }, '对立'),
+            h('i', { class: 'chordkey__scale' }, [h('b'), h('b'), h('b')]),
+            h('span', { class: 'chordkey__e' }, '亲近')
+          ]),
+          h('div', { class: 'chordrail__sn' }, '越宽、越绿，关系越好；越窄、越红，关系越差')
+        ]),
+        caption
+      ]));
+
+      // The plate is a clean square now, so it can simply be told how tall to
+      // be; the rail stretches to whatever the row ends up measuring.
+      var plate = h('div', { class: 'chordbody' }, [chart]);
+
+      return frame('', [
+        head,
+        h('div', { class: 'chordrow' }, [rail, plate]),
+        note
+      ]);
     }
 
     function tabAssemblea(st) {
@@ -720,6 +1079,7 @@
 
     function tabDiplomazia(st, act) {
       var d = Sel.diplo(st);
+      var forces = Sel.forze(st);
       var col = h('div', { class: 'col' });
       var b = h('div', { style: { padding: '9px 11px' } });
       d.list.forEach(function (a) {
@@ -731,7 +1091,28 @@
         row.appendChild(h('div', { class: 'num', style: { width: '34px', textAlign: 'right', fontSize: '12px' } }, String(Math.round(a.value))));
         b.appendChild(row);
       });
-      col.appendChild(frame('', [banner(T('dip.title'), T('dip.sub')), b]));
+      var fb = h('div', { class: 'forze-relations' });
+      fb.appendChild(h('div', { class: 'forze-relations__summary' },
+        '进军罗马：六派中已达标 ' + forces.alliedCount + ' / ' + W.FORZA_FRONT_NEEDED + '（关系 ≥ 80）'));
+      forces.front.forEach(function (f) {
+        var color = f.atGate ? '#7BA05B' : f.consolidating ? '#C9A227' : f.color;
+        fb.appendChild(h('div', { class: 'forze-relation', title: f.note }, [
+          h('div', { class: 'forze-relation__head' }, [
+            h('span', { class: 'forze-relation__name' }, f.zh),
+            h('strong', { class: 'num', style: { color: color } }, f.value.toFixed(0))
+          ]),
+          h('div', { class: 'bar forze-relation__bar' },
+            h('div', { class: 'bar__fill', style: { width: Core.clamp(f.value, 0, 100) + '%', background: color } }))
+        ]));
+      });
+      if (!W.forzaExists(st, 'comunisti')) fb.appendChild(h('div', { class: 'tiny dim2' },
+        '意大利共产党尚未成立，成立后才计入六派关系。'));
+      if (forces.officer) fb.appendChild(h('div', { class: 'forze-relations__officer' },
+        '军官团默契 ' + forces.officer.value.toFixed(0) + ' / 60 · 进军罗马的独立条件'));
+      col.appendChild(h('div', { class: 'diplo-relations-grid' }, [
+        frame('', [banner(T('dip.title'), T('dip.sub')), b]),
+        frame('', [banner('与意大利力量的关系', '进军罗马 · 全国盟友'), fb])
+      ]));
 
       var pb = h('div', { style: { padding: '9px 11px' } });
       var grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: '7px' } });
@@ -752,34 +1133,190 @@
       return col;
     }
 
-    function tabLeggi(st) {
-      var laws = Sel.laws(st);
-      var b = h('div', { class: 'laws-list' });
-      b.appendChild(h('div', { class: 'small dim', style: { marginBottom: '12px' } },
-        '法律通过政府卡和事件改变。展开条目可查看现行内容与各党立场。'));
-      laws.forEach(function (L) {
-        var row = h('details', { class: 'law-entry' });
-        row.appendChild(h('summary', { class: 'law-entry__summary' }, [
-          h('span', { class: 'law-entry__title' }, [h('strong', {}, L.zh), h('em', {}, L.it)]),
-          h('span', { class: 'chip' + (L.level >= L.max ? ' chip--gold' : '') }, T('leg.level', { a: L.level, b: L.max }))
-        ]));
-        var content = h('div', { class: 'law-entry__content' });
-        content.appendChild(bar(L.level, L.max, 'var(--gold)'));
-        content.appendChild(h('div', { class: 'small' }, L.label));
-        var stances = h('div', { class: 'row', style: { gap: '6px', flexWrap: 'wrap', marginTop: '5px' } });
-        L.stances.forEach(function (s) {
-          stances.appendChild(h('span', {
-            class: 'chip', title: s.label.zh,
-            html: '<span class="swatch" style="background:' + s.color + '"></span> ' + s.zh + ' ' + Core.signed(s.value)
-          }));
-        });
-        content.appendChild(stances);
-        row.appendChild(content);
-        b.appendChild(row);
+    function lawSteps(L) {
+      var steps = h('span', { class: 'law-tile__steps', 'aria-hidden': 'true' });
+      L.levels.forEach(function (_, n) {
+        steps.appendChild(h('span', { class: 'law-tile__step' +
+          (n < L.level ? ' is-lower' : n === L.level ? ' is-current' : '') }));
       });
-      b.appendChild(h('div', { class: 'tiny dim2 mt10' },
-        T('leg.note')));
+      return steps;
+    }
+
+    function lawDossier(L, act, charterProgrammed) {
+      var dossier = h('section', { class: 'law-dossier', id: 'law-dossier', tabindex: '-1',
+        'aria-label': L.zh + ' · ' + T('leg.allLevels') });
+      dossier.appendChild(h('div', { class: 'law-dossier__head' }, [
+        h('div', { class: 'law-dossier__name' }, [
+          h('span', { class: 'law-dossier__eyebrow' }, T('leg.dossier')),
+          h('h2', {}, L.zh), h('span', { class: 'law-dossier__it' }, L.it)
+        ]),
+        h('div', { class: 'law-dossier__seal' }, [
+          h('strong', {}, String(L.level)), h('span', {}, '/ ' + L.max)
+        ])
+      ]));
+      dossier.appendChild(h('div', { class: 'law-dossier__current' }, [
+        h('span', {}, T('leg.inForce')),
+        h('strong', {}, L.label)
+      ]));
+      if (charterProgrammed && L.charterTarget != null) dossier.appendChild(h('div', { class: 'law-dossier__charter' },
+        T('leg.charterTarget', { n: L.charterTarget }) + ' · ' +
+        (L.level >= L.charterTarget ? T('leg.met') : T('leg.pending'))));
+      if (L.effect) dossier.appendChild(h('aside', { class: 'law-dossier__effect' }, [
+        h('span', { class: 'law-dossier__effect-label' }, T('leg.effect')),
+        h('p', {}, Core.L(L.effect))
+      ]));
+      var course = h('ol', { class: 'law-course', 'aria-label': T('leg.allLevels') });
+      L.levels.forEach(function (label, n) {
+        var status = n < L.level ? 'lower' : n === L.level ? 'current' : 'future';
+        course.appendChild(h('li', { class: 'law-course__item law-course__item--' + status }, [
+          h('span', { class: 'law-course__number', 'aria-hidden': 'true' }, String(n).padStart(2, '0')),
+          h('span', { class: 'law-course__copy' }, [
+            h('span', { class: 'law-course__label' }, label),
+            h('span', { class: 'law-course__status' },
+              n === L.level ? T('leg.inForce') : n < L.level ? T('leg.lower') :
+                n === L.level + 1 ? T('leg.next') : T('leg.future'))
+          ])
+        ]));
+      });
+      dossier.appendChild(course);
+
+      dossier.appendChild(h('div', { class: 'law-dossier__foot' }, [
+        h('span', {}, T('leg.route') + ' · ' + (L.source ? Core.L(L.source) : T('leg.how'))),
+        h('button', { class: 'law-dossier__action', type: 'button', onclick: function () { act.setTab('azioni'); } },
+          T('leg.toActions') + ' →')
+      ]));
+      return dossier;
+    }
+
+    function tabLeggi(st, ui, act) {
+      var laws = Sel.laws(st);
+      var charter = Sel.charter(st);
+      var focused = laws.filter(function (L) { return L.id === ui.lawFocus; })[0] || laws[0];
+      var advanced = laws.filter(function (L) { return L.level > 0; }).length;
+      var complete = laws.filter(function (L) { return L.level === L.max; }).length;
+      var b = h('div', { class: 'laws-atlas' });
+      b.appendChild(h('div', { class: 'laws-atlas__intro' }, [
+        h('div', {}, [
+          h('div', { class: 'laws-atlas__eyebrow' }, T('leg.atlas')),
+          h('p', {}, T('leg.intro'))
+        ]),
+        h('div', { class: 'laws-atlas__stats' }, [
+          h('div', {}, [h('strong', {}, String(laws.length)), h('span', {}, T('leg.laws'))]),
+          h('div', {}, [h('strong', {}, String(advanced)), h('span', {}, T('leg.advanced'))]),
+          h('div', {}, [h('strong', {}, String(complete)), h('span', {}, T('leg.complete'))])
+        ])
+      ]));
+      var charterBoard = h('section', { class: 'charter-board', 'aria-label': T('leg.charter') });
+      charterBoard.appendChild(h('div', { class: 'charter-board__head' }, [
+        h('div', {}, [
+          h('span', { class: 'charter-board__eyebrow' }, 'DE AMBRIS · CARTA DEL CARNARO'),
+          h('h2', {}, T('leg.charter')),
+          h('p', {}, T('leg.charterIntro'))
+        ]),
+        h('div', { class: 'charter-board__progress' }, [
+          h('strong', {}, (charter.programmed ? charter.met : '—') + ' / ' + charter.total),
+          h('span', {}, T('leg.requirementsMet'))
+        ])
+      ]));
+      var stageRow = h('ol', { class: 'charter-board__stages' });
+      [[T('leg.stageDraft'), charter.drafted], [T('leg.stageProgram'), charter.programmed],
+        [T('leg.stagePromulgate'), charter.promulgated], [T('leg.stageArengo'), charter.arengo],
+        [T('leg.stageComplete'), charter.done]].forEach(function (stage, index) {
+        stageRow.appendChild(h('li', { class: 'charter-board__stage' + (stage[1] ? ' is-done' : '') }, [
+          h('span', { class: 'charter-board__stage-number' }, String(index + 1).padStart(2, '0')),
+          h('span', {}, stage[0])
+        ]));
+      });
+      charterBoard.appendChild(stageRow);
+      charterBoard.appendChild(h('div', { class: 'charter-board__caption' },
+        charter.programmed ? T('leg.charterGoals') : T('leg.charterLocked')));
+      var reqGrid = h('div', { class: 'charter-board__requirements' });
+      if (charter.programmed) charter.requirements.forEach(function (r) {
+        reqGrid.appendChild(h('button', { type: 'button',
+          class: 'charter-board__requirement' + (r.met ? ' is-met' : ''),
+          onclick: function () {
+            act.setLawFocus(r.id);
+            requestAnimationFrame(function () {
+              var panel = document.getElementById('law-dossier');
+              if (panel) panel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' });
+            });
+          }
+        }, [
+          h('span', { class: 'charter-board__check', 'aria-hidden': 'true' }, r.met ? '◆' : '◇'),
+          h('span', {}, r.zh),
+          h('strong', {}, r.current + ' / ' + r.level)
+        ]));
+      });
+      charterBoard.appendChild(reqGrid);
+      b.appendChild(charterBoard);
+      var chapters = [
+        { number: 'I', zh: T('leg.chapterCivic'), it: 'CITTADINI E LIBERTÀ',
+          ids: ['elettorale', 'cittadinanza', 'lingua', 'stampa', 'scuola'] },
+        { number: 'II', zh: T('leg.chapterLabour'), it: 'IL LAVORO',
+          ids: ['orario', 'lavoro'] },
+        { number: 'III', zh: T('leg.chapterState'), it: 'LA CITTÀ E IL PORTO',
+          ids: ['ordine', 'portofranco', 'dogana', 'fisco'] }
+      ];
+      chapters.forEach(function (chapter) {
+        var folio = h('section', { class: 'law-chapter', 'aria-label': chapter.zh });
+        folio.appendChild(h('div', { class: 'law-chapter__heading' }, [
+          h('span', { class: 'law-chapter__roman', 'aria-hidden': 'true' }, chapter.number),
+          h('div', {}, [h('span', { class: 'law-chapter__it' }, chapter.it), h('h3', {}, chapter.zh)]),
+          h('span', { class: 'law-chapter__count' }, String(chapter.ids.length).padStart(2, '0') + ' / ' + String(laws.length).padStart(2, '0'))
+        ]));
+        var grid = h('div', { class: 'laws-atlas__grid', 'aria-label': T('leg.select') });
+        chapter.ids.forEach(function (id) {
+          var L = laws.filter(function (entry) { return entry.id === id; })[0];
+          if (!L) return;
+          var index = laws.indexOf(L);
+          grid.appendChild(h('button', {
+          class: 'law-tile' + (focused.id === L.id ? ' is-selected' : ''), type: 'button',
+          'aria-pressed': focused.id === L.id ? 'true' : 'false', 'aria-controls': 'law-dossier',
+          onclick: function () {
+            act.setLawFocus(L.id);
+            requestAnimationFrame(function () {
+              var panel = document.getElementById('law-dossier');
+              if (panel) panel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' });
+            });
+          }
+        }, [
+          h('span', { class: 'law-tile__top' }, [
+            h('span', { class: 'law-tile__index' }, String(index + 1).padStart(2, '0')),
+            h('span', { class: 'law-tile__level' }, L.level + ' / ' + L.max)
+          ]),
+          h('strong', { class: 'law-tile__name' }, L.zh),
+          h('span', { class: 'law-tile__current' }, L.label),
+          L.charterTarget != null ? h('span', { class: 'law-tile__target' +
+            (charter.programmed && L.level >= L.charterTarget ? ' is-met' : '') },
+            charter.programmed ? T('leg.charterTarget', { n: L.charterTarget }) : T('leg.awaitProgram')) :
+            h('span', { class: 'law-tile__independent' }, T('leg.independent')),
+          lawSteps(L)
+          ]));
+        });
+        folio.appendChild(grid);
+        b.appendChild(folio);
+      });
+      b.appendChild(lawDossier(focused, act, charter.programmed));
       return h('div', { class: 'col' }, [frame('', [banner(T('leg.title'), T('leg.sub')), b])]);
+    }
+
+    /* One labelled gauge block, used twice: the two crises are the same shape but
+       different pressures, so they read identically and are told apart by title
+       and colour. */
+    function crisisGauge(parent, title, value, color, defs, passed, series, guide) {
+      parent.appendChild(h('div', { class: 'small', style: { marginBottom: '3px', letterSpacing: '.06em' } }, title));
+      parent.appendChild(Charts.barRow('', null, value, 140, color));
+      defs.forEach(function (m) {
+        var has = passed.indexOf(m.id) >= 0;
+        parent.appendChild(h('div', { class: 'kv' }, [
+          h('span', { class: 'kv__k' + (has ? '' : ' dim2') }, (has ? '◆ ' : '◇ ') + m.at + ' — ' + m.zh),
+          h('span', { class: 'kv__v ' + (has ? '' : 'dim2') }, has ? '已过' : '未至')
+        ]));
+      });
+      if (series && series.length > 1) {
+        parent.appendChild(Charts.sparkline(series,
+          { color: color, fillColor: 'rgba(163,22,33,.18)', guide: guide || 100, min: 0, max: 120, height: 44 }));
+      }
     }
 
     function tabCrisi(st) {
@@ -788,46 +1325,40 @@
       var b = h('div', { style: { padding: '9px 11px' } });
       [['摄政权威', cr.authority, '#3C7FA8'], ['意大利军队立场', cr.garrison, '#6B4E9E'],
        ['民众热忱', cr.fervour, '#A31621'], ['法西斯暴力', cr.squadre, '#2B2B33'],
-       ['政治暴力', cr.violence, '#8A2A2A'], ['事态累积', cr.coup, '#C9A227']].forEach(function (r) {
+       ['政治暴力', cr.violence, '#8A2A2A']].forEach(function (r) {
         b.appendChild(Charts.barRow(r[0], null, r[1], 100, r[2]));
       });
       b.appendChild(h('details', { class: 'formula-details' }, [
-        h('summary', {}, '查看事态计算方式'),
+        h('summary', {}, '查看两条危机的计算方式'),
+        h('div', { class: 'small', style: { marginTop: '6px' } }, '紧张度 T（四条量表 → 围攻）'),
         h('div', { class: 'mono small' }, 'T = clamp[0,100]( 0.30×(100−权威) + 0.25×(100−驻军) + 0.20×热忱 + 0.25×法西斯暴力 )'),
-        h('div', { class: 'mono small' }, 'Δ事态 = clamp[−14,45]( 0.18×T + 0.12×(100−驻军) − 0.05×权威 + 4 − 修正 )')
+        h('div', { class: 'small', style: { marginTop: '6px' } }, '围攻 Δ事态（罗马的耐心）'),
+        h('div', { class: 'mono small' }, 'Δ = clamp[−7, 22.5]( 0.09×T + 0.06×(100−驻军) − 0.025×权威 + 15 − 三项修正 )'),
+        h('div', { class: 'small', style: { marginTop: '6px' } }, '阴谋 Δ（法西斯的占领）'),
+        h('div', { class: 'mono small' }, 'Δ = clamp[−6, 20]( −6 + 0.30×法西斯小队 + 0.35×max(0,暴力−25) + 0.50×max(0,法西斯派影响力−15) − 0.04×军团民意 )'),
+        h('div', { class: 'tiny dim2', style: { marginTop: '6px' } },
+          '两条轴互相独立：罗马的军队与墨索里尼的小队不是同一件事。')
       ]));
-      b.appendChild(h('div', { class: 'divider' }, icon('arrow', 11)));
-      b.appendChild(h('div', { class: 'small', style: { marginBottom: '5px' } }, '里程碑'));
-      cr.milestoneDefs.forEach(function (m) {
-        var has = cr.milestones.indexOf(m.id) >= 0;
-        b.appendChild(h('div', { class: 'kv' }, [
-          h('span', { class: 'kv__k' + (has ? '' : ' dim2') }, (has ? '◆ ' : '◇ ') + m.at + ' — ' + m.zh),
-          h('span', { class: 'kv__v ' + (has ? '' : 'dim2') }, has ? '已过' : '未至')
-        ]));
-      });
-      b.appendChild(h('div', { class: 'divider' }, icon('star', 11)));
-      b.appendChild(h('div', { class: 'small', style: { marginBottom: '4px' } }, '事态累积趋势'));
-      if (st.series.coup.length > 1) b.appendChild(Charts.sparkline(st.series.coup,
-        { color: '#E8A9A2', fillColor: 'rgba(163,22,33,.2)', guide: 100, min: 0, max: 120, height: 56 }));
+
+      var crisisPair = h('div', { class: 'crisis-pair' });
+      var siegePanel = h('div', { class: 'crisis-axis' });
+      var plotPanel = h('div', { class: 'crisis-axis' });
+      crisisGauge(siegePanel, '围攻 · 罗马的耐心', cr.coup, '#C9A227',
+        cr.milestoneDefs, cr.milestones, st.series.coup, 100);
+      crisisGauge(plotPanel, '阴谋 · 法西斯的占领', cr.subversion, '#8A2A2A',
+        cr.subversionDefs, cr.subversionMilestones, (st.series || {}).subversion, 100);
+      crisisPair.appendChild(siegePanel);
+      crisisPair.appendChild(plotPanel);
+      b.appendChild(crisisPair);
       col.appendChild(frame('', [banner(T('cri.title'), T('cri.sub')), b]));
 
       var ob = h('div', { style: { padding: '9px 11px' } });
-      [['阜姆军团', cr.milizia, '#C9A227', 6000], ['公民卫队', cr.civicGuard, '#2E7D45', 1600],
-       ['市警', cr.police, '#3C7FA8', 400], ['皇家宪兵（意大利）', cr.carabinieri, '#8A7A5A', 400],
-       ['意大利驻军', cr.garrisonTroops, '#6B4E9E', 20000], ['法西斯小队（估计）', Math.round(cr.squadre * 14), '#2B2B33', 1600]
+      [['阜姆军团', cr.milizia, '#C9A227', 6000],
+       ['市警（编制估计）', cr.police, '#3C7FA8', 400], ['皇家宪兵（意大利）', cr.carabinieri, '#8A7A5A', 400],
+       ['法西斯小队（估计）', Math.round(cr.squadre * 14), '#2B2B33', 1600]
       ].forEach(function (r) { ob.appendChild(Charts.barRow(r[0], null, r[1], r[3], r[2])); });
-      ob.appendChild(h('div', { class: 'divider' }, icon('milizia', 11)));
-      ob.appendChild(h('div', { class: 'small', style: { marginBottom: '4px' } }, '工业与外交'));
-      ob.appendChild(Charts.barRow('工业生产', null, cr.produzione, 100, '#D8AC63'));
-      ob.appendChild(Charts.barRow('外交压力', null, cr.pressione, 100, '#A31621'));
       col.appendChild(frame('', [banner(T('cri.forze'), T('cri.forze.sub')), ob]));
 
-      var hb = h('div', { style: { padding: '9px 11px' } });
-      hb.appendChild(h('div', { class: 'tiny dim', style: { marginBottom: '4px' } }, '失业率'));
-      hb.appendChild(Charts.sparkline(st.series.unemployment, { color: '#E8A9A2', fillColor: 'rgba(163,22,33,.16)', guide: 12, max: 45, height: 46 }));
-      hb.appendChild(h('div', { class: 'tiny dim mt10', style: { marginBottom: '4px' } }, '人口'));
-      hb.appendChild(Charts.sparkline(st.series.population, { color: '#B9D69B', fillColor: 'rgba(123,160,91,.16)', height: 46 }));
-      col.appendChild(frame('', [banner(T('cri.tend'), T('cri.tl')), hb]));
       return col;
     }
 
@@ -1044,7 +1575,7 @@
       else if (ui.tab === 'azioni') center.appendChild(tabAzioni(st, act));
       else if (ui.tab === 'assemblea') center.appendChild(tabAssemblea(st));
       else if (ui.tab === 'diplomazia') center.appendChild(tabDiplomazia(st, act));
-      else if (ui.tab === 'leggi') center.appendChild(tabLeggi(st));
+      else if (ui.tab === 'leggi') center.appendChild(tabLeggi(st, ui, act));
       else if (ui.tab === 'crisi') center.appendChild(tabCrisi(st));
       else center.appendChild(tabPopolazione(st));
       board.appendChild(center);
@@ -1091,16 +1622,26 @@
       var setup = h('div', { class: 'start-setup' });
       var force = h('div', { class: 'start-force' });
       var forceChoices = h('div', { class: 'start-force__choices' });
-      W.PARTIES.filter(function (party) { return party.player; }).forEach(function (party) {
+      /* The roster shows the Legion plus the forces that are modelled as playable
+         but not yet open (they carry a `lockedNote`). Parties that exist only as
+         AI actors in the simulation are not offered at all — showing five locked
+         buttons would turn the choice into a wall of grey. */
+      W.PARTIES.filter(function (party) { return !!party.player || !!party.lockedNote; }).forEach(function (party) {
+        var open = !!party.player;
+        var label = open ? party.zh
+          : party.zh + (party.lockedNote ? ' · ' + Core.L(party.lockedNote) : '');
         forceChoices.appendChild(h('button', {
-          class: 'start-force__pick' + (ui.force === party.id ? ' is-on' : ''),
+          class: 'start-force__pick' + (ui.force === party.id ? ' is-on' : '')
+            + (open ? '' : ' is-locked'),
           type: 'button',
+          disabled: !open,
+          title: open ? null : Core.L(party.lockedNote || { zh: '尚未开放' }),
           'aria-pressed': ui.force === party.id ? 'true' : 'false',
           onclick: function () { act.setForce(party.id); }
         }, [
           h('span', { class: 'start-force__emblem-slot' },
             h('img', { class: 'start-force__emblem', src: party.emblem, alt: '' })),
-          h('span', { class: 'start-force__name' }, party.zh),
+          h('span', { class: 'start-force__name' }, label),
           h('span', { class: 'start-force__short' }, party.short)
         ]));
       });
@@ -1218,8 +1759,9 @@
        ============================================================ */
     /* ============================================================
        Deck picker
-       Clicking a deck tile opens this list; picking a card fills a free
-       reserved slot. Mirrors the cnt-fai DeckView -> choice menu flow.
+       SANDBOX ONLY. In the ordinary difficulties clicking a deck tile draws a
+       random card straight into a free slot (DRAW_RANDOM) and this modal never
+       opens. Here the tile opens the list and picking a card fills a slot.
        ============================================================ */
     V.deckModal = function (st, ui, act) {
       var decks = Sel.decks(st);
@@ -1231,6 +1773,19 @@
 
       if (!d.cards.length) {
         bd.appendChild(h('div', { class: 'evboard__empty' }, T('deck.none')));
+      } else if (d.mode === 'random') {
+        /* The ordinary rule: the deck is a draw, not a shop. The player chooses
+           WHICH DECK to draw from and then learns what came up. Sandbox keeps the
+           full list below. */
+        bd.appendChild(h('div', { class: 'deckdraw' }, [
+          h('div', { class: 'deckdraw__n' },
+            d.zh + ' · ' + T('deck.available', { n: d.available })),
+          h('div', { class: 'deckdraw__t' }, T('deck.randomNote')),
+          h('button', {
+            class: 'btn btn--gold', style: { marginTop: '10px' },
+            onclick: function () { act.drawRandom(d.id); }
+          }, T('deck.drawOne'))
+        ]));
       } else {
         var list = h('div', { class: 'decklist' });
         d.cards.forEach(function (c) {
@@ -1273,12 +1828,13 @@
         cost.map(function (x) { return h('span', { class: 'chip' }, x); })));
 
       vm.options.forEach(function (o) {
-        var opt = h('button', {
-          class: 'opt', disabled: !o.enabled,
+        var btn = h('button', {
+          class: 'opt opt--card', disabled: !o.enabled,
           onclick: function () { act.resolveCardOption(o.id); }
         }, [
           h('div', { class: 'opt__h' }, [
-            h('span', { class: 'opt__n' }, Core.L(o.text))
+            h('span', { class: 'opt__n' }, Core.L(o.text)),
+            optionLine(o) ? h('span', { class: 'opt__i' }, optionLine(o)) : null
           ]),
           (o.preview && o.preview.length)
             ? h('div', { class: 'opt__p' }, o.preview.map(function (pv) {
@@ -1288,12 +1844,14 @@
             : null,
           (!o.enabled && o.reason) ? h('div', { class: 'opt__lock' }, '✕ ' + Core.L(o.reason)) : null
         ]);
-        bd.appendChild(opt);
+        bd.appendChild(btn);
       });
 
+      /* No way out: the cost has already been paid and the card discarded, so
+         the choice must be made. Mirrors the reference project, where playing
+         a card settles it in one step and its event then has to be resolved. */
       return V.modal(Core.L(vm.name), deckName + (vm.ministry ? ' · ' + vm.ministry.toUpperCase() : ''), [bd], [
-        h('button', { class: 'btn btn--ghost', onclick: act.cancelCard }, T('btn.back')),
-        h('div', { class: 'tiny', style: { color: 'rgba(42,30,16,.55)', marginLeft: 'auto', alignSelf: 'center' } },
+        h('div', { class: 'tiny', style: { color: 'rgba(42,30,16,.55)', alignSelf: 'center' } },
           T('card.cost.hint'))
       ]);
     };
@@ -1307,6 +1865,7 @@
       var modal = h('div', { class: 'modal' + (opts.cls ? ' ' + opts.cls : ''),
         role: 'dialog', 'aria-modal': 'true', 'aria-label': title || sub || '对话框' });
       modal.appendChild(h('div', { class: 'modal__hd' }, [
+        opts.kicker ? h('div', { class: 'modal__kicker' }, opts.kicker) : null,
         h('div', { class: 'modal__ttl' }, title),
         Core.sub(sub) ? h('div', { class: 'modal__it' }, Core.sub(sub)) : null
       ]));
@@ -1325,17 +1884,46 @@
     V.eventModal = function (st, act) {
       var vm = Sel.eventView(st);
       if (!vm) return null;
-      var bd = h('div', {});
+      var bd = h('div', { class: 'event-sheet' });
+      var narrative = h('div', { class: 'event-sheet__narrative' });
       var body = h('div', { class: 'modal__body' });
       body.innerHTML = vm.body.zh.replace(/\*\*(.+?)\*\*/g, '<em>$1</em>');
-      bd.appendChild(body);
-      bd.appendChild(h('div', { class: 'divider' }, icon('fasces', 12)));
-      vm.options.forEach(function (o) {
-        bd.appendChild(h('button', {
+      narrative.appendChild(body);
+      /* A counted result, when the event carries one: a heading, a line, then
+         the tally itself in rows, so a column of figures can be read down. */
+      if (vm.result) {
+        var rz = h('div', { class: 'evres' });
+        if (vm.result.title) rz.appendChild(h('div', { class: 'evres__t' }, Core.L(vm.result.title)));
+        if (vm.result.body) rz.appendChild(h('div', { class: 'evres__b' }, Core.L(vm.result.body)));
+        if (vm.result.rows && vm.result.rows.length) {
+          var tb = h('div', { class: 'evres__rows' });
+          vm.result.rows.forEach(function (r) {
+            tb.appendChild(h('div', { class: 'evres__r' + (r.tone ? ' is-' + r.tone : '') }, [
+              h('span', { class: 'evres__k' }, Core.L(r.label)),
+              h('span', { class: 'evres__v' }, r.value)
+            ]));
+          });
+          rz.appendChild(tb);
+        }
+        if (vm.result.note) rz.appendChild(h('div', { class: 'evres__n' }, Core.L(vm.result.note)));
+        narrative.appendChild(rz);
+      }
+      bd.appendChild(narrative);
+      var choices = h('div', { class: 'event-sheet__choices' });
+      choices.appendChild(h('div', { class: 'event-sheet__choicehead' }, [
+        h('span', { class: 'event-sheet__choice-title' }, '作出抉择'),
+        h('span', { class: 'event-sheet__choice-count' }, Core.fmt(vm.options.length) + ' 项选择 · SCELTE')
+      ]));
+      vm.options.forEach(function (o, index) {
+        choices.appendChild(h('button', {
           class: 'opt', disabled: !o.enabled,
           onclick: function () { act.resolveEvent(o.id); }
         }, [
-          h('div', { class: 'opt__h' }, [h('span', { class: 'opt__n' }, o.text.zh), optionLine(o) ? h('span', { class: 'opt__i' }, optionLine(o)) : null]),
+          h('div', { class: 'opt__h' }, [
+            h('span', { class: 'event-sheet__number', 'aria-hidden': 'true' }, Core.roman(index + 1)),
+            h('span', { class: 'opt__n' }, o.text.zh),
+            optionLine(o) ? h('span', { class: 'opt__i' }, optionLine(o)) : null
+          ]),
           o.preview && o.preview.length ? h('div', { class: 'opt__p' }, o.preview.map(function (p) {
             var lbl = typeof p === 'string' ? p : (p.zh || p.label || '');
             return h('span', { class: 'opt__pv' + (/−/.test(lbl) ? ' dn' : (/\+/.test(lbl) ? ' up' : '')) }, lbl);
@@ -1343,10 +1931,11 @@
           (!o.enabled && o.reason) ? h('div', { class: 'opt__lock' }, '✕ ' + Core.L(o.reason)) : null
         ]));
       });
+      bd.appendChild(choices);
       return V.modal(Core.L(vm.title), vm.title, [bd], [
         h('div', { class: 'tiny', style: { color: 'rgba(42,30,16,.55)', marginRight: 'auto' } },
           vm.superEvent ? T('ev.supreme') : T('ev.nofree'))
-      ], { cls: vm.superEvent ? 'modal--wide' : '' });
+      ], { cls: 'modal--event' + (vm.superEvent ? ' modal--wide' : ''), kicker: vm.superEvent ? '重大事件 · EVENTO STRAORDINARIO' : '时局纪事 · CRONACA' });
     };
 
     return V;

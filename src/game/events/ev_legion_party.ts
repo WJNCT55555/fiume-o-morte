@@ -12,18 +12,18 @@ export const evLegionParty: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '组织。让军团兵成为一个全国性的运动。', it: 'Organizzare. Fare dei legionari un movimento nazionale.' },
-        preview: [{ zh: '法西斯影响力 −', label: 'Fascio −' }, { zh: '组织资源 ++', label: 'militanti ++' }, { zh: '合法性 −（政党化）', label: 'legittimità −' }],
-        effect: function () { return { organizations: ['reduci'], order: { milizia: 260, squadre: -6 }, support: [['artigiani', 'LEG', 3], ], factions: { fascisti: { inf: -3, dis: 14 } }, flags: { legion_party: true }, journals: ['movimento'] }; }
+        preview: [{ zh: '法西斯派影响力 −', label: 'Fascio −' }, { zh: '军团兵力 +260', label: 'milizia +260' }, { zh: '手工业者支持军团 +', label: 'artigiani + LEG' }],
+        effect: function () { return { order: { milizia: 260, squadre: -6 }, support: [['artigiani', 'LEG', 3], ], factions: { fascisti: { inf: -3, dis: 14 } }, flags: { legion_party: true }, journals: ['movimento'] }; }
       },
       {
         id: 'b', text: { zh: '不。让他们只是记得。', it: 'No. Che ricordino e basta.' },
-        preview: [{ zh: '法西斯影响力 +', label: 'Fascio +' }, { zh: '合法性 +', label: 'legittimità +' }],
+        preview: [{ zh: '法西斯派影响力 +', label: 'Fascio +' }, { zh: '法西斯派异议 −', label: 'dissenso Fascio −' }],
         effect: function () { return { factions: { fascisti: { inf: 3, dis: -8 } } }; }
       },
       {
         id: 'c', text: { zh: '把他们并入法西斯。反正他们已经在往那边走。', it: 'Fonderli nel Fascio. Tanto ci stanno già andando.' },
         preview: [{ zh: '法西斯 +++', label: 'Fascio +++' }, { zh: '工团派/阿迪蒂 −−', label: 'Falange/Arditi −−' }],
-        effect: function () { return { factions: { arditi: { inf: -4, dis: 18 }, sindacalisti: { dis: 16 } }, order: { squadre: 12, violence: 6, fervour: -6 }, legit: 0 }; }
+        effect: function () { return { factions: { arditi: { inf: -4, dis: 18 }, sindacalisti: { dis: 16 } }, order: { squadre: 12, violence: 6, fervour: -6 } }; }
       }
     ]
   };

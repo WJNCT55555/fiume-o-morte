@@ -20,17 +20,17 @@ export const ev192006Alleati: GameEvent = {
       },
       {
         id: 'b', text: { zh: '拒绝解散军团。这是唯一属于这座城市的东西。', it: 'Rifiutare lo scioglimento. È l\'unica cosa che appartiene a questa città.' },
-        preview: [{ zh: '热忱 ++', label: 'fervore ++' }, { zh: '英法美 −−', label: 'UK/FR/US −−' }, { zh: '合法性 −', label: 'legittimità −' }],
+        preview: [{ zh: '民众热忱 ++', label: 'fervore ++' }, { zh: '英法美 −−', label: 'UK/FR/US −−' }, { zh: '军团兵力 +200', label: 'milizia +200' }],
         effect: function () { return { order: { fervour: 10, milizia: 200, violence: 4 }, diplo: { uk: -8, france: -8, usa: -6 }, factions: { arditi: { inf: 2, dis: -10 } } }; }
       },
       {
-        id: 'c', text: { zh: '把军团改编成市政卫队。名字变了，人没变。', it: 'Trasformare la Legione in Guardia Civica. Cambia il nome, non gli uomini.' },
-        preview: [{ zh: '英法美 +', label: 'UK/FR/US +' }, { zh: '领袖权威 +', label: 'autorità +' }, { zh: '军团兵力 −', label: 'Milizia −' }],
-        effect: function () { return { laws: { ordine: 1 }, organizations: ['guardia'], order: { civicGuard: 380, authority: 6, milizia: -260, violence: -6 }, diplo: { uk: 5, france: 5, league: 5 }, factions: { arditi: { dis: 8 } }, journals: ['guardia'] }; }
+        id: 'c', text: { zh: '裁减一部分军团编制，让市政警察接管日常治安。', it: 'Ridurre la Legione e affidare l\'ordine quotidiano alla polizia municipale.' },
+        preview: [{ zh: '英法美 +', label: 'UK/FR/US +' }, { zh: '市警编制 +60', label: 'polizia +60' }, { zh: '军团兵力 −', label: 'Milizia −' }],
+        effect: function () { return { laws: { ordine: 1 }, order: { police: 60, authority: 6, milizia: -260, violence: -6 }, diplo: { uk: 5, france: 5, league: 5 }, factions: { arditi: { dis: 8 } } }; }
       },
       {
         id: 'd', text: { zh: '把报告交给外国报纸。让全世界看见谁在阻挠。', it: 'Dare la relazione alla stampa estera. Che il mondo veda chi ostruisce.' },
-        preview: [{ zh: '国际声望 +', label: 'riconoscimento +' }, { zh: '意大利 −−', label: 'Italia −−' }, { zh: '合法性 +', label: 'legittimità +' }],
+        preview: [{ zh: '国际声望 +', label: 'riconoscimento +' }, { zh: '意大利 −−', label: 'Italia −−' }, { zh: '军团民意 +', label: 'legittimità +' }],
         effect: function () { return { diplo: { uk: 4, france: 4, usa: 4, italy: -12, league: 5 }, economy: { recognition: 6 }, support: [['impiegati', 'LEG', 3], ['borghesia', 'LEG', 2]], order: { fervour: 5 } }; }
       }
     ]

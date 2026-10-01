@@ -15,18 +15,18 @@ export const ev191910Comunali: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '一份名单。让投票本身变成一次公民投票。', it: 'Una lista sola. Che il voto sia un plebiscito.' },
-        preview: [{ zh: '合法性 +', label: 'legittimità +' }, { zh: '动员 +', label: 'militanti +' }, { zh: '自治派继续弃权', label: 'astensione' }],
-        effect: function () { return { order: { authority: 6, fervour: 4 }, militants: 220, support: [['borghesia', 'LEG', 2]], factions: { arditi: { dis: -8 }, sindacalisti: { dis: 4 } }, flags: { single_list: true }, journals: ['comune_italiana'] }; }
+        preview: [{ zh: '军团民意 +', label: 'legittimità +' }, { zh: '军团兵力 +220', label: 'milizia +220' }, { zh: '自治派继续弃权', label: 'astensione' }],
+        effect: function () { return { order: { authority: 6, fervour: 4, milizia: 220 }, support: [['borghesia', 'LEG', 2]], factions: { arditi: { dis: -8 }, sindacalisti: { dis: 4 } }, flags: { single_list: true, runMunicipal: true }, queueEvents: ['ev_1919_10_comunali_result'], journals: ['comune_italiana'] }; }
       },
       {
         id: 'b', text: { zh: '让自治党也提名单。用数字赢，而不是用棍子。', it: 'Lasciare che anche gli autonomi presentino una lista. Vincere con i numeri.' },
-        preview: [{ zh: '合法性 ++', label: 'legittimità ++' }, { zh: '国际声望 +', label: 'riconoscimento +' }, { zh: '自治派组织起来', label: 'AUT si organizza' }],
-        effect: function () { return { order: { authority: 4, violence: -6 }, diplo: { uk: 5, france: 5, league: 5 }, economy: { recognition: 6 }, support: [['borghesia', 'LEG', -2]], factions: { arditi: { dis: 8 } }, flags: { free_election: true }, journals: ['comune_italiana'] }; }
+        preview: [{ zh: '有产精英对军团支持 −', label: 'borghesia − LEG' }, { zh: '国际声望 +', label: 'riconoscimento +' }, { zh: '自治派组织起来', label: 'AUT si organizza' }],
+        effect: function () { return { order: { authority: 4, violence: -6 }, diplo: { uk: 5, france: 5, league: 5 }, economy: { recognition: 6 }, support: [['borghesia', 'LEG', -2]], factions: { arditi: { dis: 8 } }, flags: { free_election: true, runMunicipal: true }, queueEvents: ['ev_1919_10_comunali_result'], journals: ['comune_italiana'] }; }
       },
       {
         id: 'c', text: { zh: '不选举。把市政厅直接接管过来。', it: 'Niente elezioni. Prendere il Municipio e basta.' },
-        preview: [{ zh: '领袖权威 +', label: 'autorità +' }, { zh: '合法性 −−', label: 'legittimità −−' }, { zh: '英法美 −−', label: 'UK/FR/US −−' }],
-        effect: function () { return { order: { authority: 8, violence: 10, fervour: 6 }, diplo: { uk: -8, france: -8, usa: -8, italy: -4 }, support: [['artigiani', 'LEG', 2], ['borghesia', 'LEG', -4]], factions: { arditi: { inf: 2 } }, flags: { no_election: true } }; }
+        preview: [{ zh: '摄政领袖权威 +', label: 'autorità +' }, { zh: '军团民意 −−', label: 'legittimità −−' }, { zh: '英法美 −−', label: 'UK/FR/US −−' }],
+        effect: function () { return { order: { authority: 8, violence: 10, fervour: 6 }, diplo: { uk: -8, france: -8, usa: -8, italy: -4 }, support: [['artigiani', 'LEG', 2], ['borghesia', 'LEG', -4]], factions: { arditi: { inf: 2 } }, flags: { no_election: true }, runMunicipal: true, queueEvents: ['ev_1919_10_comunali_result'] }; }
       }
     ]
   };

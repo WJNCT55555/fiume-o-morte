@@ -158,7 +158,7 @@ class CDP {
                  emblems: [...document.querySelectorAll('.start-force__emblem')].filter(img => img.complete && img.naturalWidth > 0).length,
                  leader: document.querySelector('.start-leader__plaque')?.textContent || null,
                  leaderPortrait: (() => { const img = document.querySelector('.start-leader__portrait img'); return !!img && img.complete && img.naturalWidth > 0 && img.getAttribute('src')?.includes('Portrait_Dannunzio.png'); })(),
-                 leaderFrame: getComputedStyle(document.querySelector('.start-leader__frame')).backgroundImage.includes('leader_frame.png'),
+                 leaderFrame: (() => { const f = document.querySelector('.start-leader__frame'); return !!f && getComputedStyle(f).backgroundImage.includes('leader_frame.png'); })(),
                  columns: (() => { const f = document.querySelector('.start-force')?.getBoundingClientRect(), l = document.querySelector('.start-leader')?.getBoundingClientRect(), d = document.querySelector('.start-difficulty')?.getBoundingClientRect(); return !!f && !!l && !!d && f.right <= l.left && l.right <= d.left; })(),
                  removedTextVisible: /意大利卡尔纳罗摄政 · 1920|史实起点|52 000 人|史实线：|史料与致谢|史料基线：/.test(document.querySelector('.stage-full')?.textContent || '') };
       })()`);
@@ -167,25 +167,32 @@ class CDP {
     }
     console.log('启动检查:', JSON.stringify(boot));
     if (!boot.booted || boot.bootErr) problems.push('BOOT: ' + (boot.bootErr || 'start screen did not load'));
-    if (boot.removedTextVisible || boot.force !== '军团' || boot.forces !== 3 || boot.lockedForces !== 0 || boot.emblems !== 3 || !boot.leader?.includes('邓南遮') || !boot.leaderPortrait || !boot.leaderFrame || !boot.columns || boot.modes?.length !== 2 || boot.modes[0]?.name !== '普通' || boot.modes[0]?.selected !== 'true' || boot.modes[1]?.name !== '沙盒') problems.push('START: faction, emblem, leader, or mode layout is incorrect');
+    if (boot.removedTextVisible || boot.force !== '军团' || boot.forces !== 3 || boot.lockedForces !== 2 || boot.emblems !== 3 || !boot.leader?.includes('邓南遮') || !boot.leaderPortrait || !boot.leaderFrame || !boot.columns || boot.modes?.length !== 2 || boot.modes[0]?.name !== '普通' || boot.modes[0]?.selected !== 'true' || boot.modes[1]?.name !== '沙盒') problems.push('START: faction, emblem, leader, or mode layout is incorrect');
     await shot('01-start.png');
 
-    for (const [index, name, leaderName, filename] of [[1, '自治党', '扎内拉', '01-start-aut.png'], [2, '社会党', '迈伦德尔', '01-start-psi.png']]) {
-      await evalJs(`document.querySelectorAll('.start-force__pick')[${index}]?.click()`);
-      await sleep(200);
-      const selected = await evalJs(`(() => ({ force: document.querySelector('.start-force__pick.is-on .start-force__name')?.textContent,
-        leader: document.querySelector('.start-leader__plaque')?.textContent,
-        imageLoaded: (() => { const img = document.querySelector('.start-leader__portrait img'); return !!img && img.complete && img.naturalWidth > 0; })() }))()`);
-      if (selected.force !== name || !selected.leader?.includes(leaderName) || !selected.imageLoaded) problems.push('START: ' + name + ' cannot be selected');
+    /* The Autonomists and the Socialists are modelled but locked: they must still
+       be on screen (the roster shows the whole spectrum) and must not be
+       selectable, and clicking one must leave the Legion selected. */
+    for (const [index, name, filename] of [[1, '自治党', '01-start-aut.png'], [2, '社会党', '01-start-psi.png']]) {
+      const probe = await evalJs(`(() => {
+        const pick = document.querySelectorAll('.start-force__pick')[${index}];
+        if (!pick) return { missing: true };
+        const emblem = pick.querySelector('.start-force__emblem');
+        const before = document.querySelector('.start-force__pick.is-on .start-force__name')?.textContent || '';
+        pick.click();
+        return { disabled: pick.disabled === true, locked: pick.classList.contains('is-locked'),
+                 label: pick.querySelector('.start-force__name')?.textContent || '',
+                 emblemLoaded: !!emblem && emblem.complete && emblem.naturalWidth > 0,
+                 before, after: document.querySelector('.start-force__pick.is-on .start-force__name')?.textContent || '' };
+      })()`);
+      console.log(`   锁定席位 ${index} (${name}):`, JSON.stringify(probe));
+      if (probe.missing || !probe.disabled || !probe.locked) problems.push('START: ' + name + ' must be shown as locked');
+      if (!probe.label?.includes(name)) problems.push('START: ' + name + ' locked label is missing the party name');
+      if (!probe.emblemLoaded) problems.push('START: ' + name + ' emblem must still render while locked');
+      if (probe.before !== probe.after || !probe.after.includes('军团')) {
+        problems.push('START: clicking locked ' + name + ' must not change the selected force');
+      }
       await shot(filename);
-      await evalJs(`(() => { const b=[...document.querySelectorAll('.btn')].find(x=>x.textContent.includes('开始游戏')); b?.click(); return !!b; })()`);
-      await sleep(350);
-      const playing = await evalJs(`(() => ({ leader: document.querySelector('.comandante__n')?.textContent,
-        party: document.querySelector('.comandante__r')?.textContent,
-        hasGame: !!document.querySelector('.board') }))()`);
-      if (!playing.hasGame || !playing.leader?.includes(leaderName) || !playing.party?.includes(name === '自治党' ? 'Autonomo' : 'Socialista')) problems.push('GAME: ' + name + ' did not start as the selected force');
-      await cdp.send('Page.navigate', { url });
-      await sleep(1200);
     }
 
     await evalJs(`(() => { document.querySelectorAll('.start-difficulty .pick')[1]?.click(); return true; })()`);
@@ -229,11 +236,65 @@ class CDP {
                leftPanels: document.querySelectorAll('.col--l .frame').length,
                rightPanels: document.querySelectorAll('.col--r .frame').length,
                nav: [...document.querySelectorAll('.navbtn')].map(t=>t.getAttribute('data-tab')),
-               tagArtwork: getComputedStyle(document.querySelector('.navbtn')).backgroundImage.includes('tag_header.png'),
-               hasAction: !!document.querySelector('.action-trigger') };
+               tagArtwork: getComputedStyle(document.querySelector('.navbtn')).backgroundImage.includes('tag_header.png') };
     })()`);
     console.log('主界面:', JSON.stringify(g1));
-    if (g1.nav.join(',') !== 'mappa,crisi,economia,assemblea,diplomazia,leggi,archivio' || !g1.tagArtwork || !g1.hasAction) problems.push('GAME: seven tag-header navigation tabs or action access missing');
+    /* Nine tabs, in this order: the event board and the action panel were added
+       to the strip, and the seventh is `popolazione` rather than `archivio` (the
+       archive moved into the left column). Both expectations were stale.
+       The old `hasAction` clause is gone with it: it looked for `.action-trigger`,
+       which exists nowhere in the codebase — the action panel became a tab, and
+       the class survives only as an unused CSS rule. */
+    if (g1.nav.join(',') !== 'eventi,azioni,mappa,crisi,economia,assemblea,diplomazia,leggi,popolazione' || !g1.tagArtwork) problems.push('GAME: nine tag-header navigation tabs are missing or misordered');
+
+    // The same preview overlay serves an inline historical event and a card
+    // menu. Exercise real pointer movement: the panel should track X while
+    // staying attached directly below the hovered choice.
+    const eventFixture = await evalJs(`(() => {
+      const F=window.Fiume, s=F.Engine.createState('1919-09','historical',7);
+      s.currentEvent='ev_1919_09_marcia';
+      const wrap=document.createElement('div'); wrap.id='effect-preview-fixture';
+      wrap.className='inline-event';
+      wrap.style.cssText='position:fixed;z-index:8500;top:185px;left:50%;transform:translateX(-50%);width:calc(100vw - 360px)';
+      wrap.appendChild(F.Views.eventModal(s,{resolveEvent:function(){}}));
+      document.body.appendChild(wrap);
+      const r=wrap.querySelector('.modal').getBoundingClientRect();
+      const o=wrap.querySelector('button.opt').getBoundingClientRect();
+      return {sheetWidth:r.width, x:o.left+45, x2:o.left+145, y:o.top+o.height/2, bottom:o.bottom};
+    })()`);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: eventFixture.x, y: eventFixture.y });
+    await sleep(100);
+    const eventHover1 = await evalJs(`(() => { const e=document.querySelector('.effect-float'); const r=e.getBoundingClientRect();
+      return {shown:getComputedStyle(e).display!=='none', left:r.left, top:r.top,
+        sourceHidden:getComputedStyle(document.querySelector('#effect-preview-fixture .opt__p')).display==='none'}; })()`);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: eventFixture.x2, y: eventFixture.y });
+    await sleep(100);
+    const eventHover2 = await evalJs(`document.querySelector('.effect-float').getBoundingClientRect().left`);
+    if (eventFixture.sheetWidth > 822 || !eventHover1.shown || !eventHover1.sourceHidden ||
+        Math.abs(eventHover1.top - eventFixture.bottom - 4) > 2 || eventHover2 < eventHover1.left + 45)
+      problems.push('16:9 事件宽度或鼠标跟随效果预览错误');
+    await shot('02b-event-hover.png');
+    await evalJs(`document.querySelector('#effect-preview-fixture')?.remove()`);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+
+    const cardFixture = await evalJs(`(() => {
+      const F=window.Fiume, s=F.Engine.createState('1919-09','historical',7);
+      s.pendingCard='az_legione_finanziaria'; s.hand=['az_legione_finanziaria'];
+      const node=F.Views.cardModal(s,{resolveCardOption:function(){}});
+      node.id='effect-card-fixture'; document.body.appendChild(node);
+      const o=node.querySelector('button.opt').getBoundingClientRect();
+      return {x:o.left+45,y:o.top+o.height/2,bottom:o.bottom};
+    })()`);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cardFixture.x, y: cardFixture.y });
+    await sleep(100);
+    const cardHover = await evalJs(`(() => { const e=document.querySelector('.effect-float'), r=e.getBoundingClientRect();
+      return {shown:getComputedStyle(e).display!=='none', top:r.top,
+        sourceHidden:getComputedStyle(document.querySelector('#effect-card-fixture .opt__p')).display==='none'}; })()`);
+    if (!cardHover.shown || !cardHover.sourceHidden || Math.abs(cardHover.top - cardFixture.bottom - 4) > 2)
+      problems.push('卡牌效果预览未接在选项下方');
+    await shot('02c-card-hover.png');
+    await evalJs(`document.querySelector('#effect-card-fixture')?.remove()`);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
 
     for (const width of [1280, 960, 390]) {
       await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: false });
@@ -258,6 +319,58 @@ class CDP {
       await evalJs(`(() => { const b=document.querySelector('${key === 'azioni' ? '.action-trigger' : '.navbtn[data-tab="' + key + '"]'}'); if(b) b.click(); return !!b; })()`);
       await sleep(650);
       await shot('03-tab-' + key + '.png');
+      if (key === 'economia') {
+        const economyOverview = await evalJs(`(() => ({
+          kpis: document.querySelectorAll('.eco-kpi').length,
+          measures: document.querySelectorAll('.ecoport-grid .ecometric').length,
+          formulas: document.querySelectorAll('.eco-formula').length,
+          income: document.querySelector('.eco-formulas')?.textContent.includes('有效所得税率')
+        }))()`);
+        if (economyOverview.kpis !== 4 || economyOverview.measures !== 6 || economyOverview.formulas < 12 || !economyOverview.income)
+          problems.push('经济概览、六项指标或结算公式缺失');
+        await evalJs(`document.querySelector('.eco-formulas summary')?.click()`);
+        await sleep(130);
+        await shot('03-tab-economia-formulas.png');
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: false });
+        await sleep(180);
+        const economyMobile = await evalJs(`(() => { const r=document.querySelector('.eco-dashboard').getBoundingClientRect();
+          return { width:r.width, right:r.right, formulas:document.querySelector('.eco-formulas')?.open }; })()`);
+        if (economyMobile.right > 392 || !economyMobile.formulas) problems.push('390px 经济页面或公式面板溢出');
+        await evalJs(`document.querySelector('.eco-formulas')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
+        await shot('03-tab-economia-mobile.png');
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+      }
+      if (key === 'leggi') {
+        const lawOverview = await evalJs(`(() => ({
+          tiles: document.querySelectorAll('.law-tile').length,
+          levels: document.querySelectorAll('.law-course__item').length,
+          current: document.querySelectorAll('.law-course__item--current').length,
+          selected: document.querySelector('.law-tile[aria-pressed="true"] .law-tile__name')?.textContent
+        }))()`);
+        if (lawOverview.tiles !== 11 || lawOverview.levels !== 4 || lawOverview.current !== 1 ||
+          lawOverview.selected !== '选举法' ||
+          await evalJs(`document.querySelectorAll('.charter-board__requirement').length`) !== 0)
+          problems.push('法律目录或默认等级路径显示错误');
+        await evalJs(`Array.from(document.querySelectorAll('.law-tile')).find(tile => tile.querySelector('.law-tile__name')?.textContent === '劳动保障')?.click()`);
+        await sleep(150);
+        const lawSelection = await evalJs(`(() => ({
+            title: document.querySelector('.law-dossier h2')?.textContent,
+            levels: document.querySelectorAll('.law-course__item').length,
+            stances: document.querySelectorAll('.law-stance').length,
+            selected: document.querySelector('.law-tile[aria-pressed="true"] .law-tile__name')?.textContent
+        }))()`);
+        if (lawSelection.title !== '劳动保障' || lawSelection.levels !== 4 || lawSelection.stances !== 0 || lawSelection.selected !== '劳动保障')
+          problems.push('选择法律后条款档案未更新');
+        await shot('03-tab-leggi-selected.png');
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: false });
+        await sleep(250);
+        const lawMobileOverflow = await evalJs(`document.documentElement.scrollWidth > window.innerWidth + 2`);
+        if (lawMobileOverflow) problems.push('390px 法律页面有横向溢出');
+        await evalJs(`document.querySelector('.laws-atlas')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
+        await sleep(100);
+        await shot('03-tab-leggi-390.png');
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+      }
       svgInfo[key] = await evalJs(`(() => ({
         parlSeats: document.querySelectorAll('.parl__seat').length,
         mapPolys: document.querySelectorAll('g.mp').length,

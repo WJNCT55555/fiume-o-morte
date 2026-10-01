@@ -17,7 +17,7 @@ export const evBlasichContatto: GameEvent = {
       },
       {
         id: 'b', text: { zh: '谈他的加入。给他一个职位。', it: 'Della sua adesione. Offrirgli un incarico.' },
-        preview: [{ zh: '解锁布拉西奇顾问 + 立即入阁', label: 'Blasich in governo' }, { zh: '工团派/阿迪蒂异议 ++', label: 'Falange/Arditi ++' }, { zh: '合法性 ++', label: 'legittimità ++' }],
+        preview: [{ zh: '解锁布拉西奇顾问 + 立即入阁', label: 'Blasich in governo' }, { zh: '工团派/阿迪蒂异议 ++', label: 'Falange/Arditi ++' }, { zh: '军团民意 ++', label: 'legittimità ++' }],
         effect: function () { return { flags: { blasich_contact: true, blasich_in: true }, cabinet: { istruzione: 'AUT' }, support: [['portuali', 'AUT', -5], ['operai', 'AUT', -5], ['borghesia', 'AUT', -4], ['contadini', 'AUT', -3]], factions: { arditi: { dis: 14 }, sindacalisti: { dis: 12 }, fascisti: { dis: 16 } }, journals: ['riconciliazione'] }; }
       },
       {

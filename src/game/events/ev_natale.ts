@@ -4,6 +4,10 @@ import type { GameEvent } from '../content/types';
 export const evNatale: GameEvent = {
     id: 'ev_natale', superEvent: true,
     condition: function (s) {
+      /* Bloody Christmas reads `coup` — the SIEGE. Caviglia's guns are Rome's
+         answer to the blockade and the treaty, not to street violence, which is
+         what `subversion` tracks. The two axes are independent; see
+         R.subversionDelta in rules.js. */
       if (s.flags.natale_done || s.order.coup < 100) return false;
       // Only possible between late 1920 and early 1921
       // A half-month turn cannot be relied on to land on the 24th, so December as a
@@ -23,7 +27,7 @@ export const evNatale: GameEvent = {
     options: [
       {
         id: 'resistere', text: { zh: '逐街抵抗。让全世界看见谁先开的炮。', it: 'Resistere strada per strada. Che il mondo veda chi ha sparato per primo.' },
-        preview: [{ zh: '进入武装抵抗', label: 'resistenza armata' }, { zh: '合法性 +', label: 'legittimità +' }, { zh: '军力 −−', label: 'Milizia −−' }],
+        preview: [{ zh: '进入武装抵抗决策', label: 'decisione: resistenza armata' }],
         effect: function () { return { next: 'ev_natale_fight' }; }
       },
       {
@@ -33,7 +37,7 @@ export const evNatale: GameEvent = {
       },
       {
         id: 'partire', text: { zh: '让军团兵撤出。你自己留在城里。', it: 'Far uscire i legionari. Tu resti in città.' },
-        preview: [{ zh: '合法性 ++', label: 'legittimità ++' }, { zh: '军力归零', label: 'Milizia → 0' }, { zh: '热忱 −−', label: 'fervore −−' }, { zh: '个人威望 ++', label: 'prestigio ++' }],
+        preview: [{ zh: '军团兵力归零', label: 'milizia → 0' }, { zh: '民众热忱 −−', label: 'fervore −−' }, { zh: '英法关系 +', label: 'UK/FR +' }],
         effect: function () { return { order: { coup: -100, violence: -14, milizia: -9999, fervour: -18, authority: 6 }, diplo: { league: 6, uk: 4, france: 4 }, counters: { graceUntil: 0 }, flags: { natale_done: true, rest_in_city: true }, journals: ['resistenza'], next: 'ev_natale_after' }; }
       }
     ]

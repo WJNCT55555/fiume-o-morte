@@ -4,7 +4,7 @@ import { gvNotaRoma } from './gv_nota_roma';
 import { gvDoganaYu } from './gv_dogana_yu';
 import { gvLavori } from './gv_lavori';
 import { gvDisoccupazione } from './gv_disoccupazione';
-import { gvGuardia } from './gv_guardia';
+import { gvPolizia } from './gv_polizia';
 import { gvDisarco } from './gv_disarco';
 import { gvStampa } from './gv_stampa';
 import { gvLingua } from './gv_lingua';
@@ -13,6 +13,8 @@ import { gvBilancio } from './gv_bilancio';
 import { gvFisco } from './gv_fisco';
 import { gvAmnistia } from './gv_amnistia';
 import { gvArengo } from './gv_arengo';
+import { gvOrario } from './gv_orario';
+import { gvTutele } from './gv_tutele';
 
 
 export const GOVERNMENT_AFFAIRS = [
@@ -22,7 +24,7 @@ export const GOVERNMENT_AFFAIRS = [
   gvDoganaYu,
   gvLavori,
   gvDisoccupazione,
-  gvGuardia,
+  gvPolizia,
   gvDisarco,
   gvStampa,
   gvLingua,
@@ -31,4 +33,6 @@ export const GOVERNMENT_AFFAIRS = [
   gvFisco,
   gvAmnistia,
   gvArengo,
+  gvOrario,
+  gvTutele,
 ];

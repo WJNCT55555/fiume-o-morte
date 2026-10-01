@@ -94,7 +94,7 @@
   color: rgba(42, 30, 16, .5) !important;
 }
 
-/* The effect panel. Hidden until the option is hovered or focused. */
+/* Effect panels follow pointer hover; focus alone must not open them. */
 .inline-event .opt__p {
   display: none;
   position: absolute;
@@ -110,8 +110,7 @@
   flex-direction: column;
   gap: 5px !important;
 }
-.inline-event .opt:hover .opt__p,
-.inline-event .opt:focus-visible .opt__p { display: flex; }
+.inline-event .opt:hover .opt__p { display: flex; }
 
 /* Panel heading, as in the reference: small caps, letter-spaced, ruled off. */
 .inline-event .opt__p::before {
@@ -204,6 +203,19 @@
 }
 .slot__i { font-size: 30px !important; color: rgba(201, 162, 39, .16) !important; }
 .slot__e { font-size: 9.5px !important; letter-spacing: .22em !important; }
+/* The "empty" label inside an unfilled slot. The dashed rule comes from
+   .slot--empty::after; this is just the word, centred in the reserved space. */
+.slot__ph {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .18em;
+  color: rgba(201, 162, 39, .38);
+  pointer-events: none;
+}
 .slot--full { border-color: var(--gold) !important; }
 .slot--full::before {
   content: '';
@@ -260,20 +272,6 @@
 }
 
 /* ---------------------------------------------------------------------------
-   6. Wide screens: the effect panel moves beside the option
-   Below this width it opens underneath, which is what a narrow sheet allows.
-   --------------------------------------------------------------------------- */
-@media (min-width: 1180px) {
-  .inline-event .opt__p {
-    left: calc(100% + 12px);
-    top: 50%;
-    transform: translateY(-50%);
-    width: 240px;
-  }
-  .inline-event .modal__bd { padding-right: 288px !important; }
-}
-
-/* ---------------------------------------------------------------------------
    7. The three measures, under the portrait
    Flat rules; no gradient, no frame of their own.
    --------------------------------------------------------------------------- */
@@ -290,45 +288,6 @@
 .cmdr-gauge__v { color: var(--gold-pale); font-weight: 700; }
 .cmdr-gauge .bar { height: 5px; }
 
-/* The card's one-line frame, under its name. */
-.slot__sub {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--gold-dim);
-  margin: -2px 0 6px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(201, 162, 39, .16);
-}
-
-/* ---------------------------------------------------------------------------
-   8. Party relations matrix
-   Flat cells; warmth is carried by colour only.
-   --------------------------------------------------------------------------- */
-.relmat { display: grid; gap: 1px; background: var(--hair-soft); padding: 1px; margin: 4px 11px 0; }
-.relmat__h {
-  background: #0E0A06; padding: 7px 4px; text-align: center;
-  font-family: var(--font-display); font-weight: 700; font-size: 11px;
-  letter-spacing: .1em; color: var(--gold-dim);
-}
-.relmat__h--l { text-align: left; padding-left: 10px; letter-spacing: .06em; }
-.relmat__l {
-  display: flex; align-items: center; gap: 6px; background: #0E0A06;
-  padding: 7px 10px; font-family: var(--font-display); font-weight: 700;
-  font-size: 11.5px; letter-spacing: .08em; color: var(--gold-pale);
-}
-.relmat__l.is-player { color: #FFF0D2; box-shadow: inset 3px 0 var(--gold); }
-.relmat__dot { width: 7px; height: 7px; flex: 0 0 7px; }
-.relmat__c {
-  display: flex; align-items: center; justify-content: center;
-  background: #0B0806; padding: 8px 2px;
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em;
-  color: rgba(233, 220, 188, .42);
-}
-.relmat__c.is-warm { background: #14200F; color: #8FBF6A; }
-.relmat__c.is-cold { background: #200F10; color: #D08A85; }
-.relmat__c.is-flat { background: #0B0806; color: rgba(233, 220, 188, .55); }
 
 /* ---------------------------------------------------------------------------
    9. Settings menu on parchment
@@ -398,3 +357,962 @@
 /* The strip that used to hold them is empty now. */
 .comandante__header { display: none; }
 .comandante__body { padding-top: 8px; }
+
+/* ---------------------------------------------------------------------------
+   12. Chord plate — heading, caption and key
+   A printed plate: the title is set in wide capitals over a ruled line with a
+   lozenge at its centre, and the names are lettered along their own arcs. Flat
+   throughout — the only ornament is rule weight and the lozenge.
+   --------------------------------------------------------------------------- */
+.chordhead {
+  text-align: center;
+  padding: 20px 16px 4px;
+  border-bottom: 1px solid var(--hair-soft);
+  margin-bottom: 6px;
+}
+.chordhead__t {
+  font-family: var(--font-title);
+  font-size: clamp(19px, 2.2vw, 30px);
+  font-weight: 700;
+  letter-spacing: .30em;
+  text-indent: .30em;
+  color: var(--gold-lit);
+  line-height: 1.1;
+}
+.chordhead__s {
+  margin-top: 7px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: .26em;
+  text-indent: .26em;
+  color: rgba(233, 220, 188, .58);
+}
+/* rule — lozenge — rule */
+.chordhead__r {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  margin: 13px auto 0;
+  max-width: 340px;
+}
+.chordhead__r i { flex: 1; height: 1px; background: rgba(201, 162, 39, .42); }
+.chordhead__r b {
+  flex: none;
+  width: 7px; height: 7px;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
+
+.chordkey {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 13px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--hair-soft);
+  font-size: 11px;
+  color: rgba(233, 220, 188, .62);
+  letter-spacing: .06em;
+}
+.chordkey__i { display: inline-flex; align-items: center; gap: 8px; }
+/* The scale itself, matching C.warmthColor in charts.js. Three hard bands
+   rather than a gradient: the project's house rule allows no gradient in the
+   plate, and a three-step key says the same thing anyway. */
+.chordkey__scale {
+  flex: none;
+  display: flex;
+  width: 72px;
+  height: 9px;
+  border: 1px solid rgba(201, 162, 39, .45);
+}
+.chordkey__scale b { flex: 1; display: block; }
+.chordkey__scale b:nth-child(1) { background: #A81E2D; }
+.chordkey__scale b:nth-child(2) { background: #C9A227; }
+.chordkey__scale b:nth-child(3) { background: #3E8E52; }
+.chordkey__e { font-family: var(--font-display); font-weight: 700; letter-spacing: .14em; }
+.chordkey__i { color: rgba(233, 220, 188, .80); }
+
+/* Hovering a ribbon lights it and the two bands it runs between; everything
+   else recedes. The class names were always being set by Charts.chord — the
+   rules to answer them were simply never written, so the plate sat inert.
+   No transition, per this layer's own rule: a state change is signalled by
+   colour and weight, not by motion. */
+.chord__cord.is-dim { opacity: .06; }
+.chord__cord.is-lit { opacity: 1; }
+.chord__band.is-dim { opacity: .20; }
+.chord__band.is-lit { opacity: 1; }
+.chord__label.is-dim { opacity: .22; }
+.chord__label.is-lit { opacity: 1; }
+
+/* The lit ribbon should read as the one thing on the plate that is awake, so
+   it gains weight as well as opacity — the ribbon's own fill-opacity is an
+   attribute, which any rule here outranks. `first-of-type`, not `first-child`:
+   each cord leads with a <title> for the native tooltip, so the fill is the
+   second child and first-child would match nothing. */
+.chord__cord.is-lit path:first-of-type { fill-opacity: .92; }
+.chord__cord.is-lit path:last-of-type { stroke-opacity: .95; stroke-width: 1.2; }
+
+@media (max-width: 1100px) {
+  .chord { max-height: 50vh; }
+  .chordhead { padding-top: 14px; }
+}
+
+/* The player's own row of the old grid, stood up beside the plate. Each bar is
+   drawn from the same two functions as the ribbons — Charts.warmth for its
+   length and Charts.warmthColor for its hue — so rail and plate can never
+   disagree about a number. */
+/* The rail and the plate are meant to read as one rectangle. stretch lets the
+   rail's border close exactly on whatever height the row ends up with, so a
+   few pixels of difference are absorbed instead of showing as a step. */
+.chordrow {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  padding: 14px 16px 0;
+}
+.chordbody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* The plate is a clean square and is simply told how tall to be. The rail's
+   three sections come to about 633px, so the two columns close on the same
+   line; stretch on the row then absorbs the last pixel or two. The vh cap
+   keeps it sane in a short window. */
+.chord {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(633px, 64vh);
+}
+
+.chordrail {
+  flex: none;
+  width: 232px;
+  border: 1px solid var(--hair);
+  background: #0C0906;
+}
+.chordrail__h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--hair);
+  background: #140F09;
+}
+.chordrail__ht {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .10em;
+  color: var(--gold-pale);
+}
+.chordrail__hs {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: .18em;
+  color: rgba(201, 162, 39, .55);
+}
+
+.chordrail__r {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--hair-soft);
+  isolation: isolate;
+}
+/* The bar sits behind the text, tinted by the same hue as the ribbon. */
+.chordrail__fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  z-index: -1;
+  opacity: .20;
+}
+/* The party's own device, the one mark that identifies it at a glance. PCR has
+   no emblem drawn, so it falls back to a flat swatch of its colour. */
+.chordrail__em {
+  flex: none;
+  width: 40px; height: 40px;
+  object-fit: contain;
+  filter: saturate(.82) brightness(.94);
+}
+.chordrail__em--flat { width: 12px; height: 40px; }
+.chordrail__tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.chordrail__n {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: rgba(233, 220, 188, .88);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chordrail__k {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: rgba(233, 220, 188, .40);
+}
+.chordrail__v {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.chordrail__r:hover { background: rgba(201, 162, 39, .07); }
+.chordrail__r:last-of-type { border-bottom: 1px solid var(--hair); }
+
+/* The scale, kept with the rail because the bars and the ribbons are read off
+   the same two functions. */
+.chordrail__f { padding: 11px 11px 12px; border-bottom: 1px solid var(--hair); }
+
+/* Third section: each party's share of the electorate, which is what the arc
+   lengths on the plate measure. */
+.chordrail__sec { border-top: 0; }
+.chordrail__sh {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--hair);
+  background: #140F09;
+}
+.chordrail__s {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+}
+.chordrail__s:hover { background: rgba(201, 162, 39, .07); }
+.chordrail__ssw { flex: none; width: 8px; height: 8px; }
+.chordrail__sk {
+  flex: none;
+  width: 30px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .10em;
+  color: rgba(233, 220, 188, .55);
+}
+.chordrail__sn2 {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: rgba(233, 220, 188, .78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chordrail__sv {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold-lit);
+}
+.chordrail__sc { display: flex; align-items: center; justify-content: center; gap: 9px; }
+.chordrail__sn {
+  margin-top: 8px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: rgba(233, 220, 188, .52);
+}
+
+@media (max-width: 1180px) {
+  .chordrow { flex-direction: column; padding: 12px 12px 0; }
+  .chordrail { width: 100%; }
+  .chordrail__r { padding: 9px 11px; }
+}
+
+/* ---------------------------------------------------------------------------
+   13. Card option subtitles
+   Options carry a second line; cards do not. In the card menu the option name
+   is a longer sentence than in an event, and so is its subtitle, so the two
+   stack rather than sitting on one baseline.
+   --------------------------------------------------------------------------- */
+.opt--card .opt__h { flex-wrap: wrap; }
+.opt--card .opt__i {
+  flex-basis: 100%;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* In the card menu the option name is a longer sentence than in an event, and
+   so is its subtitle, so the two stack rather than sitting on one baseline. */
+.opt--card .opt__h { flex-wrap: wrap; }
+.opt--card .opt__i {
+  flex-basis: 100%;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* The card menu gets the same effect window the event sheet has: one line per
+   consequence, opening on hover instead of a row of chips. The sheet's
+   wide-screen rule moves the panel beside the option — that is scoped to
+   .inline-event and does not apply here, so the panel opens below and spans the
+   option, which is what fits inside a modal. */
+.opt--card { position: relative; }
+.opt--card .opt__p {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: 100%;
+  margin: 0 !important;
+  padding: 10px 12px 11px !important;
+  background: #FBF4E2 !important;
+  border: 1px solid #2B2118 !important;
+  box-shadow: 3px 3px 0 rgba(43, 33, 24, 1) !important;
+  flex-direction: column;
+  gap: 4px !important;
+}
+.opt--card:hover .opt__p { display: flex; }
+.opt--card .opt__p::before {
+  content: '选项效果';
+  display: block;
+  padding-bottom: 5px;
+  margin-bottom: 1px;
+  border-bottom: 1px solid rgba(43, 33, 24, .2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: rgba(43, 33, 24, .6);
+}
+.opt--card .opt__pv {
+  display: block !important;
+  border: none !important;
+  background: none !important;
+  padding: 0 !important;
+  font-family: var(--font-mono);
+  font-size: 11.5px !important;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  text-align: left;
+  color: #2B2118 !important;
+}
+.opt--card .opt__pv.up { color: #2F5D18 !important; }
+.opt--card .opt__pv.dn { color: #A31621 !important; }
+
+/* ---------------------------------------------------------------------------
+   14. Achievements — one row per entry, in the manner of the reference project
+
+   Read the ground before writing colour here. This layer is otherwise ink on
+   black, but the modal is parchment (#E8DDC3, see redesign.css), so anything
+   set in the pale greys used elsewhere in this file comes out invisible. Every
+   value below is ink on paper.
+   --------------------------------------------------------------------------- */
+.modal--ach { max-width: 780px; }
+
+.achbar {
+  padding: 11px 15px 12px;
+  border-bottom: 1px solid rgba(93, 69, 36, .22);
+  background: rgba(93, 69, 36, .07);
+}
+.achbar__r {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(40, 31, 24, .66);
+}
+.achbar__t {
+  height: 6px;
+  border: 1px solid rgba(93, 69, 36, .35);
+  background: rgba(93, 69, 36, .10);
+}
+.achbar__t i { display: block; height: 100%; background: #59252B; }
+
+.achlist { display: flex; flex-direction: column; }
+
+.achrow {
+  display: flex;
+  align-items: stretch;
+  min-height: 76px;
+  border-bottom: 1px solid rgba(93, 69, 36, .18);
+}
+.achrow:last-child { border-bottom: 0; }
+.achrow.is-on { background: rgba(183, 154, 92, .18); }
+
+/* Identity: the wreath once earned, a blank seal until then. */
+.achrow__ic {
+  flex: none;
+  width: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid rgba(93, 69, 36, .18);
+  background: rgba(93, 69, 36, .06);
+}
+.achrow.is-on .achrow__ic { background: rgba(183, 154, 92, .22); }
+.achrow__ic svg { stroke: #8A6A1F; }
+.achrow__lk {
+  width: 22px; height: 22px;
+  border: 1px solid rgba(93, 69, 36, .30);
+}
+
+.achrow__tx {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 11px 14px;
+}
+.achrow__n {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: .05em;
+  line-height: 1.2;
+  color: rgba(40, 31, 24, .44);
+}
+.achrow.is-on .achrow__n { color: #59252B; }
+.achrow__it {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: rgba(40, 31, 24, .38);
+}
+.achrow.is-on .achrow__it { color: rgba(40, 31, 24, .56); }
+.achrow__d {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(40, 31, 24, .58);
+}
+.achrow.is-on .achrow__d { color: rgba(40, 31, 24, .80); }
+
+.achrow__ck {
+  flex: none;
+  width: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid rgba(93, 69, 36, .18);
+}
+.achrow__box {
+  width: 26px; height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(93, 69, 36, .34);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1;
+  color: transparent;
+}
+.achrow.is-on .achrow__box {
+  border-color: #59252B;
+  background: #59252B;
+  color: #F0E8D5;
+}
+
+@media (max-width: 640px) {
+  .achrow__ic { width: 58px; }
+  .achrow__ck { width: 48px; }
+}
+
+/* ---------------------------------------------------------------------------
+   15. Counted results inside an event
+   An event body is fixed prose; a tally is not. This is where a vote, a
+   division or a seat count is set out under the text, worked out from the
+   state as the event opens.
+
+   Ink on parchment again — the modal ground is #E8DDC3 (redesign.css), so the
+   pale greys used elsewhere in this layer would vanish here.
+   --------------------------------------------------------------------------- */
+.evres {
+  margin: 14px 0 4px;
+  border: 1px solid rgba(93, 69, 36, .34);
+  background: rgba(93, 69, 36, .06);
+}
+.evres__t {
+  padding: 8px 13px 7px;
+  border-bottom: 1px solid rgba(93, 69, 36, .26);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: .10em;
+  color: #59252B;
+}
+.evres__b {
+  padding: 9px 13px 2px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: rgba(40, 31, 24, .82);
+}
+.evres__rows { padding: 5px 13px 9px; }
+.evres__r {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(93, 69, 36, .14);
+}
+.evres__r:last-child { border-bottom: 0; }
+.evres__k {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  letter-spacing: .03em;
+  color: rgba(40, 31, 24, .78);
+}
+.evres__v {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #2A2118;
+}
+.evres__r.is-good .evres__k,
+.evres__r.is-good .evres__v { color: #3E6B45; }
+.evres__r.is-bad .evres__k,
+.evres__r.is-bad .evres__v { color: #8E3226; }
+.evres__n {
+  padding: 8px 13px 10px;
+  border-top: 1px solid rgba(93, 69, 36, .22);
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgba(40, 31, 24, .62);
+}
+
+/* ---------------------------------------------------------------------------
+   Economy screen
+   Laid out as a dashboard: two trends side by side, a grid of comparable
+   measures, then two budget donuts. Everything is a chart or a labelled
+   readout, so no line of this tab is a bare number.
+   --------------------------------------------------------------------------- */
+
+/* Two trends, side by side. Collapses to one column when the centre column is
+   narrow, because a 118px chart at half of 300px is unreadable. */
+.ecotrends {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 1080px) {
+  .ecotrends { grid-template-columns: 1fr; }
+}
+.ecotrend {
+  border: 1px solid rgba(201, 162, 39, .22);
+  background: rgba(11, 10, 7, .5);
+  padding: 8px 9px 4px;
+}
+.ecotrend__k {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .16em;
+  color: rgba(233, 220, 188, .58);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 1px;
+}
+.ecotrend__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.ecotrend__v { font-size: 17px; font-weight: 600; color: var(--gold-lit); white-space: nowrap; }
+.ecotrend__d { font-size: 10.5px; white-space: nowrap; }
+
+/* Six measures on one 0-100 scale. Bar left, label and value right, so each row
+   reads as a small comparable gauge rather than a headline number. */
+.ecometrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 16px;
+}
+.ecoport-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+.ecoport-grid > * {
+  min-width: 0;
+  border: 1px solid rgba(201, 162, 39, .22);
+  background: rgba(11, 10, 7, .5);
+  padding: 9px 10px;
+}
+.ecoport-grid .ecometrics {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-around;
+  gap: 7px;
+}
+.ecoport-grid .ecometric--lead { margin-bottom: 0; }
+@media (max-width: 1080px) {
+  .ecometrics { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .ecoport-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.ecometric {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.ecometric__bar { width: 62px; flex: none; }
+.ecometric__k { flex: 1; min-width: 0; font-size: 11.5px; color: rgba(233, 220, 188, .8); }
+.ecometric__v { width: 24px; text-align: right; flex: none; font-size: 12.5px; color: var(--gold-lit); }
+/* The lead row of the measures block: caption on its own line, then the port
+   gauge, then its own small trend. It is a block, not a flex row like the six. */
+.ecometric--lead { display: block; margin-bottom: 10px; }
+.ecometric--lead .ecometric__hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.ecometric--lead .ecometric__k {
+  font-size: 12px;
+  color: rgba(233, 220, 188, .82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ecometric--lead .ecometric__v { font-size: 18px; font-weight: 600; color: var(--gold-lit); flex: none; }
+
+/* Two budget donuts with their legends. */
+.ecobudgets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 1080px) {
+  .ecobudgets { grid-template-columns: 1fr; }
+}
+.ecobudget {
+  border: 1px solid rgba(201, 162, 39, .22);
+  background: rgba(11, 10, 7, .5);
+  padding: 9px 10px 10px;
+}
+.ecobudget__hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 7px;
+  border-bottom: 1px solid rgba(201, 162, 39, .16);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: rgba(233, 220, 188, .62);
+}
+.ecobudget__hd .num { font-size: 14px; letter-spacing: 0; color: var(--gold-lit); }
+.ecobudget__body {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.ecobudget__legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ecoleg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(233, 220, 188, .78);
+}
+.ecoleg__sw { width: 8px; height: 8px; flex: none; }
+.ecoleg__k { flex: 1; min-width: 0; }
+.ecoleg__v { color: rgba(233, 220, 188, .92); }
+.ecoleg__p { width: 32px; text-align: right; color: rgba(233, 220, 188, .5); font-size: 10px; }
+
+/* Flat readouts: net, debt, inflation, reserves. */
+.econstats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px 10px;
+}
+@media (max-width: 900px) {
+  .econstats { grid-template-columns: repeat(2, 1fr); }
+}
+.econstat {
+  border-left: 2px solid rgba(201, 162, 39, .38);
+  padding: 4px 0 4px 8px;
+  min-width: 0;
+}
+.econstat__k {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: rgba(233, 220, 188, .5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.econstat__v { font-size: 14px; font-weight: 600; }
+.econstat__u { font-size: 10px; opacity: .6; margin-left: 2px; }
+.linechart { display: block; }
+
+/* Economy: a clear reading order from balance, to drivers, to outcomes. */
+.eco-dashboard { padding: 13px; display: flex; flex-direction: column; gap: 12px; }
+.eco-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.eco-kpi {
+  min-width: 0;
+  padding: 10px 11px 9px;
+  border: 1px solid rgba(201, 162, 39, .26);
+  border-top: 2px solid rgba(201, 162, 39, .7);
+  background: rgba(25, 20, 14, .82);
+}
+.eco-kpi--good { border-top-color: #7BA05B; }
+.eco-kpi--bad { border-top-color: #B75C52; }
+.eco-kpi__label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .09em;
+  color: rgba(233, 220, 188, .68); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.eco-kpi__value { margin-top: 4px; color: #F0D98D; font-size: 23px; font-weight: 700; line-height: 1.15; }
+.eco-kpi--good .eco-kpi__value { color: #A9C78C; }
+.eco-kpi--bad .eco-kpi__value { color: #E6A39A; }
+.eco-kpi__unit { margin-left: 3px; font-size: 11px; font-weight: 400; color: rgba(233, 220, 188, .62); }
+.eco-kpi__note { margin-top: 5px; font-size: 10px; color: rgba(233, 220, 188, .53); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eco-sectionhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 1px 5px; border-bottom: 1px solid rgba(201, 162, 39, .25); font-family: var(--font-mono); color: #EBD07A; font-size: 11px; letter-spacing: .1em; }
+.eco-sectionhead small { color: rgba(233, 220, 188, .5); letter-spacing: 0; font-size: 9.5px; text-align: right; }
+.eco-dashboard .ecoport-grid > *, .eco-dashboard .ecotrend, .eco-dashboard .ecobudget { background: rgba(20, 17, 12, .77); border-color: rgba(201, 162, 39, .24); }
+.eco-dashboard .ecoport-grid { gap: 8px; }
+.eco-dashboard .ecometric--lead { padding: 12px 13px; }
+.eco-dashboard .ecometric--lead .ecometric__hd { align-items: flex-start; }
+.eco-dashboard .ecometric--lead .ecometric__k { white-space: normal; line-height: 1.4; }
+.eco-dashboard .ecometric--lead .ecometric__v { width: auto; font-size: 30px; line-height: 1; }
+.eco-target { display: flex; justify-content: space-between; margin: 12px 0 6px; font-size: 10px; color: rgba(233, 220, 188, .61); }
+.eco-target strong { color: #EBD07A; font-size: 13px; }
+.eco-trafficbar { position: relative; height: 11px; background: rgba(233, 220, 188, .1); overflow: visible; }
+.eco-trafficbar .bar__fill { background: #7E9A75; height: 100%; }
+.eco-trafficbar__target { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #F4D67B; box-shadow: 0 0 5px rgba(244, 214, 123, .5); }
+.eco-leadnote { margin: 9px 0 5px; font-size: 10px; color: rgba(233, 220, 188, .59); line-height: 1.4; }
+.eco-dashboard .ecometrics { gap: 9px; }
+.eco-dashboard .ecometric__bar { width: 68px; height: 7px; background: rgba(233, 220, 188, .09); }
+.eco-dashboard .ecometric__k { font-size: 11px; }
+.eco-dashboard .ecometric__v { font-size: 12px; }
+.eco-dashboard .ecotrend { padding: 10px 11px 6px; }
+.eco-dashboard .ecotrend__v { font-size: 19px; }
+.ecotrend__empty { min-height: 82px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(201, 162, 39, .12); font-size: 10px; color: rgba(233, 220, 188, .43); }
+.eco-dashboard .ecobudget { padding: 11px 12px; }
+.eco-arrears { display: flex; justify-content: space-between; padding: 8px 10px; background: rgba(125, 45, 38, .16); border-left: 2px solid #B75C52; color: rgba(233, 220, 188, .76); font-size: 11px; }
+.eco-arrears strong { color: #E6A39A; }
+.eco-formulas { border: 1px solid rgba(201, 162, 39, .31); background: rgba(17, 15, 12, .85); }
+.eco-formulas__summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; color: #EBD07A; font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; }
+.eco-formulas__summary::marker { color: #C9A227; }
+.eco-formulas__hint { color: rgba(233, 220, 188, .5); font-size: 9px; white-space: nowrap; }
+.eco-formulas[open] .eco-formulas__summary { border-bottom: 1px solid rgba(201, 162, 39, .2); }
+.eco-formulas__body { padding: 13px; }
+.eco-formulas__intro { margin: 0 0 12px; line-height: 1.55; color: rgba(233, 220, 188, .65); font-size: 11px; }
+.eco-formulas__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.eco-formulas__group { min-width: 0; border: 1px solid rgba(201, 162, 39, .18); padding: 11px; background: rgba(35, 29, 20, .44); }
+.eco-formulas__group--wide { grid-column: 1 / -1; }
+.eco-formulas__group h4 { margin: 0 0 8px; color: #EBD07A; font-size: 11px; letter-spacing: .07em; }
+.eco-formula { padding: 8px 0; border-top: 1px solid rgba(201, 162, 39, .12); }
+.eco-formula__heading { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 10px; color: rgba(233, 220, 188, .84); }
+.eco-formula__heading .num { color: #EBD07A; white-space: nowrap; }
+.eco-formula__math { margin-top: 4px; font-size: 10px; line-height: 1.55; color: rgba(233, 220, 188, .59); overflow-wrap: anywhere; }
+@media (max-width: 1080px) { .eco-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .eco-formulas__grid { grid-template-columns: 1fr; } .eco-formulas__group--wide { grid-column: auto; } }
+
+/* Touch screens have no persistent hover, so keep consequences in the option. */
+@media (hover: none) {
+  .inline-event .opt__p,
+  .opt--card .opt__p,
+  .opt--card.opt--flip .opt__p {
+    display: flex;
+    position: static;
+    top: auto;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: auto;
+    margin-top: 8px !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Event decisions read as a short printed dispatch followed by numbered
+   alternatives. The result block stays with the story; choices have their own
+   ruled section so a long narrative never buries the next action. */
+.modal--event .modal__kicker {
+  margin-bottom: 7px;
+  color: #E7C989;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .22em;
+}
+.modal--event .modal__ttl { line-height: 1.25; }
+.modal--event .modal__it {
+  margin-top: 5px;
+  max-width: 68ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inline-event .modal__bd {
+  max-height: min(72vh, 760px);
+  padding: 0 !important;
+}
+.inline-event { width: 100%; max-width: 820px; margin: 0 auto 10px; }
+.inline-event .modal { width: 100%; }
+.modal--event .event-sheet__narrative {
+  padding: 24px clamp(20px, 3vw, 36px) 26px;
+  border-left: 3px solid rgba(140, 38, 48, .52);
+  margin: 16px 18px 0;
+  background: #F5ECD7;
+}
+.modal--event .modal__body {
+  max-width: 68ch;
+  margin: 0 auto;
+  color: #342617;
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+  overflow-wrap: anywhere;
+}
+.modal--event .event-sheet__narrative .evres { margin-top: 20px; }
+.modal--event .event-sheet__choices {
+  margin: 20px 18px 22px;
+  padding: 16px clamp(8px, 1.5vw, 18px) 6px;
+  border-top: 3px double rgba(93, 69, 36, .62);
+}
+.modal--event .event-sheet__choicehead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 4px 13px;
+}
+.modal--event .event-sheet__choice-title {
+  color: #64212B;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
+.modal--event .event-sheet__choice-count {
+  color: #76654B;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .13em;
+  white-space: nowrap;
+}
+.modal--event .opt__h {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 13px;
+}
+.modal--event .event-sheet__number {
+  grid-row: 1 / span 2;
+  color: #9A2835;
+  border-right: 1px solid #CDB890;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.modal--event .opt__n { line-height: 1.45 !important; }
+.modal--event .opt__i {
+  grid-column: 2;
+  font-style: normal;
+  line-height: 1.5;
+}
+.modal--event .opt:disabled .event-sheet__number { color: #9D8C76; }
+.modal--event .modal__ft {
+  background: #E5D6B5;
+  border-top: 1px solid #C2AA80;
+  padding: 9px 25px;
+}
+
+/* The hovered effects unfold inside the choice, so they remain readable at
+   the bottom of a scrollable dispatch instead of being clipped by its edge. */
+.inline-event .opt__p {
+  position: static;
+  width: auto;
+  top: auto;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  margin-top: 11px !important;
+  padding: 9px 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid #CDB890 !important;
+  box-shadow: none !important;
+}
+.inline-event .opt__p::before {
+  content: '效果预览 · EFFETTI';
+  margin: 0 0 3px;
+  padding: 0;
+  border: 0;
+  color: #755F42;
+}
+@media (min-width: 1180px) {
+  .inline-event .modal__bd { padding-right: 0 !important; }
+}
+@media (max-width: 700px) {
+  .inline-event .modal { max-height: none; overflow: visible; }
+  .inline-event .modal__bd { max-height: none; overflow: visible; }
+  .inline-event .modal__hd { padding: 16px 18px 14px !important; }
+  .inline-event .modal__ttl { font-size: 23px !important; }
+  .modal--event .event-sheet__narrative { margin: 10px 10px 0; padding: 18px 16px; }
+  .modal--event .event-sheet__choices { margin: 15px 10px 15px; padding: 13px 0 0; }
+  .modal--event .event-sheet__choice-title { font-size: 16px; }
+  .modal--event .event-sheet__choice-count { font-size: 9px; }
+  .inline-event .opt { padding: 11px 12px !important; }
+}
+
+/* Fine-pointer previews live above scroll containers and follow the pointer
+   across each choice; touch retains the inline consequence list. */
+@media (hover: hover) and (pointer: fine) {
+  .inline-event .opt:hover .opt__p,
+  .opt--card:hover .opt__p { display: none !important; }
+}
+.effect-float {
+  position: fixed;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  pointer-events: none;
+  box-sizing: border-box;
+  padding: 10px 13px 11px;
+  background: #FBF4E2;
+  border: 1px solid #2B2118;
+  box-shadow: 3px 3px 0 #2B2118;
+  color: #2B2118;
+}
+.effect-float__heading {
+  border-bottom: 1px solid rgba(43, 33, 24, .2);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  color: rgba(43, 33, 24, .65);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .15em;
+}
+.effect-float__line {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.effect-float__line.up { color: #2F5D18; }
+.effect-float__line.dn { color: #A31621; }

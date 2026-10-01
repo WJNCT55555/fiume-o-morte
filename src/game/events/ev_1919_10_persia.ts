@@ -40,7 +40,7 @@ export const ev191910Persia: GameEvent = {
           relations: [['LEG', 'PSI', 10]],
           factions: { sindacalisti: { dis: -14 }, futuristi: { dis: -8 }, fascisti: { dis: 6 } },
           flags: { persia: true },
-          organizations: [] }; }
+          }; }
       },
       {
         id: 'silenzio',

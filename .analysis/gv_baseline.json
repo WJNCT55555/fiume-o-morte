@@ -1,0 +1,1600 @@
+{
+ "gv_amnistia": {
+  "ministry": "interno",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "generale",
+    "preview": [
+     "暴力 −−",
+     "事态 −",
+     "合法性 +",
+     "阿迪蒂异议 ++"
+    ],
+    "effect": {
+     "order": {
+      "violence": -12,
+      "coup": -10,
+      "squadre": -6,
+      "fervour": -4
+     },
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       3
+      ]
+     ],
+     "factions": {
+      "arditi": {
+       "dis": 10
+      },
+      "fascisti": {
+       "dis": 8
+      }
+     }
+    }
+   },
+   {
+    "id": "politici",
+    "preview": [
+     "合法性 ++",
+     "英法美 +",
+     "暴力 −"
+    ],
+    "effect": {
+     "order": {
+      "violence": -6,
+      "coup": -6
+     },
+     "diplo": {
+      "uk": 4,
+      "france": 3,
+      "league": 4
+     },
+     "support": [
+      [
+       "impiegati",
+       "LEG",
+       3
+      ]
+     ],
+     "factions": {
+      "arditi": {
+       "dis": 4
+      }
+     }
+    }
+   },
+   {
+    "id": "nessuna",
+    "preview": [
+     "领袖权威 ++",
+     "暴力 +",
+     "合法性 −",
+     "工团派异议 ++"
+    ],
+    "effect": {
+     "order": {
+      "authority": 6,
+      "violence": 5,
+      "coup": 4
+     },
+     "factions": {
+      "arditi": {
+       "dis": -8
+      },
+      "sindacalisti": {
+       "dis": 12
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_arengo": {
+  "ministry": "istruzione",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "convocare",
+    "preview": [
+     "宪章 +1",
+     "合法性 ++",
+     "事态 −−",
+     "宪章日志"
+    ],
+    "effect": {
+     "laws": {
+      "statuto": 1
+     },
+     "journals": [
+      "carta"
+     ],
+     "support": [
+      [
+       "artigiani",
+       "LEG",
+       3
+      ],
+      [
+       "contadini",
+       "LEG",
+       3
+      ],
+      [
+       "portuali",
+       "LEG",
+       3
+      ],
+      [
+       "operai",
+       "LEG",
+       2
+      ]
+     ],
+     "order": {
+      "authority": 5,
+      "coup": -8,
+      "fervour": 4
+     }
+    }
+   },
+   {
+    "id": "consultiva",
+    "preview": [
+     "领袖权威 +",
+     "合法性 +",
+     "工团派异议 +"
+    ],
+    "effect": {
+     "order": {
+      "authority": 8,
+      "coup": -5
+     },
+     "support": [
+      [
+       "impiegati",
+       "LEG",
+       3
+      ],
+      [
+       "borghesia",
+       "LEG",
+       3
+      ]
+     ],
+     "factions": {
+      "sindacalisti": {
+       "dis": 14
+      }
+     }
+    }
+   },
+   {
+    "id": "rinviare",
+    "preview": [
+     "热度 −",
+     "合法性 −",
+     "工团派异议 ++"
+    ],
+    "effect": {
+     "order": {
+      "fervour": -6
+     },
+     "factions": {
+      "sindacalisti": {
+       "dis": 18
+      },
+      "arditi": {
+       "dis": 6
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_bilancio": {
+  "ministry": "finanze",
+  "ap": 1,
+  "cooldown": 3,
+  "options": [
+   {
+    "id": "pareggio",
+    "preview": [
+     "债务 −−",
+     "通胀 −",
+     "资本信心 +",
+     "职员/手工业者 −"
+    ],
+    "effect": {
+     "order": {
+      "fervour": 5,
+      "authority": 2
+     },
+     "support": [
+      [
+       "impiegati",
+       "LEG",
+       -3
+      ],
+      [
+       "artigiani",
+       "LEG",
+       -2
+      ],
+      [
+       "borghesia",
+       "LEG",
+       4
+      ]
+     ],
+     "economy": {
+      "debt": -260,
+      "capitalConfidence": 7,
+      "inflation": -4
+     }
+    }
+   },
+   {
+    "id": "continua",
+    "preview": [
+     "金库 ++",
+     "通胀 ++",
+     "军团兵 +",
+     "资本信心 −"
+    ],
+    "effect": {
+     "funds": 460,
+     "order": {
+      "milizia": 200,
+      "fervour": 4
+     },
+     "economy": {
+      "inflation": 9,
+      "capitalConfidence": -8
+     },
+     "factions": {
+      "arditi": {
+       "dis": -10
+      }
+     }
+    }
+   },
+   {
+    "id": "prestito",
+    "preview": [
+     "金库 +++",
+     "商业派 −",
+     "资本信心 −",
+     "工团派异议 −"
+    ],
+    "effect": {
+     "funds": 640,
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       -4
+      ]
+     ],
+     "economy": {
+      "capitalConfidence": -12,
+      "debt": 180
+     },
+     "factions": {
+      "sindacalisti": {
+       "inf": 2,
+       "dis": -8
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_cittadinanza": {
+  "ministry": "interno",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "residenza",
+    "preview": [
+     "公民法 +1",
+     "人口 +",
+     "意大利 −",
+     "克罗地亚党 +"
+    ],
+    "effect": {
+     "laws": {
+      "cittadinanza": 1
+     },
+     "diplo": {
+      "italy": -3
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       2
+      ],
+      [
+       "contadini",
+       "PCR",
+       3
+      ]
+     ],
+     "economy": {
+      "population": 180
+     }
+    }
+   },
+   {
+    "id": "sangue",
+    "preview": [
+     "公民法 +1",
+     "合法性 ++",
+     "民族派 +",
+     "克罗地亚党 −−"
+    ],
+    "effect": {
+     "laws": {
+      "cittadinanza": 1
+     },
+     "support": [
+      [
+       "contadini",
+       "PCR",
+       -5
+      ]
+     ],
+     "diplo": {
+      "italy": 4,
+      "yugoslavia": -6
+     },
+     "factions": {
+      "fascisti": {
+       "dis": -10
+      },
+      "sindacalisti": {
+       "dis": 10
+      }
+     }
+    }
+   },
+   {
+    "id": "doppia",
+    "preview": [
+     "公民法 +2",
+     "国际承认 ++",
+     "民族派异议 ++"
+    ],
+    "effect": {
+     "laws": {
+      "cittadinanza": 2
+     },
+     "economy": {
+      "population": 260
+     },
+     "diplo": {
+      "yugoslavia": 8,
+      "league": 5,
+      "italy": -6
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       4
+      ],
+      [
+       "impiegati",
+       "LEG",
+       3
+      ]
+     ],
+     "factions": {
+      "fascisti": {
+       "dis": 14
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_disarco": {
+  "ministry": "difesa",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "disarmo",
+    "preview": [
+     "法西斯暴力 −−−",
+     "事态 −−",
+     "法西斯异议 +++"
+    ],
+    "effect": {
+     "flags": {
+      "fascio_disarmed": true
+     },
+     "order": {
+      "squadre": -18,
+      "violence": -6,
+      "coup": -12,
+      "authority": 4
+     },
+     "support": [
+      [
+       "operai",
+       "LEG",
+       3
+      ],
+      [
+       "portuali",
+       "LEG",
+       3
+      ],
+      [
+       "borghesia",
+       "LEG",
+       2
+      ]
+     ],
+     "factions": {
+      "fascisti": {
+       "inf": -5,
+       "dis": 22
+      },
+      "sindacalisti": {
+       "dis": -10
+      },
+      "arditi": {
+       "dis": -8
+      }
+     }
+    }
+   },
+   {
+    "id": "registro",
+    "preview": [
+     "公共秩序 +1",
+     "合法性 +",
+     "法西斯暴力 −",
+     "意大利 +"
+    ],
+    "effect": {
+     "laws": {
+      "ordine": 1
+     },
+     "order": {
+      "squadre": -6,
+      "violence": -3,
+      "authority": 2
+     },
+     "diplo": {
+      "italy": 4,
+      "league": 3
+     },
+     "factions": {
+      "fascisti": {
+       "dis": 8
+      },
+      "sindacalisti": {
+       "dis": -6
+      }
+     }
+    }
+   },
+   {
+    "id": "accordi",
+    "preview": [
+     "法西斯暴力 −−",
+     "法西斯派 +",
+     "内政席位易手"
+    ],
+    "effect": {
+     "cabinet": {
+      "interno": "ANI"
+     },
+     "laws": {
+      "ordine": 1
+     },
+     "order": {
+      "squadre": -12,
+      "coup": -8,
+      "violence": -4
+     },
+     "factions": {
+      "fascisti": {
+       "inf": 4,
+       "dis": -16
+      },
+      "sindacalisti": {
+       "dis": 16
+      },
+      "arditi": {
+       "dis": 10
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_disoccupazione": {
+  "ministry": "lavoro",
+  "ap": 1,
+  "cooldown": 2,
+  "options": [
+   {
+    "id": "cantieri",
+    "preview": [
+     "失业 −−",
+     "港口工程 +",
+     "热度 −",
+     "港口日志"
+    ],
+    "effect": {
+     "journals": [
+      "porto"
+     ],
+     "order": {
+      "fervour": -4,
+      "squadre": -3
+     },
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       3
+      ],
+      [
+       "operai",
+       "LEG",
+       4
+      ],
+      [
+       "artigiani",
+       "LEG",
+       2
+      ]
+     ],
+     "economy": {
+      "unemployment": -6,
+      "traffic": 2,
+      "works": 5
+     }
+    }
+   },
+   {
+    "id": "sussidio",
+    "preview": [
+     "金库 −−−",
+     "失业 −",
+     "资本信心 −",
+     "通胀 +"
+    ],
+    "effect": {
+     "funds": -420,
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       5
+      ],
+      [
+       "operai",
+       "LEG",
+       5
+      ],
+      [
+       "contadini",
+       "LEG",
+       2
+      ]
+     ],
+     "economy": {
+      "unemployment": -4,
+      "capitalConfidence": -6,
+      "inflation": 4
+     }
+    }
+   },
+   {
+    "id": "emigrazione",
+    "preview": [
+     "失业 −−",
+     "人口 −−",
+     "金库 −"
+    ],
+    "effect": {
+     "funds": -220,
+     "diplo": {
+      "usa": 4
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       3
+      ],
+      [
+       "operai",
+       "LEG",
+       -4
+      ]
+     ],
+     "economy": {
+      "unemployment": -7,
+      "population": -300,
+      "capitalConfidence": 4
+     }
+    }
+   }
+  ]
+ },
+ "gv_dogana_yu": {
+  "ministry": "economia",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "accordo",
+    "preview": [
+     "腹地 ++",
+     "吞吐 +",
+     "关税法 +2",
+     "民族派异议 ++"
+    ],
+    "effect": {
+     "laws": {
+      "dogana": 2
+     },
+     "economy": {
+      "hinterland": 16,
+      "traffic": 7,
+      "delta": 4
+     },
+     "diplo": {
+      "yugoslavia": 12,
+      "italy": -8
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       3
+      ],
+      [
+       "borghesia",
+       "LEG",
+       3
+      ]
+     ],
+     "factions": {
+      "sindacalisti": {
+       "inf": 3,
+       "dis": -8
+      },
+      "fascisti": {
+       "dis": 12
+      }
+     }
+    }
+   },
+   {
+    "id": "parziale",
+    "preview": [
+     "腹地 +",
+     "南斯拉夫 +",
+     "意大利 +",
+     "国联 +"
+    ],
+    "effect": {
+     "laws": {
+      "dogana": 1
+     },
+     "economy": {
+      "hinterland": 7,
+      "traffic": 3,
+      "delta": 1
+     },
+     "diplo": {
+      "yugoslavia": 6,
+      "italy": 3,
+      "league": 3
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       2
+      ],
+      [
+       "borghesia",
+       "LEG",
+       2
+      ]
+     ]
+    }
+   },
+   {
+    "id": "rifiuto",
+    "preview": [
+     "热度 ++",
+     "合法性 +",
+     "事态 ++",
+     "腹地 −−"
+    ],
+    "effect": {
+     "order": {
+      "fervour": 8,
+      "coup": 8
+     },
+     "economy": {
+      "hinterland": -8,
+      "traffic": -3
+     },
+     "diplo": {
+      "yugoslavia": -10,
+      "italy": 4
+     },
+     "factions": {
+      "fascisti": {
+       "inf": 2,
+       "dis": -10
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_fisco": {
+  "ministry": "finanze",
+  "ap": 1,
+  "cooldown": 3,
+  "options": [
+   {
+    "id": "moderato",
+    "preview": [
+     "财政法 +1",
+     "月度收入 +12%",
+     "资本信心 −"
+    ],
+    "effect": {
+     "laws": {
+      "fisco": 1
+     },
+     "revenueBoost": {
+      "porto": 0.12
+     },
+     "economy": {
+      "capitalConfidence": -2,
+      "traffic": -1
+     }
+    }
+   },
+   {
+    "id": "pesante",
+    "preview": [
+     "财政法 +2",
+     "月度收入 +26%",
+     "吞吐 −−",
+     "商业派异议 ++"
+    ],
+    "effect": {
+     "laws": {
+      "fisco": 2
+     },
+     "revenueBoost": {
+      "porto": 0.26,
+      "dogana": 0.1
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       -5
+      ],
+      [
+       "impiegati",
+       "LEG",
+       2
+      ]
+     ],
+     "economy": {
+      "traffic": -6,
+      "capitalConfidence": -9
+     },
+     "factions": {
+      "sindacalisti": {
+       "dis": -6
+      }
+     }
+    }
+   },
+   {
+    "id": "esenzione",
+    "preview": [
+     "吞吐 ++",
+     "腹地 +",
+     "月度收入 −"
+    ],
+    "effect": {
+     "laws": {
+      "dogana": 1
+     },
+     "revenueBoost": {
+      "porto": -0.18
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       4
+      ],
+      [
+       "portuali",
+       "LEG",
+       3
+      ]
+     ],
+     "economy": {
+      "traffic": 9,
+      "hinterland": 7,
+      "capitalConfidence": 8
+     }
+    }
+   }
+  ]
+ },
+ "gv_guardia": {
+  "ministry": "interno",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "comunale",
+    "preview": [
+     "公共秩序 +2",
+     "领袖权威 +",
+     "法西斯暴力 −−",
+     "阿迪蒂异议 +",
+     "卫队日志"
+    ],
+    "effect": {
+     "laws": {
+      "ordine": 2
+     },
+     "organizations": [
+      "guardia"
+     ],
+     "journals": [
+      "guardia"
+     ],
+     "order": {
+      "authority": 6,
+      "squadre": -8,
+      "civicGuard": 420
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       3
+      ],
+      [
+       "artigiani",
+       "LEG",
+       2
+      ]
+     ],
+     "factions": {
+      "sindacalisti": {
+       "dis": -10
+      },
+      "arditi": {
+       "dis": 8
+      }
+     }
+    }
+   },
+   {
+    "id": "legione",
+    "preview": [
+     "军团兵 −",
+     "领袖权威 ++",
+     "阿迪蒂 +",
+     "工团派异议 +"
+    ],
+    "effect": {
+     "laws": {
+      "ordine": 1
+     },
+     "organizations": [
+      "guardia"
+     ],
+     "order": {
+      "authority": 9,
+      "civicGuard": 320,
+      "milizia": -260,
+      "violence": 3
+     },
+     "factions": {
+      "arditi": {
+       "inf": 3,
+       "dis": -10
+      },
+      "sindacalisti": {
+       "dis": 12
+      }
+     }
+    }
+   },
+   {
+    "id": "rinunciare",
+    "preview": [
+     "法西斯暴力 +",
+     "领袖权威 −",
+     "阿迪蒂异议 −"
+    ],
+    "effect": {
+     "order": {
+      "authority": -4,
+      "squadre": 8
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       -3
+      ]
+     ],
+     "factions": {
+      "arditi": {
+       "dis": -8
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_lavori": {
+  "ministry": "economia",
+  "ap": 1,
+  "cooldown": 4,
+  "options": [
+   {
+    "id": "completo",
+    "preview": [
+     "港口工程 ++",
+     "吞吐 +",
+     "失业 −",
+     "财政法 +1"
+    ],
+    "effect": {
+     "laws": {
+      "fisco": 1
+     },
+     "economy": {
+      "works": 14,
+      "traffic": 6,
+      "unemployment": -3,
+      "hinterland": 3
+     },
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       3
+      ],
+      [
+       "operai",
+       "LEG",
+       3
+      ]
+     ]
+    }
+   },
+   {
+    "id": "solo_bacino",
+    "preview": [
+     "金库 +",
+     "港口工程 +",
+     "吞吐 +"
+    ],
+    "effect": {
+     "funds": 180,
+     "economy": {
+      "works": 7,
+      "traffic": 3
+     },
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       2
+      ]
+     ],
+     "districts": {
+      "porto": {
+       "control": 4
+      }
+     }
+    }
+   },
+   {
+    "id": "appalto",
+    "preview": [
+     "资本信心 ++",
+     "商业派 +",
+     "工人 −",
+     "罢工 +"
+    ],
+    "effect": {
+     "economy": {
+      "works": 10,
+      "capitalConfidence": 9,
+      "strike": 6
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       4
+      ],
+      [
+       "operai",
+       "LEG",
+       -3
+      ]
+     ],
+     "factions": {
+      "sindacalisti": {
+       "dis": 12
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_lingua": {
+  "ministry": "istruzione",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "bilingue",
+    "preview": [
+     "语言法 +1",
+     "学校 +1",
+     "农民 +",
+     "民族派异议 ++"
+    ],
+    "effect": {
+     "laws": {
+      "lingua": 1,
+      "scuola": 1
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       5
+      ],
+      [
+       "operai",
+       "LEG",
+       2
+      ]
+     ],
+     "diplo": {
+      "yugoslavia": 8,
+      "italy": -5
+     },
+     "districts": {
+      "drenova": {
+       "agitation": -8,
+       "control": 8
+      },
+      "srdoci": {
+       "agitation": -8,
+       "control": 6
+      },
+      "plase": {
+       "agitation": -5
+      }
+     },
+     "factions": {
+      "sindacalisti": {
+       "inf": 3,
+       "dis": -12
+      },
+      "fascisti": {
+       "dis": 12
+      }
+     }
+    }
+   },
+   {
+    "id": "tolleranza",
+    "preview": [
+     "学校 +1",
+     "农民 +",
+     "意大利 +",
+     "克罗地亚党 −"
+    ],
+    "effect": {
+     "laws": {
+      "scuola": 1
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       3
+      ]
+     ],
+     "diplo": {
+      "yugoslavia": 3,
+      "italy": 3
+     },
+     "districts": {
+      "drenova": {
+       "agitation": -4,
+       "control": 4
+      }
+     }
+    }
+   },
+   {
+    "id": "solo_italiano",
+    "preview": [
+     "民族派 ++",
+     "克罗地亚党 −−−",
+     "动荡 ++"
+    ],
+    "effect": {
+     "order": {
+      "authority": 6,
+      "violence": 6
+     },
+     "support": [
+      [
+       "contadini",
+       "LEG",
+       -8
+      ],
+      [
+       "contadini",
+       "PCR",
+       6
+      ]
+     ],
+     "diplo": {
+      "italy": 6,
+      "yugoslavia": -10
+     },
+     "districts": {
+      "drenova": {
+       "agitation": 12,
+       "control": -5
+      },
+      "srdoci": {
+       "agitation": 10,
+       "control": -4
+      }
+     },
+     "factions": {
+      "fascisti": {
+       "dis": -14,
+       "inf": 2
+      },
+      "sindacalisti": {
+       "dis": 16
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_nave": {
+  "ministry": "difesa",
+  "ap": 1,
+  "cooldown": 4,
+  "options": [
+   {
+    "id": "requisire",
+    "preview": [
+     "军团兵 ++",
+     "领袖权威 +",
+     "意大利 −−"
+    ],
+    "effect": {
+     "order": {
+      "authority": 4,
+      "fervour": 5,
+      "milizia": 140
+     },
+     "economy": {
+      "traffic": -2
+     },
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       2
+      ]
+     ],
+     "diplo": {
+      "italy": -8,
+      "yugoslavia": -4,
+      "league": -3
+     }
+    }
+   },
+   {
+    "id": "noleggio",
+    "preview": [
+     "金库 −−",
+     "商业派 +",
+     "合法性 +",
+     "意大利 −"
+    ],
+    "effect": {
+     "funds": -280,
+     "order": {
+      "milizia": 100,
+      "authority": 2
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       4
+      ]
+     ],
+     "economy": {
+      "capitalConfidence": 5
+     },
+     "diplo": {
+      "italy": -4
+     }
+    }
+   },
+   {
+    "id": "affondare",
+    "preview": [
+     "航道封锁",
+     "吞吐 −−−",
+     "意大利 −",
+     "事态 +"
+    ],
+    "effect": {
+     "economy": {
+      "traffic": -9,
+      "hinterland": -4
+     },
+     "order": {
+      "authority": 5,
+      "coup": 6
+     },
+     "diplo": {
+      "italy": -10,
+      "yugoslavia": -6
+     },
+     "districts": {
+      "porto": {
+       "control": 6,
+       "agitation": 6
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_nota_roma": {
+  "ministry": "esteri",
+  "ap": 1,
+  "cooldown": 3,
+  "options": [
+   {
+    "id": "tecnica",
+    "preview": [
+     "意大利 ++",
+     "驻军 +",
+     "事态 −",
+     "民族派异议 +"
+    ],
+    "effect": {
+     "flags": {
+      "rome_talks": true
+     },
+     "diplo": {
+      "italy": 8,
+      "league": 3
+     },
+     "order": {
+      "garrison": 8,
+      "coup": -10
+     },
+     "economy": {
+      "hinterland": 3
+     },
+     "factions": {
+      "fascisti": {
+       "dis": 8
+      }
+     }
+    }
+   },
+   {
+    "id": "ultimatum",
+    "preview": [
+     "意大利 −−−",
+     "热度 ++",
+     "事态 ++"
+    ],
+    "effect": {
+     "order": {
+      "fervour": 8,
+      "coup": 12,
+      "garrison": -6
+     },
+     "diplo": {
+      "italy": -16,
+      "league": -4
+     },
+     "factions": {
+      "fascisti": {
+       "dis": -8
+      }
+     }
+    }
+   },
+   {
+    "id": "silenzio",
+    "preview": [
+     "驻军 +",
+     "合法性 −",
+     "阿迪蒂异议 +"
+    ],
+    "effect": {
+     "order": {
+      "garrison": 5,
+      "coup": -5
+     },
+     "diplo": {
+      "italy": 4
+     },
+     "factions": {
+      "arditi": {
+       "dis": 10
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_portofranco": {
+  "ministry": "economia",
+  "ap": 1,
+  "cooldown": 6,
+  "options": [
+   {
+    "id": "decreto",
+    "preview": [
+     "自由港 +1",
+     "吞吐 ++",
+     "腹地 +",
+     "意大利 −",
+     "港口日志"
+    ],
+    "effect": {
+     "laws": {
+      "portofranco": 1
+     },
+     "journals": [
+      "porto"
+     ],
+     "economy": {
+      "traffic": 6,
+      "hinterland": 6,
+      "works": 4,
+      "capitalConfidence": 8
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       4
+      ],
+      [
+       "portuali",
+       "LEG",
+       2
+      ]
+     ],
+     "diplo": {
+      "italy": -4,
+      "yugoslavia": -3
+     }
+    }
+   },
+   {
+    "id": "limitato",
+    "preview": [
+     "自由港 +1",
+     "意大利 +",
+     "国联 +",
+     "工团派异议 +"
+    ],
+    "effect": {
+     "laws": {
+      "portofranco": 1
+     },
+     "diplo": {
+      "italy": 6,
+      "league": 4
+     },
+     "economy": {
+      "traffic": 3,
+      "capitalConfidence": 4
+     },
+     "support": [
+      [
+       "borghesia",
+       "LEG",
+       2
+      ]
+     ],
+     "factions": {
+      "sindacalisti": {
+       "dis": 8
+      }
+     }
+    }
+   },
+   {
+    "id": "rinvio",
+    "preview": [
+     "工人 ++",
+     "劳动法 +",
+     "资本信心 −−",
+     "吞吐 −"
+    ],
+    "effect": {
+     "laws": {
+      "lavoro": 1
+     },
+     "support": [
+      [
+       "portuali",
+       "LEG",
+       5
+      ],
+      [
+       "operai",
+       "LEG",
+       4
+      ]
+     ],
+     "economy": {
+      "capitalConfidence": -10,
+      "traffic": -4,
+      "works": 6
+     },
+     "factions": {
+      "sindacalisti": {
+       "inf": 3,
+       "dis": -12
+      }
+     }
+    }
+   }
+  ]
+ },
+ "gv_stampa": {
+  "ministry": "interno",
+  "ap": 1,
+  "cooldown": 3,
+  "options": [
+   {
+    "id": "liberta",
+    "preview": [
+     "新闻法 +1",
+     "合法性 ++",
+     "国际承认 +",
+     "暴力 +"
+    ],
+    "effect": {
+     "laws": {
+      "stampa": 1
+     },
+     "order": {
+      "violence": 3
+     },
+     "diplo": {
+      "uk": 4,
+      "france": 4,
+      "usa": 3,
+      "league": 4
+     },
+     "economy": {
+      "recognition": 3
+     },
+     "support": [
+      [
+       "impiegati",
+       "LEG",
+       2
+      ]
+     ]
+    }
+   },
+   {
+    "id": "condizionata",
+    "preview": [
+     "新闻法 +1",
+     "合法性 +",
+     "法西斯异议 +",
+     "阿迪蒂 −"
+    ],
+    "effect": {
+     "laws": {
+      "stampa": 1
+     },
+     "order": {
+      "authority": 3,
+      "violence": -3
+     },
+     "support": [
+      [
+       "impiegati",
+       "LEG",
+       3
+      ]
+     ],
+     "factions": {
+      "fascisti": {
+       "dis": 12
+      },
+      "arditi": {
+       "dis": -6
+      }
+     }
+    }
+   },
+   {
+    "id": "censura",
+    "preview": [
+     "领袖权威 ++",
+     "合法性 −−",
+     "英法美 −"
+    ],
+    "effect": {
+     "order": {
+      "authority": 7,
+      "violence": 4
+     },
+     "diplo": {
+      "uk": -5,
+      "france": -5,
+      "usa": -5,
+      "league": -4
+     },
+     "factions": {
+      "arditi": {
+       "dis": -10
+      },
+      "sindacalisti": {
+       "dis": 14
+      }
+     }
+    }
+   }
+  ]
+ }
+}

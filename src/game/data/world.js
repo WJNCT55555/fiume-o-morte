@@ -36,19 +36,7 @@
     { id: 'regnicoli', pop: 9, zh: '意大利侨民', it: 'Regnicoli', city: 0.95, note: '1918 年后自意大利本土迁入；军团兵的社会基础' }
   ];
 
-    /* ======================= 4. Organizations ======================= */
-  W.ORGANIZATIONS = [
-    { id: 'legione',   zh: '阜姆军团（Legione Fiumana）', it: 'Legione Fiumana', active: true,  effect: 'milizia' },
-    { id: 'arditi_as', zh: '意大利阿迪蒂协会',           it: 'Associazione Arditi d\'Italia', active: true, effect: 'fervour' },
-    { id: 'testa',     zh: '《铁头》报',                 it: 'Testa di Ferro', active: true,  effect: 'propaganda' },
-    { id: 'arengo',    zh: '阿伦戈（市民大会）',         it: 'Arengo', active: true,  effect: 'legitimacy' },
-    { id: 'cassa',     zh: '贴现银行与阜姆券',           it: 'Cassa di Sconto e Buoni di Fiume', active: true, effect: 'funds' },
-    { id: 'reduci',    zh: '退伍军人联合会',             it: 'Unione dei Reduci', active: false, effect: 'squadre' },
-    { id: 'guardia',   zh: '公民卫队',                   it: 'Guardia Civica', active: false, effect: 'order' },
-    { id: 'contadini', zh: '子市镇农民联盟',             it: 'Lega dei Contadini', active: false, effect: 'subSupport' }
-  ];
-
-  /* ======================= 16. Card decks ======================= */
+    /* ======================= 16. Card decks ======================= */
   /* Three decks occupy the reserved slots in the action panel. Clicking a deck
      opens a picker of its drawable cards; the chosen card fills a free slot.
      Playing it from the slot spends AP and frees the slot again. */
@@ -60,21 +48,17 @@
   ];
 
   /* ======================= 6. Resource bar ======================= */
-  /* The six slots of the reference poster's resource strip. ids are read by
+  /* The active values in the resource strip. ids are read by
      S.resources and Eng.resourceSnapshot. */
   W.RESOURCES = [
     { id: 'tesoro',      zh: '金库',     it: 'Tesoro',                icon: 'coins' },
     { id: 'legittimita', zh: '军团民意', it: 'Opinione sulla Legione', icon: 'legittimita' },
     { id: 'fervore',     zh: '民众热忱', it: 'Fervore Popolare',      icon: 'flame' },
-    { id: 'milizia',     zh: '军团兵力', it: 'Milizia',               icon: 'milizia' },
-    { id: 'produzione',  zh: '工业生产', it: 'Produzione Industriale', icon: 'industria' },
-    { id: 'pressione',   zh: '外交压力', it: 'Pressione Diplomatica', icon: 'pressione' }
+    { id: 'milizia',     zh: '军团兵力', it: 'Milizia',               icon: 'milizia' }
   ];
 
   /* ======================= 7. Laws ======================= */
   W.LAWS = [
-    { id: 'statuto', zh: '《卡尔纳罗宪章》', it: 'Carta del Carnaro', max: 4, levels: [
-      '悬置（军团兵的意志即法律）', '部分实施：阿伦戈与执政官', '全面实施：法团院与公社自治', '在国联条约集登记', '英法美共同保证'] },
     { id: 'elettorale', zh: '选举法', it: 'Legge elettorale', max: 3, levels: [
       '无选举（1919 年市政议会延续）', '混合多数制（51+17 / 6+2）', '比例代表制', '普选与女性候选权'] },
     { id: 'lingua', zh: '官方语言', it: 'Lingua ufficiale', max: 3, levels: [
@@ -82,36 +66,52 @@
     { id: 'portofranco', zh: '自由港', it: 'Porto franco', max: 3, levels: [
       '无特权', '关税暂缓区', '自由港', '自由港 + 转口贸易特权'] },
     { id: 'cittadinanza', zh: '公民身份', it: 'Cittadinanza', max: 3, levels: [
-      '军团兵与 1918 年前居民', 'regnicoli 入籍便利', '居住三年入籍', '允许双国籍'] },
+      '军团兵与 1918 年前居民', '按语言与文化放宽入籍', '居住三年入籍', '允许双国籍'] },
     { id: 'ordine', zh: '公共秩序', it: 'Ordine pubblico', max: 3, levels: [
-      '仅靠军团兵的纪律', '市警扩编', '公民卫队合法化', '公民卫队 + 街区自卫队'] },
+      '军团兵与市政警察并行', '市警扩编', '市警接受市政监督', '市警受公开程序与司法审查约束'] },
     { id: 'stampa', zh: '新闻', it: 'Stampa', max: 2, levels: [
       '军团兵检查', '有限自由（须登记）', '完全自由'] },
     { id: 'scuola', zh: '教育语言', it: 'Lingua scolastica', max: 2, levels: [
       '仅意大利语', '增设克罗地亚语班', '公立双语学校'] },
     { id: 'dogana', zh: '关税', it: 'Regime doganale', max: 3, levels: [
       '被封锁的孤立港', '与意大利关税协定', '与南斯拉夫关税协定', '双协定与转口'] },
-    { id: 'lavoro', zh: '劳动', it: 'Legislazione del lavoro', max: 3, levels: [
-      '无劳动立法', '八小时工作制', '港口劳动局', '工会承认与集体合同'] },
+    { id: 'orario', zh: '劳动时间', it: 'Orario di lavoro', max: 3, levels: [
+      '无统一工时', '八小时工作制', '加班限制与每周休息', '带薪休假与工时监察'] },
+    { id: 'lavoro', zh: '劳动保障', it: 'Tutele del lavoro', max: 3, levels: [
+      '无保障制度', '最低工资与劳动争议调解', '疾病、失业与养老救助', '工团承认与集体合同'] },
     { id: 'fisco', zh: '财政', it: 'Ordinamento fiscale', max: 3, levels: [
       '印钞与捐献', '开征港口费', '累进所得税', '直接税 + 关税组合'] },
     ];
 
-
-  W.LAW_STANCE = {
-    statuto:      { LEG:  8, AUT:  5, PAD:  6, PCR:  6, ANI: -2, PSI:  4 },
-    elettorale:   { LEG: -5, AUT: -3, PAD:  6, PCR:  8, ANI: -2, PSI:  9 },
-    lingua:       { LEG:  2, AUT:  6, PAD:  7, PCR:  9, ANI: -5, PSI:  5 },
-    portofranco:  { LEG:  6, AUT:  9, PAD:  7, PCR:  5, ANI:  4, PSI: -1 },
-    cittadinanza: { LEG:  3, AUT:  3, PAD:  4, PCR:  5, ANI:  1, PSI:  6 },
-    ordine:       { LEG:  6, AUT:  0, PAD: -2, PCR: -4, ANI:  9, PSI: -6 },
-    stampa:       { LEG: -3, AUT:  5, PAD:  6, PCR:  7, ANI: -5, PSI:  8 },
-    scuola:       { LEG:  1, AUT:  4, PAD:  6, PCR:  8, ANI: -4, PSI:  6 },
-    dogana:       { LEG:  4, AUT:  7, PAD:  5, PCR:  5, ANI:  3, PSI:  0 },
-    lavoro:       { LEG:  7, AUT:  3, PAD:  4, PCR:  3, ANI: -5, PSI:  9 },
-    fisco:        { LEG: -1, AUT:  2, PAD:  3, PCR:  2, ANI: -3, PSI:  8 },
-    terra:        { LEG: -2, AUT:  1, PAD:  3, PCR:  4, ANI: -3, PSI:  7 }
+  /* Short, rule-backed effects for the law dossier. The full numeric formulas
+     remain in Rules; these summaries explain what each statute changes. */
+  W.LAW_EFFECTS = {
+    elettorale: { zh: '每级提高各阶层的目标投票率 1.5 点；选举、宪章日志会读取现行等级。', it: 'Ogni livello aumenta di 1,5 punti l’affluenza obiettivo; elezioni e diario leggono il livello.' },
+    lingua: { zh: '每月改善与南斯拉夫的关系；较高等级缓解边郊动荡并影响市民同意日志。', it: 'Migliora i rapporti jugoslavi ogni mese; livelli alti attenuano i disordini periferici.' },
+    portofranco: { zh: '每级提高港口吞吐目标，并每月增加资本信心；可开启港口金融路线。', it: 'Alza il traffico obiettivo e la fiducia del capitale; apre la finanza portuale.' },
+    cittadinanza: { zh: '一级使目标投票率提高 3 点，二级起提高 6 点；也决定宪章条款是否落实。', it: 'Aumenta l’affluenza obiettivo di 3 punti al primo livello e 6 dal secondo.' },
+    ordine: { zh: '每级抑制法西斯街头暴力、提高摄政权威；市警监督也影响宪章日志。', it: 'Riduce la violenza delle squadre e rafforza l’autorità; il controllo municipale conta per la Carta.' },
+    stampa: { zh: '改变每月政治暴力走势；完全自由是宪章日志的目标。', it: 'Modifica la violenza politica mensile; la piena libertà è un obiettivo della Carta.' },
+    scuola: { zh: '每级每月提高斯拉夫农民对军团的支持；双语教育列入宪章目标。', it: 'Ogni livello aumenta mensilmente il sostegno dei contadini croati; il bilinguismo conta per la Carta.' },
+    dogana: { zh: '每级使关税收入提高 5%；商业协定另会改变腹地通达。', it: 'Ogni livello aumenta del 5% le entrate doganali; i trattati influiscono sull’accesso all’entroterra.' },
+    orario: { zh: '每级每月使罢工强度 −0.5、失业率 −0.12、资本信心 −0.2；不属于宪章日志硬条件。', it: 'Ogni livello riduce scioperi di 0,5 e disoccupazione di 0,12 al mese, ma fiducia di 0,2.' },
+    lavoro: { zh: '每级每月使罢工强度 −1.1，救助支出 +2；三级是宪章与劳动共和国的目标。', it: 'Ogni livello riduce gli scioperi di 1,1 al mese e aumenta la spesa sociale di 2.' },
+    fisco: { zh: '二级起开征所得税；每级每月降低资本信心 0.9。', it: 'Dal secondo livello si applica l’imposta sul reddito; la fiducia cala di 0,9 per livello al mese.' }
   };
+  W.LAW_SOURCES = {
+    elettorale: { zh: '市政选举、宪章颁布、阿伦戈', it: 'Elezioni municipali, Carta, Arengo' },
+    lingua: { zh: '双语条例、葛兰西谈判', it: 'Ordinamento bilingue, trattativa con Gramsci' },
+    portofranco: { zh: '自由港法令', it: 'Decreto sul porto franco' },
+    cittadinanza: { zh: '公民身份法', it: 'Legge sulla cittadinanza' },
+    ordine: { zh: '市政警察改革、解除武装', it: 'Riforma della polizia, disarmo' },
+    stampa: { zh: '新闻自由条例', it: 'Regolamento sulla stampa' },
+    scuola: { zh: '双语条例', it: 'Ordinamento bilingue' },
+    dogana: { zh: '与贝尔格莱德的关税协定', it: 'Accordo doganale con Belgrado' },
+    orario: { zh: '劳动时间法、码头谈判、总罢工', it: 'Legge sull’orario, trattativa portuale, sciopero' },
+    lavoro: { zh: '劳动保障法、德·安布里斯、阿伦戈', it: 'Legge sulle tutele, De Ambris, Arengo' },
+    fisco: { zh: '财政与税务法令', it: 'Decreti fiscali' }
+  };
+
 
   /* ======================= 8. The Rectors (Consiglio dei Rettori) ======================= */
   /* The Regency government as it stood in September 1920; all seven Rectors are historical. */
@@ -205,6 +205,122 @@
     { id: 'sandbox',    zh: '沙盒', it: 'Sandbox', ap: 2, hand: 5, dated: true, coupMul: 0.50,
       note: '解锁调试面板，不授予成就。' }
   ];
+
+  /* ======================= 14b. The forces outside Fiume ======================= */
+  /* The four subversive forces the 1920 march would have to hold together, plus
+     the officer corps. `attitude` is how each regards the Legion, -100..+100.
+     The initials are inferred from where each stood in 1920, and they are the
+     design's difficulty ladder: Mussolini is closest because the fasci already
+     worked with the Legion, Gramsci is furthest because Ordine Nuovo called the
+     whole enterprise petit-bourgeois adventurism.
+     `antagonism` is how much each one is pushed away when another is courted.
+     Some approaches strain others; that is the historical point. */
+  /* The political forces are named for movements, not for one man each: what the
+     Legion is buying is a movement's goodwill, and the men who speak for those
+     movements change (Bombacci is expelled, the communists break away at
+     Livorno, Malatesta is in and out of prison throughout). The event that opens
+     each approach is still a meeting with a person. */
+  W.FORZE = [
+    { id: 'fascisti',   zh: '意大利法西斯党', it: 'Partito Nazionale Fascista', init: 38, color: '#8F4124', allied: true, gate: 80,
+      note: '法西斯战斗团。已经在向右转，把阜姆当成障碍而不是跳板。' },
+    { id: 'socialisti', zh: '意大利社会党',   it: 'Partito Socialista',   init: 32, color: '#B0202F', allied: true, gate: 80,
+      note: '最高纲领派主流。1921 年 1 月里窝那分裂之前，这是意大利最大的党。' },
+    { id: 'anarchici',  zh: '意大利无政府主义者', it: 'Anarchici italiani', init: 30, color: '#070000', allied: true, gate: 80,
+      note: '马拉泰斯塔的《新人类》网络。1920 年一度接近阜姆，看到「最坏的敌人倾向」占上风就走。' },
+    { id: 'comunisti',  zh: '意大利共产党',   it: 'Partito Comunista',    init: 24, color: '#A31621', allied: true, gate: 80,
+      note: '《新秩序报》一翼。1921 年 1 月自社会党分裂而出，把阜姆斥为小资产阶级的煽情民族主义。' },
+    { id: 'corradini',  zh: '意大利民族主义协会', it: 'Associazione Nazionalista Italiana', init: 34, color: '#b58e0d', allied: true, gate: 80,
+      note: '科拉迪尼的协会。要的是一个由「最优秀者」统治的意大利——而阜姆正在演那一幕。' },
+    { id: 'sindacalisti', zh: '意大利革命工团主义者', it: 'Sindacalisti rivoluzionari italiani', init: 30, color: '#a02c06', allied: true, gate: 80,
+      note: '德·安布里斯在意大利的工会与革命工团主义网络。' },
+    { id: 'forzearmate', zh: '意大利军官团', it: 'Corpo ufficiale italiano', init: 22, color: '#6B4E9E', allied: false, gate: 60,
+      note: 'Ronchi 的先例：1919 年 9 月，掷弹兵请邓南遮带头，正规军没能拦住他。' }
+  ];
+  W.FORZA_BY_ID = {};
+  W.FORZE.forEach(function (f) { W.FORZA_BY_ID[f.id] = f; });
+  /* The front is the set of movements that can be brought into the column —
+     every allied force except the officer corps, which is a gate of its own.
+     Declared once here because the journal's completion rule, the September
+     window and the epilogue all have to agree on who counts. */
+  W.FORZA_FRONT = W.FORZE.filter(function (f) { return !!f.allied; }).map(function (f) { return f.id; });
+  W.forzaExists = function (state, id) {
+    return id !== 'comunisti' || !!(state.flags && state.flags.comintern_door);
+  };
+  W.availableForzaFront = function (state) {
+    return W.FORZA_FRONT.filter(function (id) { return W.forzaExists(state, id); });
+  };
+  /* How many of the front must be at gate for the march to be possible. */
+  W.FORZA_FRONT_NEEDED = 3;
+  /* The monthly consolidation floor for the 1920 front. Declared here rather
+     than inline in the journal so the rule and the UI cannot drift apart: a
+     force at or above this is already committed, and only the three best-placed
+     forces are carried each turn. */
+  W.FORZA_FRONT_MIN = 60;
+  /* When each dated approach becomes available, as {y, m}, and when it
+     stops being available. Without a window per force the conversations
+     resolve on the same turn — RESOLVE_EVENT does not advance the clock — which
+     would dump the whole antagonism on the player at once and leave no room to
+     choose an order or to decline one. The windows are spread across the
+     journal's life (June 1920 – March 1921) so at most one approach opens per
+     month, and they close after December 1920: the window cannot be farmed, so
+     the two "at least three" routes are a January 1921 march and an April 1921
+     one. Each closes with the journal's own deadline. */
+  W.FORZA_WINDOW = {
+    fascisti:   { from: { y: 1920, m: 7 },  to: { y: 1922, m: 3 } },
+    anarchici:  { from: { y: 1920, m: 8 },  to: { y: 1922, m: 3 } },
+    socialisti: { from: { y: 1920, m: 9 },  to: { y: 1922, m: 3 } },
+    comunisti:  { from: { y: 1920, m: 10 }, to: { y: 1922, m: 3 } },
+    corradini:  { from: { y: 1920, m: 11 }, to: { y: 1922, m: 3 } }
+  };
+  /* Who pushes whom away, and by how much, when they are courted. The
+     penalty is (weight / 12) x the gain, so
+     a weight of 5 costs about 42% of what the rival gains. The weights are a
+     design parameter, tuned against the probe in .analysis/probe_pacing.js. */
+  W.FORZA_ANTAGONISM = {
+    fascisti:   { anarchici: 3, comunisti: 4 },
+    socialisti: { fascisti: 2 },
+    anarchici:  { forzearmate: 2 },
+    comunisti:  { fascisti: 4, forzearmate: 2 },
+    /* The nationalists are the one force the officer corps does not resent:
+       they want the same thing the officers want. So courting Corradini costs
+       the revolutionary left and leaves the army gate untouched. */
+    corradini:  { comunisti: 3, socialisti: 2 }
+  };
+  /* What the officer corps thinks moves with the size of the Legion, because a
+     column of ten thousand is a fact that career officers have to price in.
+     This is the only thing that can push the corps up: nothing else in the
+     journal raises it, and it needs 60 from a standing start of 22, so without
+     this term the officer gate would be unreachable by construction. */
+  W.FORZA_MILIZIA_BANDS = [
+    { min: 9000, delta: 2.2 },
+    { min: 6000, delta: 1.2 },
+    { min: 3500, delta: 0.3 },
+    { min: 0,    delta: -0.5 }
+  ];
+  /* Per-turn drift: Rome works on the officer corps, and the communist left
+     loses patience with a movement that has not delivered a social programme. */
+  W.FORZA_DRIFT = { forzearmate: -0.4, comunisti: -0.15 };
+
+  /* Officer-corps sentiment as a function of Legion strength. The flat drift
+     above is the baseline pull from Rome; this term is what a real army
+     presence buys. Returns 0 for every force except the corps. */
+  W.forzaMiliziaDelta = function (state, forceId) {
+    if (forceId !== 'forzearmate') return 0;
+    var n = state.order.milizia;
+    var bands = W.FORZA_MILIZIA_BANDS || [];
+    for (var i = 0; i < bands.length; i++) if (n >= bands[i].min) return bands[i].delta;
+    return 0;
+  };
+
+  /* Is `forceId`'s window open at this state's date? Reads W.FORZA_WINDOW.
+     Always false when the table has no entry, so a missing window closes the
+     line rather than opening it by accident. */
+  W.forzaWindowOpen = function (state, forceId) {
+    var w = (W.FORZA_WINDOW || {})[forceId];
+    if (!w) return false;
+    var ym = state.date.y * 12 + state.date.m;
+    return ym >= (w.from.y * 12 + w.from.m) && ym <= (w.to.y * 12 + w.to.m);
+  };
 
   /* ======================= 15. Scenarios ======================= */
   W.SCENARIOS = [

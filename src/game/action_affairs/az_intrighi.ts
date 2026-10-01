@@ -7,13 +7,13 @@ import type { Card } from '../content/types';
 export const azIntrighi: Card = {
     id: 'az_intrighi', deck: 'azione',
     name: { zh: '党派间的纠葛', it: 'Intrighi fra i partiti' },
-    subtitle: { zh: '在旧世界的毒酒里掺进我们自己的配方。', it: 'Mettere la nostra ricetta nel vino avvelenato del mondo vecchio.' },
     cooldown: 4,
     text: { zh: '尽管阜姆的许多无政府主义者与阿迪蒂老兵宁死也不愿与政客共饮一杯，但指挥官深知——要让革命的火焰在亚得里亚海畔持续燃烧，就必须在旧世界的毒酒中掺入我们自己的配方。',
             it: 'Molti anarchici e arditi preferirebbero morire che bere con un politico. Ma il Comandante sa che il fuoco va alimentato.' },
-    /* Cost is commented out for now: the resource layer that corresponds
-       to the reference project's `resources` is not implemented yet. */
-    // cost: { ap: 1 },
+    // Every card costs 1 AP, charged the moment it is played. `funds` and
+    // `arms` wait for the resource layer that corresponds to the reference
+    // project's `resources`.
+    cost: { ap: 1 },
     options: [
       { id: 'autonomi',
         text: { zh: '与自治党人达成临时契约？', it: 'Un patto temporaneo con gli autonomi?' },
@@ -28,7 +28,7 @@ export const azIntrighi: Card = {
       { id: 'nazionale',
         text: { zh: '维持与意大利国民委员会的同盟。', it: 'Mantenere l\'alleanza con il blocco nazionale.' },
         subtitle: { zh: '国民委员会和意大利裔资产阶级一直是默默支持我们的盟友。', it: 'Il blocco nazionale e la borghesia italiana ci hanno sempre sostenuto in silenzio.' },
-        preview: ['行动点 −', '国民集团 ++', '自治党 −', '收复派异议 −−'],
+        preview: ['行动点 −', '国民集团 ++', '自治党 −', '收复主义者异议 −−'],
         require: function (s) { return s.ap >= 1; },
         requireText: { zh: '需要额外的行动点', it: 'Serve un punto azione in piu' },
         effect: { ap: -1,

@@ -89,6 +89,207 @@
     return den > 0 ? num / den : 0;
   };
   R.unityEfficiency = function (state) { return 1 - R.factionDissent(state) / 100; };
+
+  /** Zero-sum faction influence transfer, ported from the reference project's
+      `adjustFactionInfluence` (cnt-fai …/src/game/utils/factionEffects.ts).
+      Influence is a share of a fixed 100, so a change to one faction is taken
+      from — or given to — the others **in proportion to what they currently
+      hold**. Cascading is handled: if a contributor would go below zero it gives
+      only what it has and the remainder is redistributed among the rest.
+      This is the ONLY way faction influence may move. A bare `inf += x` is not a
+      transfer: it changes the total, and any later renormalisation then silently
+      takes the difference out of every other faction in proportion to size.
+
+      SUB-INTEGER CHANGES ARE PRESERVED. The stored `inf` is a float and the
+      panel rounds it for display. That matters because the historical drift is
+      worth ~0.125 a turn: an earlier version of this function rounded every
+      faction to an integer on every call, which silently erased the drift
+      entirely (the +0.125 landed in the faction's own rounding remainder and
+      never accumulated). Rounding belongs at the display layer, not here. */
+  R.adjustFactionInfluence = function (state, targetId, delta) {
+    var f = state.factions;
+    if (!f || !f[targetId] || !delta) return 0;
+    var ids = W.FACTIONS.map(function (x) { return x.id; });
+    var before = f[targetId].inf;
+    var guard = 0;
+
+    if (delta > 0) {
+      var remaining = Math.min(delta, 100 - f[targetId].inf);
+      if (remaining <= 0) return 0;
+      var actual = remaining;
+      while (remaining > 1e-9 && guard++ < 50) {
+        var givers = ids.filter(function (k) { return k !== targetId && f[k].inf > 0; });
+        var S = givers.reduce(function (a, k) { return a + f[k].inf; }, 0);
+        if (S <= 0) { actual -= remaining; break; }
+        var next = 0;
+        givers.forEach(function (k) {
+          var deduction = remaining * (f[k].inf / S);
+          if (f[k].inf < deduction) { next += deduction - f[k].inf; f[k].inf = 0; }
+          else f[k].inf -= deduction;
+        });
+        remaining = next;
+      }
+      f[targetId].inf += actual;
+    } else {
+      var take = Math.min(-delta, f[targetId].inf);
+      if (take <= 0) return 0;
+      var receivers = ids.filter(function (k) { return k !== targetId; });
+      var tot = receivers.reduce(function (a, k) { return a + f[k].inf; }, 0);
+      if (tot <= 0) {
+        var share = take / receivers.length;
+        receivers.forEach(function (k) { f[k].inf += share; });
+      } else {
+        receivers.forEach(function (k) { f[k].inf += take * (f[k].inf / tot); });
+      }
+      f[targetId].inf -= take;
+    }
+
+    /* Clamp tiny negatives and keep the sum at exactly 100 by settling any
+       float residue on the target. The residue is ~1e-13, i.e. invisible, and
+       crucially it does NOT swallow the caller's delta. */
+    ids.forEach(function (k) { if (f[k].inf < 0) f[k].inf = 0; });
+    var total = ids.reduce(function (a, k) { return a + f[k].inf; }, 0);
+    if (Math.abs(total - 100) > 1e-9) f[targetId].inf += 100 - total;
+
+    return f[targetId].inf - before;
+  };
+
+  /** Several influence changes settled AT ONCE, so each target receives what was
+      asked for instead of whatever survives the others' transfers.
+
+      Why this exists: `adjustFactionInfluence` moves shares one at a time, so two
+      gains in the same patch compete. Raising the futurists by 5 draws
+      proportionally from all four others — including the arditi — and then the
+      arditi's own +3 has to be scaled back to keep the total at 100. Write
+      "+5 futurists, +3 arditi" and you got +4.09 / +1.41.
+
+      Here the gains are taken from the DONORS only (never from a faction that is
+      itself being raised), each gain is capped at the headroom actually
+      available, and the integer residue is settled on the largest donor so the
+      total stays exactly 100. If the donors cannot cover the gains, everyone
+      (donors and targets alike) is scaled by the same factor, so the ratio the
+      author wrote still holds.
+      `deltas` is `{ factionId: number }`; returns the deltas actually applied. */
+  R.batchFactionInfluence = function (state, deltas) {
+    var f = state.factions;
+    if (!f || !deltas) return {};
+    var ids = W.FACTIONS.map(function (x) { return x.id; });
+
+    /* Accept both shapes: a flat map `{ futuristi: 5 }` and the nested patch form
+       the effect layer actually carries, `{ futuristi: { inf: 5, dis: -8 } }`.
+       Passing the nested form straight in made every amount `Math.abs({...})`,
+       i.e. NaN, and the whole call quietly did nothing. */
+    var amount = function (v) {
+      if (v == null) return 0;
+      if (typeof v === 'number') return v;
+      if (typeof v === 'object' && typeof v.inf === 'number') return v.inf;
+      return 0;
+    };
+
+    var gains = [], losses = [];
+    ids.forEach(function (k) {
+      var d = amount(deltas[k]);
+      if (!f[k] || !d) return;
+      (d > 0 ? gains : losses).push({ id: k, want: Math.abs(d) });
+    });
+    if (!gains.length && !losses.length) return {};
+
+    /* Clamp each request to the headroom that actually exists. */
+    gains.forEach(function (g) { g.want = Math.min(g.want, Math.max(0, 100 - f[g.id].inf)); });
+    losses.forEach(function (l) { l.want = Math.min(l.want, f[l.id].inf); });
+    gains = gains.filter(function (g) { return g.want > 1e-9; });
+    losses = losses.filter(function (l) { return l.want > 1e-9; });
+    if (!gains.length && !losses.length) return {};
+
+    var gainTotal = gains.reduce(function (a, g) { return a + g.want; }, 0);
+    var lossTotal = losses.reduce(function (a, l) { return a + l.want; }, 0);
+
+    /* Which factions pay for the gains?
+       Normally the ones this patch does NOT touch. But a patch can touch EVERY
+       faction — the monthly fascist drift is exactly that, +d to the fascists and
+       −d to each of the other four. Then there are no untouched donors at all,
+       so the losers pay: they give up their stated loss and the gains are minted
+       from exactly that, which keeps the total at 100. */
+    var untouched = ids.filter(function (k) { return amount(deltas[k]) === 0; });
+    var paidByLosers = untouched.length === 0;
+
+    var applied = {}, pool = 0, donors = untouched, donorWant = [];
+
+    if (paidByLosers) {
+      /* No untouched faction to draw on: the losses themselves are the budget.
+         Each loser gives up exactly its stated loss and the gains are minted
+         from precisely that, so the total holds at 100. Scooping the losers'
+         whole holdings instead would hand most of it straight back in the
+         refund below and the gain would cancel out. */
+      losses.forEach(function (l) {
+        f[l.id].inf = Math.max(0, f[l.id].inf - l.want);
+        applied[l.id] = -l.want;
+        pool += l.want;
+      });
+      donors = losses.map(function (l) { return l.id; });
+      donorWant = donors.map(function (k) { return Math.max(0, f[k].inf); });
+    } else {
+      /* The untouched factions' whole holding goes into the middle; the gains are
+         drawn from it and the remainder is handed back in proportion. Forgetting
+         to scoop it in is what made the total climb instead of staying at 100. */
+      donorWant = untouched.map(function (k) { return f[k].inf; });
+      untouched.forEach(function (k) { f[k].inf = 0; });
+      losses.forEach(function (l) {
+        f[l.id].inf = Math.max(0, f[l.id].inf - l.want);
+        applied[l.id] = -l.want;
+      });
+      pool = donorWant.reduce(function (a, v) { return a + v; }, 0) + lossTotal;
+    }
+    /* How many points the gains are allowed to command. */
+    var budget = pool;
+    var donorPool = donorWant.reduce(function (a, v) { return a + v; }, 0);
+
+    /* Requests that cannot be met in full are scaled by one common factor, so
+       relative proportions survive. */
+    var scale = gainTotal > budget ? budget / gainTotal : 1;
+
+    /* Give each gain its request (scaled), drawing on the pool. */
+    gains.forEach(function (g) {
+      var add = Math.min(g.want * scale, pool);
+      f[g.id].inf += add;
+      pool -= add;
+      applied[g.id] = add;
+    });
+
+    /* Whatever is left goes back to the donors, in proportion to what they held
+       after paying. */
+    if (pool > 1e-9 && donorPool > 0) {
+      donors.forEach(function (k, i) { f[k].inf += pool * (donorWant[i] / donorPool); });
+    }
+
+    /* Clamp only. Do NOT round the targets to integers here: sub-integer changes
+       are the whole point (the monthly drift is worth 0.125), and `Math.round`
+       on a target silently erased it — `Math.round(17.125)` is 17, which read as
+       "the fascists did not grow at all". Rounding belongs at the display layer;
+       `adjustFactionInfluence` stores floats for the same reason. */
+    var TOL = 1e-9;
+    ids.forEach(function (k) {
+      if (!(f[k].inf > TOL)) f[k].inf = 0;
+      if (f[k].inf > 100) f[k].inf = 100;
+    });
+    /* Fold any float residue into the largest faction so the total is exactly
+       100 without moving a target off its granted amount. */
+    var settled = ids.reduce(function (a, k) { return a + f[k].inf; }, 0);
+    var need = 100 - settled;
+    if (Math.abs(need) > 1e-9) {
+      var sinkK = null;
+      ids.forEach(function (k) { if (!sinkK || f[k].inf > f[sinkK].inf) sinkK = k; });
+      if (sinkK) f[sinkK].inf = Math.max(0, Math.min(100, f[sinkK].inf + need));
+    }
+    if (W.DEBUG_BATCH) console.log('[batch] applied', JSON.stringify(applied),
+      'inf', ids.map(function (k) { return k + ':' + f[k].inf.toFixed(4); }).join(' '));
+    return applied;
+  };
+
+  /** Safety net only. Influence should already be a zero-sum share summing to 100
+      because every change went through adjustFactionInfluence; this rescales if
+      something ever got in another way (an old save, a sandbox edit). It must not
+      be the mechanism, or the zero-sum property is lost. */
   R.normalizeFactions = function (state) {
     var sum = 0;
     W.FACTIONS.forEach(function (f) { sum += Math.max(0, state.factions[f.id].inf); });
@@ -126,18 +327,21 @@
     return clamp(d, -7.0, 22.5);
   };
 
-  /* Three milestone sets: honeymoon / siege / fascist */
-  R.coupMilestones = function (state) {
-    if (state.flags && state.flags.natale_done) {
-      return [
-        { at: 25, id: 'f25', zh: '法西斯在 Hotel Bonavia 设立总部', it: 'Il Fascio apre sede all\'Hotel Bonavia' },
-        { at: 50, id: 'f50', zh: '街头枪击与报馆被砸；第一个死者', it: 'Sparatorie e tipografie devastate: il primo morto' },
-        { at: 75, id: 'f75', zh: '君塔的小队从的里雅斯特进城', it: 'Le squadre di Giunta entrano da Trieste' },
-        { at: 100, id: 'f100', zh: '他们准备进攻省督府', it: 'Si preparano ad attaccare il Palazzo' }
-      ];
-    }
-    var ym2 = state.date.y * 12 + state.date.m;
-    if (ym2 < 1920 * 12 + 9) {
+  /* ===================== The two crises ===================== */
+  /* The Regency faces two threats that are not the same threat, and the game
+     used to model them as one number. `order.coup` is the SIEGE: how close Rome
+     is to sending the Royal Army — driven by the blockade, the treaties, the
+     garrison and the Regency's own standing. `order.subversion` is the FASCIST
+     TAKEOVER: how close Mussolini's movement is to coming up the stairs of the
+     Palazzo — driven by street violence, the squadre, and the fascists' weight
+     inside the Legion's own movement.
+     A player can be safe from one and lost to the other, which is the whole
+     point: history took Fiume by the second road after failing at the first. */
+
+  /* The siege's own milestones. Three sets by phase, as before. */
+  R.siegeMilestones = function (state) {
+    var ym = state.date.y * 12 + state.date.m;
+    if (ym < 1920 * 12 + 9) {
       return [
         { at: 25, id: 'i25', zh: '罗马切断军团兵的汇款与补给', it: 'Roma taglia fondi e rifornimenti ai legionari' },
         { at: 50, id: 'i50', zh: '协约国调查委员会要求解散「阜姆军团」', it: 'La commissione interalleata chiede lo scioglimento della Legione' },
@@ -152,41 +356,63 @@
       { at: 100, id: 'n100', zh: '皇家陆军准备进攻', it: 'Il Regio Esercito è pronto ad attaccare' }
     ];
   };
-  R.COUP_MILESTONES = [];   // 兼容旧引用；实际使用 R.coupMilestones(state)
+
+  /* The takeover's own milestones. These used to be the post-Bloody-Christmas
+     branch of the siege set — i.e. the game switched which crisis it narrated
+     based on a flag, rather than tracking two pressures. They are now genuinely
+     independent of the siege's. */
+  R.subversionMilestones = function () {
+    return [
+      { at: 25, id: 's25', zh: '法西斯派在党内要求席位', it: 'I fascisti chiedono seggi nel movimento' },
+      { at: 50, id: 's50', zh: '街头枪击与报馆被砸；第一个死者', it: 'Sparatorie e tipografie devastate: il primo morto' },
+      { at: 75, id: 's75', zh: '君塔的小队从的里雅斯特进城', it: 'Le squadre di Giunta entrano da Trieste' },
+      { at: 100, id: 's100', zh: '他们准备进攻省督府', it: 'Si preparano ad attaccare il Palazzo' }
+    ];
+  };
+
+  /* Per-turn growth of the internal threat. It is not a copy of the siege: it
+     answers to the street and to the fascists' own strength, so a player who
+     keeps the peace and holds the fascists down can be under siege for years
+     without ever facing a coup — and a player who lets the squadre run can be
+     taken from inside while Rome is still talking. */
+  R.subversionDelta = function (state, mul) {
+    var o = state.order;
+    var f = state.factions && state.factions.fascisti ? state.factions.fascisti.inf : 0;
+    var d = -6                      // the movement's own inertia: it has to be driven
+      + 0.30 * o.squadre            // armed squads on the street
+      + 0.35 * Math.max(0, o.violence - 25)
+      + 0.50 * Math.max(0, f - 15)  // fascist weight inside the Legion
+      - 0.04 * (state.legitimacy || 0);   // the Comandante's personal hold
+    /* The honeymoon covers the siege too: in 1919 nobody is plotting indoors. */
+    var ym = state.date.y * 12 + state.date.m;
+    if (ym < 1920 * 6) d *= 0.25;
+    d *= (mul == null ? 1 : mul);
+    return clamp(d, -6.0, 20.0);
+  };
+
+  /* Kept for older callers/tests that still ask for the siege set by that name. */
+  R.coupMilestones = R.siegeMilestones;
+  R.COUP_MILESTONES = [];   // 兼容旧引用；实际使用 R.siegeMilestones(state)
 
   /* ===================== Classes: derived values and monthly evolution ===================== */
 
-  /** Monthly evolution: turnout only. Turnout is a slow variable driven by the
-      class baseline and citizenship legislation. */
+  /** Turnout is a slow variable driven by citizenship and electoral law. */
   R.updateClasses = function (state) {
     W.CLASSES.forEach(function (c) {
       var cls = state.classes[c.id];
       if (!cls) return;
       var base = (W.CLASS_TRAITS[c.id] || {}).turnout || 70;
       var civic = state.laws.cittadinanza >= 2 ? 6 : (state.laws.cittadinanza >= 1 ? 3 : 0);
-      var want = clamp(base + civic, 20, 96);
+      var want = clamp(base + civic + (state.laws.elettorale || 0) * 1.5, 20, 96);
       cls.turnout = clamp(cls.turnout + (want - cls.turnout) * 0.05, 20, 96);
     });
   };
 
-  /** Historical faction drift: the fascists keep growing inside the legionary movement */
-  R.factionDrift = function (state) {
-    var ym = state.date.y * 12 + state.date.m;
-    var f = state.factions;
-    if (!f.fascisti || !f.sindacalisti) return;
-    var grow = ym < 1920 * 12 + 9 ? 0.125 : 0.275;
-    if (state.flags.natale_done) grow *= 1.3;
-    if (state.laws.ordine >= 2) grow *= 1.2;
-    var d = Math.min(grow, Math.max(0.02, f.sindacalisti.inf * 0.06));
-    f.fascisti.inf += d;
-    f.sindacalisti.inf = Math.max(4, f.sindacalisti.inf - d * 0.62);
-    f.arditi.inf = Math.max(4, f.arditi.inf - d * 0.22);
-    f.futuristi.inf = Math.max(4, f.futuristi.inf - d * 0.16);
-    // The irredentist case is the one fascism quietly absorbs, so it gives
-    // ground at the same rate as the arditi.
-    f.irredentisti.inf = Math.max(4, f.irredentisti.inf - d * 0.22);
-    R.normalizeFactions(state);
-  };
+  /* Faction influence has exactly ONE mutation primitive: adjustFactionInfluence
+     above. There is deliberately no R.factionDrift any more — the historical
+     growth of the fascists is declared as the `impresa` journal's monthly effect
+     (meta.js), so that every automatic change to faction power can be pointed at
+     a journal or a law rather than being an engine rule the player cannot see. */
 
   /* ===================== Elections ===================== */
   /* Four steps, settled separately:
@@ -238,7 +464,7 @@
     });
 
     /* 3. Organization and the street */
-    var orgMul = clamp(0.85 + (state.militants || 0) / 12000, 0.85, 1.35);
+    var orgMul = clamp(0.85 + state.order.milizia / 12000, 0.85, 1.35);
     if (city.BLO) city.BLO *= orgMul;
     if (sub.BLO) sub.BLO *= orgMul;
     if (boycott) { city.BLO = 0; sub.BLO = 0; }
@@ -303,6 +529,154 @@
     return { seats: seats, detail: detail };
   };
 
+  /* ===================== Municipal elections ===================== */
+  /* The city council, not the Constituent Assembly. Same ballot — the tally is
+     R.election's, read back off detail.partyCity, so the two can never drift
+     apart — but a different chamber: city only, purely proportional, no
+     majority bonus and no sub-district, because the Municipio is the city's.
+
+     Kept well clear of Eng.runElection, which also reshuffles the cabinet,
+     reforms the coalition and increments counters.electionsHeld. That counter
+     is what the `elezioni` journal and the forty-seat achievement wait on, and
+     a municipal vote in October 1919 must not trip either of them.
+
+     Council size is a design parameter, not a computed one; 60 is the figure
+     used here and it is worth a second opinion. */
+  R.MUNICIPAL_SEATS = 60;
+  R.municipalElection = function (state) {
+    /* Taking the Municipio outright means no ballot is ever cast. */
+    if (state.flags.no_election) {
+      return {
+        seats: R.PARTY_IDS.reduce(function (a, p) { a[p] = 0; return a; }, {}),
+        detail: { share: {}, ranked: [], winner: null, runnerUp: null,
+                  council: R.MUNICIPAL_SEATS, turnout: 0,
+                  boycotted: false, singleList: false, noElection: true }
+      };
+    }
+
+    var d = R.election(state).detail;
+    var tally = d.partyCity || {};
+
+    /* One list means the autonomists and the Croats stay away — Zanella called
+       for abstention and the Croatian districts followed. Their votes are not
+       cast at all, so the council is smaller and the National Council's share
+       is inflated by the abstention rather than by persuasion. Two lists put
+       everyone on the ballot and the city's real split shows through. */
+    var singleList = !!state.flags.single_list;
+    var absent = singleList ? { AUT: 1, PCR: 1, PAD: 1 } : {};
+
+    var votes = {}, total = 0;
+    Object.keys(tally).forEach(function (p) {
+      if (absent[p] || !(tally[p] > 0)) return;
+      votes[p] = tally[p];
+      total += tally[p];
+    });
+    var seats = R.PARTY_IDS.reduce(function (a, p) { a[p] = 0; return a; }, {});
+    if (total > 0) {
+      var alloc = Core.largestRemainder(votes, R.MUNICIPAL_SEATS);
+      Object.keys(alloc).forEach(function (p) { seats[p] = alloc[p]; });
+    }
+    var share = {};
+    Object.keys(votes).forEach(function (p) { share[p] = votes[p] * 100 / (total || 1); });
+    var ranked = Object.keys(seats).filter(function (p) { return seats[p] > 0; })
+      .sort(function (a, b) { return seats[b] - seats[a]; });
+    return {
+      seats: seats,
+      detail: {
+        share: share,
+        ranked: ranked,
+        winner: ranked[0] || null,
+        runnerUp: ranked[1] || null,
+        council: R.MUNICIPAL_SEATS,
+        turnout: singleList ? Core.round1(d.turnout * 0.72) : d.turnout,
+        boycotted: singleList,
+        singleList: singleList,
+        noElection: false
+      }
+    };
+  };
+
+  /* ===================== The Modus Vivendi division ===================== */
+  /* Nitti's provisional settlement, put to the city on 15 December 1919. What
+     is being decided is not whether the terms are good but whether they are
+     worth more than the wait for annexation, which is why almost nobody votes
+     on the merits — each party votes its own predicament, weighted by the
+     strength it actually has. The Comandante's answer in November swings the
+     Legion and the arditi, and nothing else. */
+  R.MODUS_STANCE = {
+    AUT: 'yes',    // a free state is what the autonomists have wanted all along
+    PAD: 'yes',
+    PCR: 'yes',    // anything that keeps Fiume out of Italy
+    ANI: 'no',     // nothing short of annexation
+    PSI: 'no'      // against the whole settlement, and against the Regency
+  };
+  R.modusVote = function (state) {
+    var accepted = !!state.flags.modus_accepted;
+    var blocked = !!state.flags.modus_blocked;
+    var rows = [], yes = 0, no = 0, abstain = 0;
+
+    /* Strength is the assembly when one has been elected, the city's own
+       support otherwise — the Council existed before any ballot did. */
+    var seats = state.assembly || {};
+    var hasSeats = Core.sum(seats) > 0;
+
+    var weigh = function (p) {
+      if (hasSeats) return seats[p] || 0;
+      var w = 0;
+      W.CLASSES.forEach(function (cl) {
+        var cls = state.classes[cl.id];
+        if (cls && cls.support[p]) w += cls.pop * cls.support[p] / 100;
+      });
+      return Math.round(w * 10) / 10;
+    };
+    var record = function (p, weight, stance, zh, it) {
+      if (weight <= 0) return;
+      if (stance === 'yes') yes += weight;
+      else if (stance === 'no') no += weight;
+      else abstain += weight;
+      rows.push({ party: p, weight: weight, stance: stance, zh: zh, it: it });
+    };
+
+    R.PARTY_IDS.forEach(function (p) {
+      var stance = R.MODUS_STANCE[p];
+      if (!stance) return;
+      record(p, weigh(p), stance,
+        stance === 'yes' ? '赞成' : '反对',
+        stance === 'yes' ? 'favorevole' : 'contrario');
+    });
+
+    /* The Legion is not of one mind, so it follows the Comandante — and splits
+       when it does not. With him against, the arditi come out against; with
+       him for it, the irreconcilables abstain rather than vote yes. The arditi
+       are always a row of their own, so the hall can be read down. */
+    var ard = Math.round(state.order.milizia / 100 * 10) / 10;
+    var legion = weigh('LEG');
+    if (blocked) {
+      record('LEG', legion, 'no', '军团随指挥官反对', 'La Legione segue il Comandante');
+      record('ARD', ard, 'no', '阿迪蒂随指挥官反对', 'Gli arditi seguono il Comandante');
+    } else if (accepted) {
+      record('LEG', legion, 'yes', '军团随指挥官赞成', 'La Legione segue il Comandante');
+      if (state.factions.arditi.dis > 40) {
+        record('ARD', ard, 'abstain', '阿迪蒂拒绝投票', 'Gli arditi non votano');
+      } else {
+        record('ARD', ard, 'yes', '阿迪蒂随指挥官赞成', 'Gli arditi seguono il Comandante');
+      }
+    } else {
+      record('LEG', legion, 'abstain', '指挥官尚未表态，军团观望', 'La Legione attende');
+      record('ARD', ard, 'abstain', '阿迪蒂等待指挥官', 'Gli arditi attendono il Comandante');
+    }
+
+    var total = yes + no + abstain || 1;
+    return {
+      rows: rows.sort(function (a, b) { return b.weight - a.weight; }),
+      yes: Core.round1(yes), no: Core.round1(no), abstain: Core.round1(abstain),
+      yesPct: Core.round1(yes * 100 / total),
+      noPct: Core.round1(no * 100 / total),
+      absPct: Core.round1(abstain * 100 / total),
+      carried: yes > no
+    };
+  };
+
   /* ===================== Economy ===================== */
   R.trafficTarget = function (state) {
     var e = state.economy, pf = state.laws.portofranco;
@@ -329,16 +703,28 @@
     var e = state.economy;
     return clamp((e.unemployment - 12) * 20 + (state.order.violence - 40) * 4, 0, 900);
   };
+  R.confidenceTarget = function (state) {
+    var e = state.economy;
+    return clamp(70 - 0.5 * e.strike + 0.25 * (e.traffic - 40)
+      - 0.3 * state.order.violence + 0.2 * state.legitimacy, 0, 100);
+  };
+  R.incomeTaxRate = function (state) {
+    var lvl = state.laws.fisco || 0;
+    if (lvl < 2) return 0;
+    return Math.max(state.taxRates.reddito || 0, lvl >= 3 ? 0.45 : 0.30);
+  };
   R.revenue = function (state) {
-    var e = state.economy, r = state.taxRates, L = state.laws;
+    var e = state.economy, r = state.taxRates, L = state.laws, boost = state.revenueBoost || {};
     var conf = 0.75 + 0.005 * e.capitalConfidence;
     var portFees = e.traffic * 3.1 * r.porto * conf;
     var customs = e.traffic * 2.5 * r.dogana * (1 + 0.05 * L.dogana);
     var excise = (100 - e.unemployment) * 0.45 * r.consumo;
-    var income = (100 - e.unemployment) * 0.7 * r.reddito * (1 + 0.04 * L.fisco);
+    var income = (100 - e.unemployment) * 0.7 * R.incomeTaxRate(state) * (1 + 0.04 * L.fisco);
     var rec = {
-      porto: portFees * (1 + (state.revenueBoost.porto || 0)),
-      dogana: customs, consumo: excise, reddito: income
+      porto: portFees * (1 + (boost.porto || 0)),
+      dogana: customs * (1 + (boost.dogana || 0)),
+      consumo: excise * (1 + (boost.consumo || 0)),
+      reddito: income * (1 + (boost.reddito || 0))
     };
     rec.total = rec.porto + rec.dogana + rec.consumo + rec.reddito;
     return rec;
@@ -347,40 +733,23 @@
     var e = state.economy, o = state.order;
     var admin = 42.0;
     var police = 6.0 + o.police / 40.0;
-    var guard = o.civicGuard * 0.0175;
     var legion = o.milizia * 0.013;          // 军团兵的军饷与给养
     var works = e.works / 100 * 12.0;
     var debtService = e.debt * 0.0035;
-    var relief = Math.max(0, e.unemployment - 12) * 1.7;
-    var total = admin + police + guard + legion + works + debtService + relief;
-    return { admin: admin, police: police, guard: guard, legion: legion,
+    var relief = Math.max(0, e.unemployment - 12) * 1.7 + (state.laws.lavoro || 0) * 2.0;
+    var total = admin + police + legion + works + debtService + relief;
+    return { admin: admin, police: police, legion: legion,
       works: works, debt: debtService, relief: relief, total: total };
   };
 
-  /* ===================== Derived resources (the resource bar) ===================== */
-  /** Industrial production index, 0-100 */
-  R.produzione = function (state) {
-    var L = state.laws;
-    return clamp(0.42 * state.economy.works
-      + 0.30 * (100 - state.economy.strike)
-      + 0.16 * state.economy.capitalConfidence
-      + 0.08 * state.economy.traffic
-      - 0.20 * Math.max(0, state.order.violence - 30)
-      + 4 * L.lavoro, 0, 100);
-  };
-  /** Diplomatic pressure (higher is worse): Roman hostility, the blockade, great-power coldness */
-  R.pressione = function (state) {
-    var d = state.diplo;
-    var p = 0.46 * (100 - d.italy)
-      + 0.16 * (100 - d.yugoslavia)
-      + 0.12 * (100 - d.uk)
-      + 0.10 * (100 - d.france)
-      + 0.08 * (100 - d.usa)
-      + 0.08 * (100 - d.league);
-    if (!state.flags.natale_done) p += 6;                  // 围城期间的额外压力
-    if (state.flags.international_guarantee) p -= 18;
-    if (state.flags.accept_rapallo) p -= 10;   // accettare il trattato allenta la pressione
-    return clamp(p, 0, 100);
+  R.charterProgress = function (state) {
+    var requirements = Meta.CHARTER_REQUIREMENTS;
+    var met = requirements.filter(function (r) { return (state.laws[r.id] || 0) >= r.level; }).length;
+    var fractions = requirements.reduce(function (sum, r) {
+      return sum + Math.min(1, (state.laws[r.id] || 0) / r.level);
+    }, 0);
+    return { met: met, total: requirements.length,
+      score: state.flags.charter_promulgated ? 3 * fractions / requirements.length : 0 };
   };
 
   /* ===================== Monthly law effects ===================== */
@@ -393,26 +762,20 @@
     out.order.authority = (out.order.authority || 0) + L.ordine * 0.3;
     // Press freedom
     out.order.violence = (out.order.violence || 0) + (L.stampa >= 2 ? 0.4 : -0.3 * L.stampa);
-    // Labour
-    out.economy.strike = (out.economy.strike || 0) - L.lavoro * 1.4;
+    // Working hours and social protection are distinct legal choices.
+    out.economy.strike = (out.economy.strike || 0) - (L.orario || 0) * 0.5 - L.lavoro * 1.1;
+    out.economy.unemployment = (out.economy.unemployment || 0) - (L.orario || 0) * 0.12;
+    out.economy.capitalConfidence = (out.economy.capitalConfidence || 0) - (L.orario || 0) * 0.2;
     // Language
     if (L.lingua >= 1) { out.diplo.yugoslavia = (out.diplo.yugoslavia || 0) + 0.5 * L.lingua; }
     if (L.lingua >= 2) { out.support.push(['contadini', 'AUT', 0.3]); }
+    if (L.scuola >= 1) { out.support.push(['contadini', 'LEG', 0.25 * L.scuola]); }
     // Finance
     out.economy.capitalConfidence = (out.economy.capitalConfidence || 0) - L.fisco * 0.9;
-    // Charter
-    out.order.coup = (out.order.coup || 0) - L.statuto * 0.7;
+    // The promulgated Charter's stabilising effect follows enacted provisions.
+    out.order.coup = (out.order.coup || 0) - R.charterProgress(state).score * 0.7;
     // Citizenship
     return out;
-  };
-
-  /* ===================== Law satisfaction (display only) ===================== */
-  R.lawStanceLabel = function (v) {
-    if (v >= 7) return { zh: '强烈支持', it: 'favorevole' };
-    if (v >= 3) return { zh: '支持', it: 'favorevole' };
-    if (v > -3) return { zh: '中立', it: 'neutrale' };
-    if (v > -7) return { zh: '反对', it: 'contrario' };
-    return { zh: '强烈反对', it: 'contrario' };
   };
 
   /* ===================== Party relations ===================== */
@@ -422,25 +785,19 @@
      and how often they would vote the same way on the laws on the books. */
 
   /** The value a relationship settles at when nothing is pushing it. */
+  /* How two parties stand to each other when nothing has happened yet. Read
+     straight from the authored table, so the standing feuds of September 1919
+     do not shift because a law was voted a particular way. Everything that
+     moves after that — drift, and the effect of governing together — is
+     handled in relationDrift below. */
   R.relationBaseline = function (state, a, b) {
     if (a === b) return 100;
-    var pa = W.PARTY_BY_ID[a], pb = W.PARTY_BY_ID[b];
-    if (!pa || !pb) return 0;
-    var v = (pa.camp === pb.camp) ? 34 : -26;
-    var same = 0, n = 0;
-    W.LAWS.forEach(function (L) {
-      var s = W.LAW_STANCE[L.id];
-      if (!s) return;
-      var x = s[a] || 0, y = s[b] || 0;
-      if (x === 0 && y === 0) return;
-      n += 1;
-      if ((x >= 0) === (y >= 0)) same += 1;
-    });
-    if (n) v += (same / n - 0.5) * 60;
-    // The Legion is the disruptor: everyone's footing with it is uncertain.
-    if (a === 'LEG' || b === 'LEG') v -= 12;
-    return clamp(v, -100, 100);
+    if (!W.PARTY_BY_ID[a] || !W.PARTY_BY_ID[b]) return 0;
+    var key = a < b ? a + '|' + b : b + '|' + a;
+    var v = W.RELATION_BASE[key];
+    return typeof v === 'number' ? v : 0;
   };
+
 
   /** Read one side of the matrix. Missing pairs fall back to the baseline. */
   R.relationOf = function (state, a, b) {
@@ -512,7 +869,7 @@
     // How the coalition partners actually regard each other, -100..+100,
     // scaled to about half the range of the cohesion figure.
     base += 0.22 * R.coalitionRegard(state);
-    if (state.laws.statuto >= 2) base += 6;
+    if (state.flags.carta_done) base += 6;
     if (state.economy.traffic > 55) base += 6;
     if (state.order.violence > 55) base -= 8;
     return clamp(base, 0, 100);
@@ -551,10 +908,11 @@
     var got = state.achievements, add = [];
     function grant(id) { if (got.indexOf(id) < 0) { got.push(id); add.push(id); } }
     var u = R.nationalSupport(state), mono = state.monotonic;
-    if (state.laws.statuto >= 1) grant('ach_balcony');
-    if (state.eventHistory.indexOf('ev_carta_dibattito') >= 0) grant('ach_arengo');
-    if (state.laws.statuto >= 3) grant('ach_carta');
-    if (state.laws.lavoro >= 3 && state.laws.fisco >= 2 && state.order.fervour >= 70) grant('ach_comune');
+    if (state.flags.charter_promulgated) grant('ach_balcony');
+    if (state.flags.charter_debate_resolved) grant('ach_arengo');
+    if (state.journals.carta && state.journals.carta.done) grant('ach_carta_implemented');
+    if (state.laws.lavoro >= 3 && state.laws.fisco >= 2 && state.order.fervour >= 70 &&
+        state.factions.sindacalisti.inf >= 60) grant('ach_comune');
     if (state.date.y > 1921 || (state.date.y === 1921 && state.date.m >= 4)) grant('ach_survive');
     if (state.flags.fascio_disarmed) grant('ach_disarm');
     if ((state.assembly.LEG || 0) >= 30 && state.counters.electionsHeld >= 1) grant('ach_seats');
@@ -562,9 +920,8 @@
     if (state.economy.traffic >= 75) grant('ach_port');
     if (state.economy.inflation < 12 && state.economy.debt < 1800) grant('ach_sound');
     if (state.flags.reconciled) grant('ach_reconcile');
-    if (state.flags.movement_built) grant('ach_movement');
     if ((state.counters.resistMonths || 0) >= 18) grant('ach_stay');
-    if ((state.counters.exileMonths || 0) >= 24) grant('ach_exile');
+    if (state.order.fervour >= 100 && state.order.authority >= 65) grant('ach_eia_alala');
     if (mono.populationLost >= 5000) grant('ach_empty');
     if (mono.minViolenceOK && state.date.y >= 1924) grant('ach_calm');
     if (mono.minDissentOK && state.monthIndex >= 11) grant('ach_dissent');
@@ -582,7 +939,6 @@
 
     if (e.funds) { state.funds = Math.max(0, state.funds + e.funds); notes.push(['funds', e.funds]); }
     if (e.arms) { state.arms = Math.max(0, state.arms + e.arms); }
-    if (e.militants) { state.militants = Math.max(0, state.militants + e.militants); }
     if (e.ap) { state.ap += e.ap; }
 
     if (e.support) e.support.forEach(function (t) {
@@ -606,7 +962,8 @@
       for (var lk in e.laws) if (Object.prototype.hasOwnProperty.call(e.laws, lk)) {
         var def = null;
         W.LAWS.forEach(function (L) { if (L.id === lk) def = L; });
-        var mx = def ? def.max : 3;
+        if (!def) continue;
+        var mx = def.max;
         state.laws[lk] = clamp((state.laws[lk] || 0) + e.laws[lk], 0, mx);
         notes.push(['law:' + lk, e.laws[lk]]);
       }
@@ -618,7 +975,12 @@
     }
     if (e.order) for (var ok in e.order) if (Object.prototype.hasOwnProperty.call(e.order, ok)) {
       if (ok === 'coup') o.coup = clamp(o.coup + e.order[ok], 0, 140);
-      else if (ok === 'civicGuard' || ok === 'police' || ok === 'legionari' || ok === 'carabinieri' || ok === 'garrisonTroops') {
+      /* Unit counts, not 0-100 scales. `milizia` belongs here and was missing:
+         it is a headcount that starts at 2 500 and is raised by events well past
+         100 (ev_1919_09_marcia +260, ev_1920_01_inverno +400, advisors +320), so
+         the generic clamp was silently collapsing the whole Legion to 100 every
+         time any of those fired. */
+      else if (ok === 'police' || ok === 'milizia' || ok === 'carabinieri') {
         o[ok] = Math.max(0, o[ok] + e.order[ok]);
       } else o[ok] = clamp((o[ok] || 0) + e.order[ok], 0, 100);
     }
@@ -627,11 +989,25 @@
       else if (ek === 'debt' || ek === 'treasury' || ek === 'arrears') ec[ek] = Math.max(0, (ec[ek] || 0) + e.economy[ek]);
       else ec[ek] = clamp((ec[ek] || 0) + e.economy[ek], -100, 500);
     }
-    if (e.factions) for (var fk in e.factions) if (Object.prototype.hasOwnProperty.call(e.factions, fk)) {
-      var f = state.factions[fk];
-      if (!f) continue;
-      if (e.factions[fk].inf != null) f.inf = Math.max(0, f.inf + e.factions[fk].inf);
-      if (e.factions[fk].dis != null) f.dis = clamp(f.dis + e.factions[fk].dis, 0, 100);
+    if (e.factions) {
+      /* Influence is a share of a fixed 100, so it moves by transfer, never by
+         addition. See R.adjustFactionInfluence / R.batchFactionInfluence.
+         When a patch moves SEVERAL factions at once they are settled together:
+         otherwise the first transfer eats into the second one's target and the
+         authored numbers do not land (+5/+3 came out +4.09/+1.41). */
+      var infMoves = {}, infCount = 0;
+      for (var pk in e.factions) if (Object.prototype.hasOwnProperty.call(e.factions, pk)) {
+        if (e.factions[pk].inf != null) { infMoves[pk] = e.factions[pk].inf; infCount++; }
+      }
+      if (infCount > 1) R.batchFactionInfluence(state, infMoves);
+      for (var fk in e.factions) if (Object.prototype.hasOwnProperty.call(e.factions, fk)) {
+        var f = state.factions[fk];
+        if (!f) continue;
+        if (e.factions[fk].inf != null && infCount === 1) {
+          R.adjustFactionInfluence(state, fk, e.factions[fk].inf);
+        }
+        if (e.factions[fk].dis != null) f.dis = clamp(f.dis + e.factions[fk].dis, 0, 100);
+      }
     }
     if (e.districts) for (var dk2 in e.districts) if (Object.prototype.hasOwnProperty.call(e.districts, dk2)) {
       var dst = state.districts[dk2];
@@ -640,11 +1016,28 @@
         dst[dkk] = clamp((dst[dkk] || 0) + e.districts[dk2][dkk], 0, 100);
       }
     }
-    if (e.organizations) e.organizations.forEach(function (oid) {
-      var org = state.organizations[oid];
-      if (org) org.active = true;
-    });
     if (e.flags) for (var fl in e.flags) if (Object.prototype.hasOwnProperty.call(e.flags, fl)) state.flags[fl] = e.flags[fl];
+    /* The forces outside Fiume. A positive move toward one is automatically a
+       negative move for whoever it is written in W.FORZA_ANTAGONISM as its
+       rival, so courting one movement can strain another relationship.
+       Seeded at -40..+40 because an
+       attitude is a relationship, not a resource stock. */
+    if (e.forze) for (var fz in e.forze) if (Object.prototype.hasOwnProperty.call(e.forze, fz)) {
+      if (!state.forze) state.forze = {};
+      var fzD = e.forze[fz], fzV = (state.forze[fz] || 0) + fzD;
+      state.forze[fz] = clamp(fzV, -40, 100);
+      notes.push(['forze:' + fz, fzD]);
+      if (fzD > 0) {
+        var fzAnt = (W.FORZA_ANTAGONISM || {})[fz] || {};
+        for (var fzR in fzAnt) if (Object.prototype.hasOwnProperty.call(fzAnt, fzR)) {
+          /* Scale once, from the patch, not from state: reading the already
+             written value here would make the penalty depend on itself. */
+          var fzPen = fzAnt[fzR] * fzD / 12;
+          state.forze[fzR] = clamp((state.forze[fzR] || 0) - fzPen, -40, 100);
+          notes.push(['forze_rival:' + fzR, -fzPen]);
+        }
+      }
+    }
     if (e.counters) for (var ck in e.counters) if (Object.prototype.hasOwnProperty.call(e.counters, ck)) {
       state.counters[ck] = (state.counters[ck] || 0) + e.counters[ck];
     }

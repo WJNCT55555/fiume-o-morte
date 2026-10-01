@@ -12,17 +12,17 @@ export const evStrike: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '答应。在阿伦戈推八小时工作制。', it: 'Accettare. Portare le otto ore all\'Arengo.' },
-        preview: [{ zh: '劳动法 +', label: 'Lavoro +' }, { zh: '工人支持 ++', label: 'operai ++' }, { zh: '商业派异议 +', label: 'Fiumani +' }],
-        effect: function () { return { laws: { lavoro: 1 }, support: [['operai', 'LEG', 5], ['portuali', 'LEG', 5]], economy: { strike: -12, capitalConfidence: -6 }, factions: { sindacalisti: { dis: 10 } }, journals: ['carta'] }; }
+        preview: [{ zh: '劳动时间 +1', label: 'Orario +1' }, { zh: '产业工人支持 ++', label: 'operai ++' }, { zh: '资本信心 −', label: 'fiducia −' }],
+        effect: function () { return { laws: { orario: 1 }, support: [['operai', 'LEG', 5], ['portuali', 'LEG', 5]], economy: { strike: -12, capitalConfidence: -6 }, factions: { sindacalisti: { dis: 10 } } }; }
       },
       {
         id: 'b', text: { zh: '先成立港口劳动局，工资问题留给明年。', it: 'Istituire l\'Ufficio del lavoro, rinviare i salari.' },
-        preview: [{ zh: '劳动法 +', label: 'Lavoro +' }, { zh: '罢工 −', label: 'scioperi −' }],
+        preview: [{ zh: '劳动保障 +1', label: 'Tutele +1' }, { zh: '罢工强度 −', label: 'scioperi −' }],
         effect: function () { return { laws: { lavoro: 1 }, economy: { strike: -6, capitalConfidence: -2 }, support: [['portuali', 'LEG', 2]] }; }
       },
       {
         id: 'c', text: { zh: '拒绝。让军团兵去码头。', it: 'Rifiutare. I legionari vanno al molo.' },
-        preview: [{ zh: '罢工 ++', label: 'scioperi ++' }, { zh: '港口吞吐 −', label: 'traffico −' }, { zh: '暴力 +', label: 'violenza +' }, { zh: '工人支持 −−', label: 'operai −−' }],
+        preview: [{ zh: '罢工强度 ++', label: 'scioperi ++' }, { zh: '港口吞吐指数 −', label: 'traffico −' }, { zh: '政治暴力 +', label: 'violenza +' }, { zh: '产业工人支持 −−', label: 'operai −−' }],
         effect: function () { return { economy: { strike: 18, capitalConfidence: 5 }, support: [['operai', 'LEG', -6], ['portuali', 'LEG', -6], ['borghesia', 'LEG', 4]], order: { fervour: 8, violence: 8, squadre: 4 }, factions: { sindacalisti: { dis: 18 }, arditi: { dis: -6 }, fascisti: { dis: -4 } } }; }
       }
     ]

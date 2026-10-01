@@ -12,12 +12,12 @@ export const evNataleFight: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '停火，但要求一份写入条约的保证', it: 'Cessate il fuoco, ma con una garanzia scritta nel trattato' },
-        preview: [{ zh: '结束围城', label: 'fine dell\'assedio' }, { zh: '合法性 ++', label: 'legittimità ++' }, { zh: '军力大损', label: 'Milizia −' }],
-        effect: function () { return { order: { coup: -100, violence: -20, milizia: -900, fervour: -12, authority: -6 }, diplo: { uk: 8, france: 7, usa: 6, league: 10, italy: -6 }, laws: { statuto: 1 }, flags: { natale_done: true, blood_christmas: true }, journals: ['garanzia'], next: 'ev_natale_after' }; }
+        preview: [{ zh: '结束围城', label: 'fine dell\'assedio' }, { zh: '开启国际保证日志', label: 'diario della garanzia' }, { zh: '军团兵力 −900', label: 'milizia −900' }],
+        effect: function () { return { order: { coup: -100, violence: -20, milizia: -900, fervour: -12, authority: -6 }, diplo: { uk: 8, france: 7, usa: 6, league: 10, italy: -6 }, flags: { natale_done: true, blood_christmas: true }, journals: ['garanzia'], next: 'ev_natale_after' }; }
       },
       {
         id: 'b', text: { zh: '打到底。让罗马在全世界面前完成这场屠杀。', it: 'Resistere fino in fondo. Che Roma completi il massacro davanti al mondo.' },
-        preview: [{ zh: '合法性 +++', label: 'legittimità +++' }, { zh: '暴力 ++', label: 'violenza ++' }, { zh: '军力 −−−', label: 'Milizia −−−' }, { zh: '英法美关系 −−', label: 'UK/FR/US −−' }],
+        preview: [{ zh: '民众热忱 +', label: 'fervore +' }, { zh: '政治暴力 ++', label: 'violenza ++' }, { zh: '军团兵力 −1800', label: 'milizia −1800' }, { zh: '英法关系 −', label: 'UK/FR −' }],
         effect: function () { return { order: { coup: -100, violence: 26, milizia: -1800, fervour: 10 }, economy: { population: -600, capitalConfidence: -18 }, diplo: { italy: -18, uk: -6, france: -6, league: 4 }, flags: { natale_done: true, blood_christmas: true, martyred: true }, journals: ['resistenza'], next: 'ev_natale_after' }; }
       },
       {

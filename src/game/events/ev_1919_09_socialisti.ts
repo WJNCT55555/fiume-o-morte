@@ -13,7 +13,7 @@ export const ev191909Socialisti: GameEvent = {
       preview: ['社会党支持 +', '工会组织 +'],
       effect: { support: [['portuali', 'PSI', 5], ['operai', 'PSI', 3]] } },
     { id: 'prezzi', text: { zh: '建立粮价与失业互助网络', it: 'Organizzare mutuo soccorso contro disoccupazione e prezzi' },
-      preview: ['社会党支持 +', '失业 −'],
+      preview: ['社会党支持 +', '失业率 −'],
       effect: { support: [['operai', 'PSI', 4], ['artigiani', 'PSI', 2]], economy: { unemployment: -2 }, funds: -100 } }
   ]
 };

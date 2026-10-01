@@ -105,13 +105,29 @@
   Core.monthName = function (m) { return MONTHS_ZH[m] || ''; };
   Core.monthNameIt = function (m) { return MONTHS_IT[m] || ''; };
   Core.dateKey = function (d) { return d.y + '-' + (d.m < 10 ? '0' : '') + d.m; };
-  Core.dateLabel = function (d) { return d.y + ' 年 ' + d.m + ' 月' + (d.d ? ' ' + d.d + ' 日' : ''); };
-  /* The simulation advances half a month at a time: two turns per calendar
-     month, 2 action points each. Days are carried so the start date survives. */
+  /* A turn is half a month, so the day it happens to be dated with is an
+     implementation detail — the 15th for the first half, whatever the month
+     ends on for the second. Naming a single day would be false precision, and
+     the day moves from month to month besides. Everything that tells the
+     player when it is says the half. */
+  Core.halfMonth = function (d) { return (d.d || 1) <= 15 ? 'first' : 'second'; };
+  Core.dateLabel = function (d) {
+    return d.y + ' 年 ' + d.m + ' 月' + (Core.halfMonth(d) === 'first' ? '上半月' : '下半月');
+  };
+  /* The simulation advances half a month at a time: the 1st to the 15th, then
+     the 16th to the month's end, two turns per calendar month, 2 action points
+     each. A turn is dated by the LAST day of its half, which is what makes
+     dated events fire: an event in month M fires on the first turn whose day is
+     at or past its own, so with the two turns of a month on the 15th and the
+     last day, every day from 1 to 31 stays reachable. Stepping a flat fifteen
+     days instead — what this used to do — walked the boundary backwards about
+     five days a year and left the halves drifting across the month. */
+  Core.daysInMonth = function (y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
   Core.nextHalfMonth = function (d) {
-    var day = new Date(Date.UTC(d.y, d.m - 1, d.d || 1));
-    day.setUTCDate(day.getUTCDate() + 15);
-    return { y: day.getUTCFullYear(), m: day.getUTCMonth() + 1, d: day.getUTCDate() };
+    if ((d.d || 1) <= 15) return { y: d.y, m: d.m, d: Core.daysInMonth(d.y, d.m) };
+    var m = d.m + 1, y = d.y;
+    if (m > 12) { m = 1; y++; }
+    return { y: y, m: m, d: 15 };
   };
 
   Core.nextWeek = function (d) {
