@@ -4,6 +4,7 @@ build_ui/
 build_geo/
 tmp/
 tools/
+docs/
 *.log
 .env
 .env.*

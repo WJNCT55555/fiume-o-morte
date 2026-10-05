@@ -16,6 +16,13 @@
     var clamp = Core.clamp;
     var CARD_BY_ID = {};
     Cards.forEach(function (c) { CARD_BY_ID[c.id] = c; });
+    /* Ending judgement order, computed once. `checkEnd` walks this list on every
+       settlement, so sorting it per turn would be wasted work. `ending_timer` is
+       dropped here: its check is `return true` and it must never act as a trigger
+       (see the note in checkEnd). */
+    var ENDINGS_BY_PRIORITY = Meta.ENDINGS
+      .filter(function (e) { return e.id !== 'ending_timer'; })
+      .sort(function (a, b) { return a.priority - b.priority; });
     var EVENT_BY_ID = {};
     Events.forEach(function (e) { EVENT_BY_ID[e.id] = e; });
 
@@ -329,22 +336,74 @@
         var qe = EVENT_BY_ID[qid];
         if (qe) return qe;
       }
-      // 3. Dated events (historical and sandbox difficulties)
-      if (dif.dated) {
-        for (var i = 0; i < Events.length; i++) {
-          var e = Events[i];
-          if (!e.date || e.superEvent || e.chain) continue;
-          if (e.date.y !== state.date.y || e.date.m !== state.date.m || (e.date.d && state.date.d < e.date.d)) continue;
-          if (!evCondition(e, state)) continue;
-          return e;
-        }
+      /* 3 + 4. Dated and conditional events, ordered by the difficulty's
+         `dateRule` (see the table in data/world.js). Two passes:
+           pass A — events that CARRY a date
+           pass B — events that do NOT carry a date
+         'forced'        史实: a dated event is forced into its own month, and the
+                         date outranks the condition's timing; an event that also
+                         has a condition still needs that condition to pass.
+         'conditionFirst' 普通/沙盒: a dated event is scheduled by its condition
+                         like any other, with no calendar gate; only events that
+                         have a date and NO condition still wait for their month.
+         'dateOnly'      dated events are scheduled by month, but only the ones
+                         without a condition (the conditioned ones fall through to
+                         pass B, which has no calendar gate). */
+      var rule = dif && dif.dateRule;
+      var datedPass = [];
+      var condPass = [];
+      for (var i = 0; i < Events.length; i++) {
+        var e = Events[i];
+        if (e.superEvent || e.chain) continue;
+        if (e.date) datedPass.push(e); else condPass.push(e);
       }
-      // 4. Conditional events (chain nodes are never schedulable)
-      for (var j = 0; j < Events.length; j++) {
-        var c = Events[j];
-        if (c.date || c.superEvent || c.chain) continue;
-        if (!evCondition(c, state)) continue;
-        return c;
+      function inMonth(ev, st) {
+        return ev.date.y === st.date.y && ev.date.m === st.date.m &&
+          (!ev.date.d || st.date.d >= ev.date.d);
+      }
+      if (rule === 'forced') {
+        // A. the month's dated events, in calendar order
+        for (var a1 = 0; a1 < datedPass.length; a1++) {
+          if (!inMonth(datedPass[a1], state)) continue;
+          if (!evCondition(datedPass[a1], state)) continue;
+          return datedPass[a1];
+        }
+        // B. everything else that has no date
+        for (var a2 = 0; a2 < condPass.length; a2++) {
+          if (evCondition(condPass[a2], state)) return condPass[a2];
+        }
+      } else if (rule === 'conditionFirst') {
+        /* 普通 / 沙盒 (读法 B): the calendar is a GATE, the condition is the
+           trigger. An event that carries both a date and a condition can only be
+           scheduled once its own month has arrived, and then only if its condition
+           passes — so it may be skipped entirely and never come back, which is
+           exactly what 史实 cannot do (there the date forces it through).
+           An event with a date and NO condition is still simply due that month. */
+        for (var b1 = 0; b1 < datedPass.length; b1++) {
+          if (!inMonth(datedPass[b1], state)) continue;   // 日期是闸门：未到不触发
+          if (!evCondition(datedPass[b1], state)) continue;
+          return datedPass[b1];
+        }
+        for (var b2 = 0; b2 < condPass.length; b2++) {
+          if (evCondition(condPass[b2], state)) return condPass[b2];
+        }
+      } else {
+        // 'dateOnly' (and any difficulty that declares no dateRule): month first,
+        // but only for the events that have a date and no condition
+        for (var c1 = 0; c1 < datedPass.length; c1++) {
+          if (datedPass[c1].condition) continue;
+          if (!inMonth(datedPass[c1], state)) continue;
+          if (!evCondition(datedPass[c1], state)) continue;
+          return datedPass[c1];
+        }
+        for (var c2 = 0; c2 < condPass.length; c2++) {
+          if (evCondition(condPass[c2], state)) return condPass[c2];
+        }
+        for (var c3 = 0; c3 < datedPass.length; c3++) {
+          if (!datedPass[c3].condition) continue;
+          if (!evCondition(datedPass[c3], state)) continue;
+          return datedPass[c3];
+        }
       }
       return null;
     };
@@ -903,10 +962,7 @@
 
       // 12. Diplomatic drift
       var po = W.POSTURES.filter(function (p) { return p.id === s.posture; })[0] || W.POSTURES[1];
-      var drift = { rome: { italy: 0.8, yugoslavia: -0.6, uk: -0.1, france: -0.1 },
-      equidistant: { italy: -0.25, yugoslavia: -0.3, uk: 0.05, france: 0.05 },
-      belgrade: { yugoslavia: 0.8, italy: -0.6, league: -0.1 },
-      internation: { uk: 0.55, france: 0.55, usa: 0.4, league: 0.7, italy: -0.5, yugoslavia: -0.3 } }[po.id] || {};
+      var drift = W.POSTURE_DRIFT[po.id] || {};
       for (var dk in drift) s.diplo[dk] = clamp(s.diplo[dk] + drift[dk], 0, 100);
       // The forces outside Fiume drift on their own: Rome keeps working on the
       // officer corps, and the communist left loses patience with a movement
@@ -977,13 +1033,39 @@
       if (s.ending) return;
       var hardEnd = (s.date.y > W.MAX_END.y) ||
         (s.date.y === W.MAX_END.y && s.date.m >= W.MAX_END.m);
-      // 16 March 1924: the annexation is proclaimed and anyone not in exile reaches the endgame
-      if (s.flags.treaty_rome && s.date.y >= 1924 && s.date.m >= 3 && !s.flags.exile) hardEnd = true;
+      /* A hard end used to sit here for 1924-03: "16 March 1924, the annexation is
+         proclaimed and anyone not in exile reaches the endgame". It existed only
+         for `ending_historical`, whose check read `treaty_rome`. That ending is
+         now `ending_eviction` and reads `bloody_history` — the 1920 armed eviction
+         — so `treaty_rome` no longer selects anything, and the branch settled runs
+         at 1924-03 with the catch-all instead. Removing it is what lets a Regency
+         that survives to the end of the window reach `ending_fiume_o_morte` at
+         1924-12, which is `MAX_END` and the ending's own gate. */
       // Taken over by the fascists without going into exile or staying: settle immediately
       if (s.flags.coup_done && !s.flags.exile && !s.flags.stay) hardEnd = true;
       // An exile movement that lasts twenty-four months comes to a close
       if (s.flags.exile && (s.counters.exileMonths || 0) >= 24) hardEnd = true;
       if (s.flags.stay && (s.counters.resistMonths || 0) >= 24) hardEnd = true;
+
+      /* 条件满足即结算。
+         A game does not have to run all the way to MAX_END: the moment a
+         substantive ending's own condition is satisfied it is the ending, and
+         waiting for a later settlement point could only ever let a *lower*
+         priority ending win instead. That mattered concretely — a condition that
+         became true long before the first settlement point was simply never
+         looked at.
+         `ending_timer` is excluded on purpose: it is the catch-all whose check is
+         `return true`, so treating it as a trigger would end every game on the
+         first turn. It stays what it was — the fallback for reaching MAX_END
+         without anything else having happened. */
+      if (!hardEnd) {
+        for (var i = 0; i < ENDINGS_BY_PRIORITY.length; i++) {
+          var hit = false;
+          try { hit = !!ENDINGS_BY_PRIORITY[i].check(s); } catch (e) { hit = false; }
+          if (hit) { hardEnd = true; break; }
+        }
+      }
+
       if (hardEnd) {
         var end = R.resolveEnding(s);
         s.ending = end.id;

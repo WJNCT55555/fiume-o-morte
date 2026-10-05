@@ -174,27 +174,84 @@
       };
     };
 
-    /** Aggregated cards and modifiers, shown in the left column as national spirits */
+    /** Active modifiers only. Their amounts come from the same law and economy
+        calculations used by half-month settlement; event flags without a
+        recurring effect are listed separately as historical markers. */
     S.spirits = function (st) {
       var out = [];
       var L = st.laws;
+      var monthly = R.lawMonthly(st);
+      function amount(n, digits, unit) {
+        var rounded = Number(n.toFixed(digits));
+        return (rounded > 0 ? '+' : rounded < 0 ? '−' : '') +
+          Math.abs(rounded).toFixed(digits) + (unit || '');
+      }
+      function effect(zh, n, digits, unit) {
+        return { zh: zh, value: amount(n, digits, unit) };
+      }
+      function withoutLaw(id) {
+        var other = Core.deepClone(st);
+        other.laws[id] = 0;
+        return other;
+      }
+      function lawDelta(id, group, key) {
+        var baseline = R.lawMonthly(withoutLaw(id));
+        return ((monthly[group] || {})[key] || 0) - ((baseline[group] || {})[key] || 0);
+      }
+      function supportDelta(id, classId, partyId) {
+        function sum(patch) {
+          return (patch.support || []).reduce(function (total, entry) {
+            return total + (entry[0] === classId && entry[1] === partyId ? entry[2] : 0);
+          }, 0);
+        }
+        return sum(monthly) - sum(R.lawMonthly(withoutLaw(id)));
+      }
       if (st.flags.charter_promulgated) {
         var charter = R.charterProgress(st);
-        out.push({ icon: 'column', zh: '《卡尔纳罗宪章》', v: charter.met + '/' + charter.total + ' 项法律达标' });
+        out.push({ icon: 'column', zh: '《卡尔纳罗宪章》', meta: charter.met + '/' + charter.total + ' 项达标', effects: [
+          effect('围攻压力', monthly.order.coup || 0, 2, ' 点/半月'),
+          effect('军团支持流失基数', -0.25 * charter.score, 2, ' 点/半月')
+        ] });
       }
-      if (L.orario >= 1) out.push({ icon: 'fasces', zh: '工时立法', v: '罢工 −' + (L.orario * 0.5).toFixed(1) + '/月' });
-      if (L.lavoro >= 1) out.push({ icon: 'fasces', zh: '劳动保障', v: '罢工 −' + (L.lavoro * 1.1).toFixed(1) + '/月' });
-      if (L.ordine >= 2) out.push({ icon: 'legittimita', zh: '市政警察监督', v: '公共秩序 ' + L.ordine + ' 级' });
-      if (L.portofranco >= 1) out.push({ icon: 'coins', zh: '自由港制度', v: '资本信心 +' + (L.portofranco * 1.2).toFixed(1) + '/月' });
-      if (L.lingua >= 1) out.push({ icon: 'star', zh: '双语条例', v: '子市镇支持 +' + (L.lingua * 5) + '%' });
-      if (st.flags.international_guarantee) out.push({ icon: 'legittimita', zh: '国际保证', v: '国联承认' });
-      if (st.flags.worker_control) out.push({ icon: 'industria', zh: '工人接管工厂', v: '合作社 +' });
-      if (st.flags.smuggle) out.push({ icon: 'compass', zh: '边境走私', v: '金库 + / 合法性 −' });
-      if (st.flags.fascio_disarmed) out.push({ icon: 'fasces', zh: '法西斯已解除武装', v: '法西斯暴力 −18' });
-      if (st.flags.dannunzio_left) out.push({ icon: 'victory', zh: '诗人已离开', v: '热忱 −' });
-      if (st.order.squadre > 50) out.push({ icon: 'flame', zh: '法西斯控制街道', v: '政变风险 +' });
-      if (st.economy.inflation > 25) out.push({ icon: 'coins', zh: '阜姆券贬值', v: '通胀 ' + st.economy.inflation.toFixed(0) + '%' });
+      if (L.orario >= 1) out.push({ icon: 'fasces', zh: '工时立法', meta: L.orario + ' 级', effects: [
+        effect('罢工强度', lawDelta('orario', 'economy', 'strike'), 1, ' 点/半月'),
+        effect('失业率', lawDelta('orario', 'economy', 'unemployment'), 2, ' 百分点/半月'),
+        effect('资本信心', lawDelta('orario', 'economy', 'capitalConfidence'), 1, ' 点/半月')
+      ] });
+      if (L.lavoro >= 1) {
+        var relief = R.spending(st).relief - R.spending(withoutLaw('lavoro')).relief;
+        out.push({ icon: 'fasces', zh: '劳动保障', meta: L.lavoro + ' 级', effects: [
+          effect('罢工强度', lawDelta('lavoro', 'economy', 'strike'), 1, ' 点/半月'),
+          effect('救济支出', relief, 1, ' K£/半月')
+        ] });
+      }
+      if (L.ordine >= 2) out.push({ icon: 'legittimita', zh: '市政警察监督', meta: L.ordine + ' 级', effects: [
+        effect('法西斯小队', lawDelta('ordine', 'order', 'squadre'), 1, ' 点/半月'),
+        effect('领袖权威', lawDelta('ordine', 'order', 'authority'), 1, ' 点/半月')
+      ] });
+      if (L.portofranco >= 1) out.push({ icon: 'coins', zh: '自由港制度', meta: L.portofranco + ' 级', effects: [
+        effect('港口吞吐目标', R.trafficTarget(st) - R.trafficTarget(withoutLaw('portofranco')), 1, ' 点'),
+        effect('资本信心', lawDelta('portofranco', 'economy', 'capitalConfidence'), 1, ' 点/半月')
+      ] });
+      if (L.lingua >= 1) {
+        var langEffects = [effect('南斯拉夫关系', lawDelta('lingua', 'diplo', 'yugoslavia'), 1, ' 点/半月')];
+        if (L.lingua >= 2) langEffects.push(effect('斯拉夫农民·自治党支持',
+          supportDelta('lingua', 'contadini', 'AUT'), 1, ' 点/半月'));
+        out.push({ icon: 'star', zh: '官方语言制度', meta: L.lingua + ' 级', effects: langEffects });
+      }
+      if (L.scuola >= 1) out.push({ icon: 'star', zh: '双语教育', meta: L.scuola + ' 级', effects: [
+        effect('斯拉夫农民·军团支持', supportDelta('scuola', 'contadini', 'LEG'), 2, ' 点/半月')
+      ] });
       return out;
+    };
+
+    S.spiritMarkers = function (st) {
+      var markers = [
+        ['international_guarantee', '国际保证'], ['worker_control', '工人接管工厂'],
+        ['smuggle', '边境走私'], ['fascio_disarmed', '法西斯解除武装'],
+        ['dannunzio_left', '诗人已离开']
+      ];
+      return markers.filter(function (entry) { return !!st.flags[entry[0]]; }).map(function (entry) { return entry[1]; });
     };
 
     S.factions = function (st) {
@@ -214,6 +271,14 @@
         posture: st.posture,
         list: W.DIPLO_ACTORS.map(function (a) {
           return { id: a.id, zh: a.zh, it: a.it, color: a.color, value: Core.round1(st.diplo[a.id] || 0) };
+        }),
+        postures: W.POSTURES.map(function (p) {
+          var drift = W.POSTURE_DRIFT[p.id] || {};
+          return { id: p.id, zh: p.zh, it: p.it, desc: p.desc,
+            active: st.posture === p.id,
+            effects: W.DIPLO_ACTORS.filter(function (a) { return drift[a.id] != null; }).map(function (a) {
+              return { id: a.id, zh: a.zh, value: drift[a.id] };
+            }) };
         })
       };
     };

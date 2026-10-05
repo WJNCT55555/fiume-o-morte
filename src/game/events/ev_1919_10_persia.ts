@@ -30,12 +30,17 @@ export const ev191910Persia: GameEvent = {
       {
         id: 'accogliere',
         text: { zh: '接收全部物资，公开嘉奖朱列蒂与船员。', it: 'Accogliere tutto il carico e rendere onore pubblico a Giulietti e all\'equipaggio.' },
-        preview: [{ zh: '军械 +++', label: 'armi +++' }, { zh: '意大利 −−', label: 'Italia −−' },
+        preview: [{ zh: '军械 +++', label: 'armi +++' }, { zh: '苏联关系 +6', label: 'URSS +6' },
+                  { zh: '意大利 −−', label: 'Italia −−' },
                   { zh: '动员 ++', label: 'fervore ++' }, { zh: '朱列蒂入幕', label: 'Giulietti consigliere' }],
         effect: function () { return {
           arms: 180,
           order: { fervour: 12, squadre: 5 },
-          diplo: { italy: -14, league: -3 },
+          /* The thirteen tons were destined for the White armies at Vladivostok.
+             Taking them is not a gesture of sympathy for Moscow, it is a material
+             subtraction from Moscow's enemies — and the Soviet government reads
+             it exactly that way, which is why the arms come with goodwill. */
+          diplo: { italy: -14, league: -3, soviet: 6 },
           support: [['portuali', 'LEG', 5], ['operai', 'LEG', 3]],
           relations: [['LEG', 'PSI', 10]],
           factions: { sindacalisti: { dis: -14 }, futuristi: { dis: -8 }, fascisti: { dis: 6 } },

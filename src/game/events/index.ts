@@ -22,10 +22,14 @@ import { evRomafronteEpilogo } from './ev_romafronte_epilogo';
 import { ev192009Carta } from './ev_1920_09_carta';
 import { ev192010Adunata } from './ev_1920_10_adunata';
 import { ev192011Rapallo } from './ev_1920_11_rapallo';
+import { evUrssRiconoscimento } from './ev_1920_urss';
 import { evNatale } from './ev_natale';
 import { evNataleFight } from './ev_natale_fight';
 import { evNataleDeal } from './ev_natale_deal';
 import { evNataleAfter } from './ev_natale_after';
+import { evNataleWin } from './ev_natale_win';
+import { evNataleStalemate } from './ev_natale_stalemate';
+import { evNataleLose } from './ev_natale_lose';
 import { ev192104Elezioni } from './ev_1921_04_elezioni';
 import { evCartaDibattito } from './ev_carta_dibattito';
 import { evBlasichContatto } from './ev_blasich_contatto';
@@ -44,6 +48,10 @@ import { evCoupAfter } from './ev_coup_after';
    march was unreachable behind the March 1922 coup. See
    docs/内容梳理与路线重构方案.md §2.2. */
 import { ev192401Rome } from './ev_1924_01_rome';
+import { ev1924FascistCoup } from './ev_1924_fascist_coup';
+import { ev1924Win } from './ev_1924_win';
+import { ev1924Stalemate } from './ev_1924_stalemate';
+import { ev1924Lose } from './ev_1924_lose';
 import { evLegionParty } from './ev_legion_party';
 
 export const ALL_EVENTS = [
@@ -71,10 +79,14 @@ export const ALL_EVENTS = [
   ev192009Carta,
   ev192010Adunata,
   ev192011Rapallo,
+  evUrssRiconoscimento,
   evNatale,
   evNataleFight,
   evNataleDeal,
   evNataleAfter,
+  evNataleWin,
+  evNataleStalemate,
+  evNataleLose,
   ev192104Elezioni,
   evCartaDibattito,
   evBlasichContatto,
@@ -90,5 +102,9 @@ export const ALL_EVENTS = [
   evCoupFight,
   evCoupAfter,
   ev192401Rome,
+  ev1924FascistCoup,
+  ev1924Win,
+  ev1924Stalemate,
+  ev1924Lose,
   evLegionParty
 ];

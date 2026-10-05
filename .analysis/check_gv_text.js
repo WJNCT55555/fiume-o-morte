@@ -129,43 +129,43 @@ const azAvg = Math.round(az.reduce((s, c) => s + ((c.text && c.text.zh) || '').l
    added afterwards — gv_polizia, gv_orario, gv_tutele — are reported separately:
    holding a new card to a threshold written before it existed measures the
    threshold, not the card. Their shortfall IS reported, as a style note. */
+/* Text-quality thresholds. These are enforced over EVERY government card, not
+   just the ones present when this script was written: the HEAD comparison is
+   only used to report what has drifted, never to excuse a card from the house
+   style. An earlier version exempted "cards not in the baseline", which silently
+   stopped applying the moment those cards were committed — the exemption
+   expired and the shortfall went on being reported as a note instead of a
+   failure. Three cards are currently below the bar; they are named below so the
+   remaining work is visible rather than hidden behind an exemption. */
 const baselineIds = ids.filter(id => !!oldCards[id]);
 const newIds = ids.filter(id => !oldCards[id]);
-let totOpts = 0, totSubs = 0, sumText = 0, minText = 1e9;
-let newTotOpts = 0, newTotSubs = 0, newSum = 0;
+let totOpts = 0, totSubs = 0, sumText = 0;
 ids.forEach(id => {
   const c = newCards[id];
-  const len = (c.text.zh || '').length;
   const opts = c.options || [];
-  const subs = opts.filter(o => o.subtitle).length;
-  const twoPara = (c.text.zh || '').indexOf('\n\n') >= 0;
-  if (oldCards[id]) {
-    sumText += len; if (len < minText) minText = len;
-    totOpts += opts.length; totSubs += subs;
-  } else {
-    newSum += len; newTotOpts += opts.length; newTotSubs += subs;
-  }
-  console.log(`   ${id.padEnd(20)} 描述 ${String(len).padStart(4)} 字${twoPara ? ' 分段' : ' 未分段'}`
-    + ` · 副标题 ${subs}/${opts.length}${oldCards[id] ? '' : '   ← 基线外新卡'}`);
+  sumText += (c.text.zh || '').length;
+  totOpts += opts.length;
+  totSubs += opts.filter(o => o.subtitle).length;
 });
-const avg = Math.round(sumText / baselineIds.length);
-console.log(`   [基线 ${baselineIds.length} 张] 平均 ${avg} 字（行动卡基线 ${azAvg}） · 最短 ${minText} · 副标题 ${totSubs}/${totOpts}`);
-ok(totSubs === totOpts, `基线内每张卡的每个选项都有副标题（${totSubs}/${totOpts}）`);
-ok(minText >= 150, `基线内最短描述 ${minText} 字 ≥ 150`);
-ok(avg >= azAvg * 0.8, `基线内平均 ${avg} 字 ≥ 行动卡基线的 80%（${Math.round(azAvg * 0.8)}）`);
-baselineIds.forEach(id => ok((newCards[id].text.zh || '').indexOf('\n\n') >= 0, `${id}: 描述分两段`));
-
-if (newIds.length) {
-  console.log(`\n=== C2. 基线外新增的政府卡（${newIds.length} 张）===`);
-  const newAvg = Math.round(newSum / newIds.length);
-  console.log(`   平均 ${newAvg} 字 · 副标题 ${newTotSubs}/${newTotOpts}`);
-  ok(newTotSubs === newTotOpts, `新增卡每个选项都有副标题（${newTotSubs}/${newTotOpts}）`);
-  const thin = newIds.filter(id => (newCards[id].text.zh || '').length < 150);
-  const onePara = newIds.filter(id => (newCards[id].text.zh || '').indexOf('\n\n') < 0);
-  if (thin.length) console.log('   ⚠ 描述短于 150 字：' + thin.map(id => `${id}(${(newCards[id].text.zh || '').length}字)`).join(', '));
-  if (onePara.length) console.log('   ⚠ 描述未分两段：' + onePara.join(', '));
-  if (!thin.length && !onePara.length) console.log('   与既有政府卡的文本规范一致 ✓');
+const avg = Math.round(sumText / ids.length);
+console.log(`   [全部 ${ids.length} 张] 平均 ${avg} 字（行动卡基线 ${azAvg}） · 副标题 ${totSubs}/${totOpts}`);
+ok(totSubs === totOpts, `每个选项都有副标题（${totSubs}/${totOpts}）`);
+ok(avg >= azAvg * 0.8, `平均 ${avg} 字 ≥ 行动卡基线的 80%（${Math.round(azAvg * 0.8)}）`);
+/* Per-card text quality. 150 chars and two paragraphs are the house style the
+   sixteen rewritten cards established. */
+const thin = ids.filter(id => (newCards[id].text.zh || '').length < 150);
+const onePara = ids.filter(id => (newCards[id].text.zh || '').indexOf('\n\n') < 0);
+ids.forEach(id => {
+  const len = (newCards[id].text.zh || '').length;
+  const two = (newCards[id].text.zh || '').indexOf('\n\n') >= 0;
+  ok(len >= 150 && two, `${id.padEnd(20)} 描述 ${String(len).padStart(4)} 字${two ? ' 分段' : ' 未分段'}`);
+});
+if (thin.length || onePara.length) {
+  console.log('\n   ── 待补写的政府卡 ──');
+  if (thin.length) console.log('   描述短于 150 字：' + thin.map(id => `${id}(${(newCards[id].text.zh || '').length}字)`).join(', '));
+  if (onePara.length) console.log('   未分两段：' + onePara.join(', '));
 }
+if (newIds.length) console.log('   （基线外新增：' + newIds.join(', ') + '）');
 
 console.log('\n=== D. 双语完整性 ===');
 let bi = 0;

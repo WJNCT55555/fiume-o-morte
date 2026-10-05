@@ -40,11 +40,11 @@
             h('div', { class: 'comandante__r' }, party.id === 'LEG' ? T('cmd.sub') : (party.zh || ''))
           ]),
           !leader.portrait ? h('div', { class: 'comandante__photo-note' }, T('start.portraitPending')) : null,
-        ]),
-        h('div', { class: 'comandante__body' }, [
-          party.id === 'LEG' ? field('军团兵力', Core.fmt(st.order.milizia)) : field('全国支持', (mine ? mine.value : 0).toFixed(1) + '%'),
-          party.id === 'LEG' ? field(T('cmd.dissenso'), R.factionDissent(st).toFixed(1)) : field('议会席位', String(st.assembly[party.id] || 0)),
         ])
+        /* The body strip that used to sit here carried legion strength and the
+           movement's overall dissent. Both are already on screen: the strength
+           in the top resource bar, the dissent in the factions panel, which
+           breaks it down per faction instead of averaging it. */
       ]);
     }
 
@@ -189,13 +189,32 @@ function gauges(st) {
     /* National spirits */
     function spirits(st) {
       var sp = Sel.spirits(st);
+      var markers = Sel.spiritMarkers(st);
       var body = [];
-      if (!sp.length) body.push(h('div', { class: 'empty' }, '—'));
+      if (!sp.length) body.push(h('div', { class: 'empty' }, '当前没有持续数值修正'));
+      else body.push(h('p', { class: 'spirit__notice' },
+        '显示基础修正；实际结算受其他效果和数值上限影响。除目标值外，均按每半月计算。'));
       sp.forEach(function (x) {
         body.push(h('div', { class: 'spirit' }, [
-          icon(x.icon, 15), h('span', { class: 'spirit__n' }, x.zh), h('span', { class: 'spirit__v' }, x.v)
+          h('div', { class: 'spirit__head' }, [
+            icon(x.icon, 15), h('strong', { class: 'spirit__n' }, x.zh),
+            x.meta ? h('span', { class: 'spirit__meta' }, x.meta) : null
+          ]),
+          h('div', { class: 'spirit__effects' }, x.effects.map(function (line) {
+            return h('div', { class: 'spirit__effect' }, [
+              h('span', { class: 'spirit__label' }, line.zh),
+              h('span', { class: 'spirit__v' }, line.value)
+            ]);
+          }))
         ]));
       });
+      if (markers.length) body.push(h('div', { class: 'spirit__markers' }, [
+        h('strong', {}, '已记录的剧情状态'),
+        h('p', {}, '以下状态不额外提供持续数值修正；即时效果已在选择时结算。'),
+        h('div', { class: 'spirit__marker-list' }, markers.map(function (name) {
+          return h('span', { class: 'spirit__marker' }, name);
+        }))
+      ]));
       return section('spirito', T('spirito.title'), T('spirito.sub'), body, { icon: 'star', defaultOpen: false });
     }
 

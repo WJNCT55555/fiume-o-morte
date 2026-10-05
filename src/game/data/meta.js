@@ -412,16 +412,18 @@
           '"Me ne vado," scriverai poi, "ma non mi arrendo."' },
       check: function (s) { return s.flags.dannunzio_left; }
     },
-    {
-      id: 'ending_natale', priority: 3, route: 'collapse', zh: '血腥圣诞', it: 'Natale di sangue', tag: '失败',
-      body: { zh: '炮弹落在省督府的那一天，这座城市就已经结束了它作为一个独立国家的历史。\n\n' +
-          '二十二名军团兵、十七名意大利士兵、五名平民。这个数字不大，但它足够让罗马在接下来的三年里，把阜姆当作一个需要被解决的问题而不是一个国家。\n\n' +
-          '自由邦在 1924 年 2 月 22 日被《罗马条约》正式取消。',
-          it: 'Il giorno in cui la granata cade sul Palazzo, questa città ha già finito la sua storia di Stato indipendente.\n\n' +
-          'Ventidue legionari, diciassette soldati italiani, cinque civili. Non è un numero grande, ma basta perché Roma tratti Fiume, per i tre anni successivi, come un problema da risolvere e non come uno Stato.\n\n' +
-          'Lo Stato libero viene formalmente soppresso dal Trattato di Roma il 22 febbraio 1924.' },
-      check: function (s) { return s.flags.martyred && s.order.milizia < 300; }
-    },
+    /* `ending_natale` ("Natale di sangue", priority 3) was removed here. It asked
+       for `flags.martyred && order.milizia < 300`, and `martyred` has exactly one
+       source — `ev_natale_fight: b` — which costs a flat 1 800 men. The Legion's
+       headcount is replenished by the settlement itself
+       (`clamp(round(revenue * 0.8), 60, 900)` per half-month, reducers.js), so by
+       the December 1920 window the floor is above 5 000; the check could not be
+       satisfied. Since `checkEnd` began settling the moment a condition is met it
+       became doubly unreachable, because `ending_silent_port` (priority 1) closes
+       any run that lets the population fall — and the Bloody Christmas window is
+       in that run's future. The historical event itself is untouched; it simply no
+       longer carries an ending of its own (the chain still ends in `ending_fuga`
+       or in the post-siege political game). */
     {
       id: 'ending_fascio', priority: 4, route: 'annexione', zh: '法西斯城邦', it: 'La città fascista', tag: '失败',
       body: { zh: '君塔的小队、霍斯特-文图里的军团兵旧部、罗马的预算。阜姆成为意大利法西斯主义的第一座"解放"城市——比埃塞俄比亚早十四年，比阿尔巴尼亚早十七年。\n\n' +
@@ -466,32 +468,90 @@
       check: function (s) { return !!s.flags.marcia_1920 && !s.flags.coup_done; }
     },
     {
+      /* The diplomatic arm of the 1924 crisis — the counterpart of
+         `ending_eviction`. `eviction` is the city being TAKEN (December 1920, the
+         Royal Army in the streets); this is the city being SIGNED AWAY (January
+         1924, the Treaty of Rome accepted). Both are the historical outcome, and
+         they are deliberately different endings because the Regency's own act is
+         what differs: one is done to it, the other is done by it.
+         Priority 6 puts it just above `ending_eviction` (7) and below the crisis
+         endings (3.5 / 4), which is right: it is reached from the 1924 node by
+         choosing to accept, and nothing else competes for that state because
+         `ev_natale_stalemate:riaprire` is the only other source and it forces
+         `ev_natale_after` instead. */
+      id: 'ending_annexation', priority: 6, route: 'annexione', zh: '吞并', it: 'L\'annessione', tag: '历史',
+      body: { zh: '1924 年 1 月 27 日，罗马与贝尔格莱德签署《罗马条约》。2 月 22 日批准生效。\n\n' +
+          '3 月 16 日，维托里奥·埃马努埃莱三世进城。没有巷战，没有炮击，没有二十二具尸体——' +
+          '只有一份文件，和一支在广场上奏乐的军乐团。\n\n' +
+          '你在文件上签了字。不是为了换取什么条款，而是因为你知道剩下的选择会让这座城市挨炮弹。' +
+          '摄政到这里结束：它签字把自己交了出去。\n\n' +
+          '扎内拉的流亡议会宣布条约"在国际法上无效且不可接受"，并继续存在到 1950 年代。' +
+          '城里的人后来争论了几十年：那到底是投降，还是一个人替一座城挡下了一场屠杀。',
+          it: 'Il 27 gennaio 1924 Roma e Belgrado firmano il Trattato di Roma. Ratifica il 22 febbraio.\n\n' +
+          'Il 16 marzo Vittorio Emanuele III entra in città. Nessuna battaglia per le strade, nessun bombardamento, ' +
+          'nessun ventidue morti: solo un documento, e una banda che suona in piazza.\n\n' +
+          'Hai firmato tu. Non per ottenere qualcosa, ma perché sapevi che le alternative restanti avrebbero portato ' +
+          'le artiglierie in città. La Reggenza finisce qui: firma la propria consegna.\n\n' +
+          'L\'Assemblea in esilio di Zanella dichiara il trattato «giuridicamente inaccettabile e invalido» e continua ' +
+          'a esistere fino agli anni Cinquanta. In città se ne discute per decenni: fu una resa, o un uomo che si prese ' +
+          'il massacro che toccava alla sua città?' },
+      check: function (s) { return !!s.flags.annexation; }
+    },
+    {
       /* priority 3.5, ahead of `ending_fascio` (4): both fire on the same event
          (the fascist coup), and which one you get is how violent its aftermath
          was. `fascio` says `coup_done && !exile && !stay` — which was ALSO true
          of the civil-strife state — so at priority 6 the stalemate could never
          be reached: the docile occupation always won the tie. The stalemate is
          the more specific description, so it is judged first. */
-      id: 'ending_civil_strife', priority: 3.5, route: 'collapse', zh: '血腥的僵局', it: 'Lo stallo sanguinoso', tag: '崩溃',
+      id: 'ending_civil_strife', priority: 3.5, route: 'collapse', zh: '内战僵局', it: 'Lo stallo sanguinoso', tag: '崩溃',
       body: { zh: '政变成功了，但没有结束任何事情。军团兵的街区与法西斯的街区之间隔着一道谁也不敢越过的线。意大利驻军在两方之间站着，谁也不帮，谁也不走。\n\n' +
           '这座城市在接下来二十年里一直记得那三年。',
           it: 'Il colpo di Stato è riuscito e non ha concluso nulla. Fra i quartieri legionari e i quartieri fascisti c\'è una linea che nessuno osa superare. Il presidio italiano sta in mezzo: non aiuta nessuno, non se ne va.\n\n' +
           'La città ricorderà quei tre anni per i successivi venti.' },
-      check: function (s) { return s.flags.coup_done && s.order.violence > 70; }
+      check: function (s) { return (s.flags.coup_done && s.order.violence > 70) || s.flags.bloody_stalemate; }
     },
     {
-      id: 'ending_historical', priority: 7, route: 'annexione', zh: '历史的结局', it: 'Il corso della storia', tag: '历史',
-      body: { zh: '1924 年 1 月 27 日，意大利与南斯拉夫签署《罗马条约》。2 月 22 日批准生效。3 月 16 日，维托里奥·埃马努埃莱三世进城宣布合并。\n\n' +
-          '扎内拉的流亡议会宣布该条约"在国际法上无效且不可接受"，并继续存在下去——一直到 1950 年代。\n\n' +
-          '1919 年 9 月 12 日，你带了两千五百人走进这座城市，说它属于意大利。现在意大利来取它了，用一份和你无关的文件。',
-          it: 'Il 27 gennaio 1924 Italia e Jugoslavia firmano il Trattato di Roma. Ratifica il 22 febbraio. Il 16 marzo Vittorio Emanuele III entra in città e proclama l\'annessione.\n\n' +
-          'L\'Assemblea in esilio di Zanella dichiara il trattato "giuridicamente inaccettabile e invalido" e continua a esistere fino agli anni Cinquanta.\n\n' +
-          'Il 12 settembre 1919 sei entrato in questa città con duemilacinquecento uomini dicendo che apparteneva all\'Italia. Ora l\'Italia viene a prenderla, con un documento che non ti riguarda.' },
+      /* Was `ending_historical` ("Il corso della storia"), then briefly
+         `ending_bloody_history`. Renamed and re-hung: it used to be a GLOBAL
+         condition (`treaty_rome || exile`) that swallowed every other ending
+         whenever a game reached 1924, which is why it had to be deliberately
+         avoided in order to reach anything else.
+         It is now ONLY the FAILURE arm of the siege chain — `ev_natale_lose` sets
+         `bloody_history` and forces this ending. What it narrates is the armed
+         eviction of December 1920: the Royal Army clearing the streets and the
+         Regency's authority going with them.
+         `treaty_rome` and `exile` were dropped from the check on purpose: the
+         design reads the 1920 eviction, not the 1924 treaty, as this ending, and
+         the treaty path is the fascist coup's business (see ev_1924_01_rome). */
+      id: 'ending_eviction', priority: 7, route: 'annexione', zh: '武装驱离', it: 'Lo sfratto armato', tag: '失败',
+      body: { zh: '1920 年 12 月 29 日，圣斯蒂法诺日，皇家陆军走完了最后一条街。\n\n' +
+          '二十二名军团兵、十七名意大利士兵、五名平民。这个数字不大，但它足够让罗马在接下来的三年里，' +
+          '把阜姆当作一个需要被解决的问题而不是一个国家。\n\n' +
+          '《卡尔纳罗宪章》从阳台上被念过一次，再没有生效。军团兵被打散：一部分退回老城，' +
+          '一部分脱下制服混进人群，一部分在码头上等着被运走。摄政的权威随着最后一条街一起消失了。\n\n' +
+          '这不是条约，是一场驱离。城里的人后来把它记成"那些兵进来把我们的国家搬走了"。',
+          it: 'Il 29 dicembre 1920, giorno di Santo Stefano, il Regio Esercito percorre l\'ultima via.\n\n' +
+          'Ventidue legionari, diciassette soldati italiani, cinque civili. Non è un numero grande, ma basta perché Roma, ' +
+          'per i tre anni successivi, tratti Fiume come un problema da risolvere e non come uno Stato.\n\n' +
+          'La Carta del Carnaro è stata letta dal balcone una volta, e non è mai entrata in vigore. ' +
+          'I legionari vengono dispersi: una parte ripiega sulla città vecchia, una parte si toglie la divisa e si mescola alla folla, ' +
+          'una parte aspetta al molo di essere imbarcata. L\'autorità della Reggenza se ne va con l\'ultima via.\n\n' +
+          'Non è un trattato, è uno sfratto. In città lo ricordano così: «sono entrati e si sono portati via il nostro Stato».' },
       /* `flags.resigned` was dropped from this check: nothing in the repository
          ever set it, so it was a branch that could not be taken. */
-      check: function (s) { return s.flags.treaty_rome || s.flags.exile; }
+      check: function (s) { return !!s.flags.bloody_history; }
     },
     {
+      /* `lavoro >= 3 && fisco >= 2` alone was too cheap: it fires the moment the
+         Carta journal closes — 1920, if the player simply signs the programme —
+         and it then preempted every Carnaro-route ending behind it (`danzig` 10,
+         `fiume_o_morte` 10.5) because the route shares the `carta_done` gate.
+         The two additions say what this ending is actually about: a republic run
+         by the syndicalists — their weight INSIDE the movement
+         (`factions.sindacalisti.inf >= 60`) and a real alliance with the Italian
+         revolutionary syndicalists OUTSIDE it (`forze.sindacalisti >= 55`) — not
+         merely a constitution with a labour clause. */
       id: 'ending_comune', priority: 8, route: 'carnaro', zh: '阜姆公社', it: 'La Comune di Fiume', tag: '架空',
       body: { zh: '《卡尔纳罗宪章》不是被朗诵的，是被执行的。法团院开会，最优者议会立法，七个执政官由议会选举产生，音乐成为国家制度，劳动写进第一条。\n\n' +
           '工厂归工人的合作社，港口归码头工人的联营，土地归耕它的人。德·安布里斯在 1920 年写下的那些句子，第一次具有法律效力。\n\n' +
@@ -499,7 +559,10 @@
           it: 'La Carta del Carnaro non viene recitata: viene applicata. Il Consiglio dei Provvisori si riunisce, quello degli Ottimi legifera, sette Rettori sono eletti, la musica diventa istituzione dello Stato, il lavoro entra nell\'articolo primo.\n\n' +
           'Le fabbriche alle cooperative operaie, il porto ai consorzi dei portuali, la terra a chi la lavora. Le frasi che De Ambris scrisse nel 1920 hanno, per la prima volta, forza di legge.\n\n' +
           'Mosca la chiama "ibrida"; Roma "intollerabile"; Ginevra non dice nulla, ma la registra.' },
-      check: function (s) { return s.flags.carta_done && s.laws.lavoro >= 3 && s.laws.fisco >= 2 && !s.flags.coup_done; }
+      check: function (s) {
+        return s.flags.carta_done && s.laws.lavoro >= 3 && s.laws.fisco >= 2 && !s.flags.coup_done &&
+          s.factions.sindacalisti.inf >= 60 && (s.forze.sindacalisti || 0) >= 55;
+      }
     },
     /* `ending_yugoslav` ("La porta jugoslava", priority 9) was removed here. It
        was unreachable: its check read `flags.federation` and
@@ -510,52 +573,31 @@
        it (a Belgrade-facing chain through gv_dogana_yu / ev_baross_talks) rather
        than an ending with no way to arrive. See
        docs/内容梳理与路线重构方案.md §2.1 and §3.3. */
+    /* `ending_danzig` ("La Danzica dell'Adriatico", priority 10) was removed here
+       and became the achievement `ach_danzig` below. It could not be reached once
+       `ending_comune` (8) gained its syndicalist gates: the two share the
+       `carta_done` gate, so commune still closed first, and a joint guarantee
+       registered at Geneva is something a run ACHIEVES rather than a way it ends.
+       See the achievement's own note. */
+    /* `ending_venice` ("La seconda Venezia") was removed here and became the
+       achievement `ach_venice` below. As an ending it was an attractor: its
+       condition (free port III, traffic ≥ 85, syndicalist influence ≥ 20) is
+       satisfied by any competent trading run as early as 1920, and once `checkEnd`
+       began settling the moment a condition was met it preempted every ending with
+       a lower priority number — including `ending_historical` and
+       `ending_civil_strife`, which stopped being reachable at all. */
+    /* `ending_exile_endured` ("Le adunate nella notte lunga", priority 13) was
+       removed here. Its window was arithmetically impossible: `ev_coup` cannot
+       fire before 1922-03, so a 24-month exile or an 18-month resistance reaches
+       its close in 1924-03 at the earliest, while `ev_1924_01_rome` sets
+       `treaty_rome` in 1924-01 and `ending_historical` (7) settles then. It missed
+       by two months, every run. The exile/resistance journals themselves are
+       untouched — they still run and still shape the game. */
     {
-      id: 'ending_danzig', priority: 10, route: 'carnaro', zh: '亚得里亚的但泽', it: 'La Danzica dell\'Adriatico', tag: '架空',
-      body: { zh: '英、法、美三国共同保证阜姆的中立与独立。宪章在国联登记，一个三人委员会常驻城内监督自由港章程。意大利与南斯拉夫都没有得到这座城市，也没有失去它。\n\n' +
-          '威尔逊 1919 年提议把国联的机构设在阜姆。当时所有人都在笑。现在城里的每一块街牌都写着三种语言，而广场上的雕像还是那个诗人。',
-          it: 'Gran Bretagna, Francia e Stati Uniti garantiscono congiuntamente la neutralità e l\'indipendenza di Fiume. La Carta è registrata a Ginevra, una commissione di tre membri risiede in città per vigilare sullo statuto del porto franco. Né l\'Italia né la Jugoslavia ottengono la città; nessuna delle due la perde.\n\n' +
-          'Wilson aveva proposto Fiume come sede della Società nel 1919. Allora tutti ridevano. Ora ogni targa stradale è in tre lingue, e la statua in piazza è ancora quella del poeta.' },
-      check: function (s) { return s.flags.international_guarantee && s.flags.carta_done; }
-    },
-    {
-      id: 'ending_carnaro', priority: 11, route: 'carnaro', zh: '卡尔纳罗共和国', it: 'La Repubblica del Carnaro', tag: '胜利',
-      body: { zh: '摄政活了下来。罗马换了三届内阁，贝尔格莱德换了两次王储的耐心，日内瓦换了四个委员会——而阜姆还是阜姆。\n\n' +
-          '它有一个由法团院和最优者议会组成的立法机关，七个每年选举一次的执政官，对城市负责的市政警察，一部经各项法律落实的宪章，以及一个仍在缓慢回升的港口。\n\n' +
-          '它不是意大利，也不是南斯拉夫。它是一座由诗人建立、由工会书记维持、由码头工人养活的共和国。',
-          it: 'La Reggenza sopravvive. Roma cambia tre governi, Belgrado due volte la pazienza del principe ereditario, Ginevra quattro commissioni — e Fiume resta Fiume.\n\n' +
-          'Ha un legislativo fatto di due consigli, sette Rettori eletti ogni anno, una polizia municipale responsabile davanti alla città, una Carta attuata attraverso le leggi, e un porto che risale lentamente.\n\n' +
-          'Non è l\'Italia, non è la Jugoslavia. È una repubblica fondata da un poeta, tenuta in piedi da un segretario sindacale, e nutrita dai portuali.' },
-      check: function (s) { return !s.flags.coup_done && !s.flags.treaty_rome && s.flags.carta_done && s.date.y >= 1926; }
-    },
-    {
-      id: 'ending_venice', priority: 12, route: 'carnaro', zh: '第二个威尼斯', it: 'La seconda Venezia', tag: '架空',
-      body: { zh: '自由港三级、转口贸易特权、港务财团、双关税协定。吞吐指数回到 1913 年的九成。全城三分之一的就业在码头与仓储。\n\n' +
-          '没有人再问"谁是阜姆人"这个问题，因为所有人都在忙着算账。军团兵的海报被商会的广告盖住了。\n\n' +
-          '这是一个不浪漫、不英勇、但确实活下来了的结局——而写诗的人不会喜欢它。',
-          it: 'Porto franco di terzo livello, privilegi di transito, consorzio portuale, doppia convenzione doganale. L\'indice di traffico torna al novanta per cento del 1913. Un terzo dell\'occupazione cittadina è sui moli e nei magazzini.\n\n' +
-          'Nessuno chiede più "chi sono i fiumani": tutti stanno facendo i conti. I manifesti dei legionari sono coperti dalla pubblicità della Camera di commercio.\n\n' +
-          'Un finale poco romantico, poco eroico, e decisamente sopravvissuto — che al poeta non piacerà.' },
-      check: function (s) { return s.laws.portofranco >= 3 && s.economy.traffic >= 85 && s.factions.sindacalisti.inf >= 20 && !s.flags.coup_done; }
-    },
-    {
-      id: 'ending_exile_endured', priority: 13, route: 'marcia', zh: '长夜里的集会', it: 'Le adunate nella notte lunga', tag: '架空',
-      body: { zh: '运动撑过了两年。的里雅斯特、威尼斯、罗马、巴黎——每到一处都印一批新的信纸，用两种语言写给不会回信的人。\n\n' +
-          '每年 9 月 12 日，还在的人会找一间屋子，唱同一首歌。来的人一年比一年少，但从来没有断过。\n\n' +
-          '1950 年代他们还在开会。1960 年代它变成了一个纪念协会。',
-          it: 'Il movimento resiste due anni. Trieste, Venezia, Roma, Parigi: in ogni città nuova carta intestata, in due lingue, per destinatari che non rispondono.\n\n' +
-          'Ogni 12 settembre quelli che restano trovano una sala e cantano la stessa canzone. Ogni anno sono meno, ma non si salta mai.\n\n' +
-          'Negli anni Cinquanta si riuniscono ancora. Negli anni Sessanta diventa un\'associazione commemorativa.' },
-      check: function (s) { return s.flags.exile_endured || s.flags.passive_victory; }
-    },
-    {
-      /* priority 10.5, ahead of `ending_carnaro` (11). `carnaro` is the general
-         "the Regency survived" outcome and its check (Carta journal done, ≥ 1926) was
-         ALSO satisfied by every better Carnaro ending, so as long as it was
-         judged before them the specific victories could never be reached — the
-         game would always settle for "it survived" instead of "it worked".
-         The more specific endings now come first, and this one is the fallback
-         for a Regency that merely lasts. */
+      /* priority 10.5. It used to sit between `danzig` (10) and `carnaro` (11);
+         both have since been removed, so this is now the last Carnaro-route
+         outcome — the ending for a city still standing when the clock runs out.
+         Its own gate is December 1924, which is `MAX_END` itself. */
       id: 'ending_fiume_o_morte', priority: 10.5, route: 'carnaro', zh: '阜姆或死亡！', it: 'Fiume o morte!', tag: '胜利',
       body: { zh: '1927 年 12 月。城还在。\n\n' +
           '它有一部以劳动、选举与公民权利立法落实的宪法、两个邻国的贸易协定、一份在国联登记的条约，以及一个回到战前九成吞吐量的港口。\n\n' +
@@ -565,7 +607,7 @@
           'Ha una costituzione attuata nelle leggi del lavoro, del voto e dei diritti civili, accordi commerciali con entrambi i vicini, un trattato registrato a Ginevra, e un porto tornato al novanta per cento del traffico anteguerra.\n\n' +
           'La statua in piazza è quella di un uomo che scriveva versi. Per strada si parlano tre lingue. Ogni 12 settembre i reduci arrivano dall\'Italia lungo la strada di Ronchi, e dal balcone del Palazzo un giovane legge un articolo della Carta.\n\n' +
           'Poi gridano tutti insieme lo slogan del 1919. Suona ancora come una minaccia, e ancora come una promessa.' },
-      check: function (s) { return s.flags.porto_revived && s.economy.traffic >= 85 && !s.flags.coup_done && s.flags.carta_done && s.date.y >= 1927; }
+      check: function (s) { return s.flags.porto_revived && s.economy.traffic >= 85 && !s.flags.coup_done && s.flags.carta_done && (s.date.y > 1924 || (s.date.y === 1924 && s.date.m >= 12)); }
     },
     {
       id: 'ending_timer', priority: 99, route: 'collapse', zh: '尚未落幕', it: 'Non ancora concluso', tag: '未完',
@@ -592,6 +634,15 @@
     { id: 'ach_empty',     zh: '一千个空房子', it: 'Mille case vuote', desc: { zh: '人口流失达到 5000 人。', it: 'Perdere 5.000 abitanti.' } },
     { id: 'ach_calm',      zh: '不流血的三年', it: 'Tre anni senza sangue', desc: { zh: '政治暴力始终低于 15 直到 1924 年。', it: 'Violenza politica sempre sotto 15 fino al 1924.' } },
     { id: 'ach_dissent',   zh: '四派同桌', it: 'Quattro correnti a un tavolo', desc: { zh: '四个派系的整体异议始终低于 10。', it: 'Dissenso complessivo sempre sotto 10.' } },
+    /* Was `ending_danzig`; see the note where that entry used to sit in ENDINGS.
+       Same condition. A neutral Fiume guaranteed by all three powers and
+       registered at Geneva is a diplomatic achievement, and as an ending it was
+       permanently behind `ending_comune` (8), which shares the `carta_done` gate. */
+    { id: 'ach_danzig',    zh: '亚得里亚的但泽', it: 'La Danzica dell\'Adriatico', desc: { zh: '拿到英法美共同保证，并完成《卡尔纳罗宪章》——让宪章在国联登记。', it: 'Ottenere la garanzia congiunta di UK, Francia e USA e completare la Carta del Carnaro: registrarla a Ginevra.' } },
+    /* Was `ending_venice`; see the note where that entry used to sit in ENDINGS.
+       Same condition minus the `!coup_done` guard, which only made sense for an
+       ending (a city under a fascist takeover has no port policy of its own). */
+    { id: 'ach_venice',    zh: '第二个威尼斯', it: 'La seconda Venezia', desc: { zh: '自由港法 ≥ 3 级、吞吐指数 ≥ 85，且工团派影响力 ≥ 20——把这座城市变回一个港口。', it: 'Porto franco ≥ 3, indice di traffico ≥ 85 e influenza dei sindacalisti ≥ 20: ridare a questa città un porto.' } },
     { id: 'ach_o_morte',   zh: '自由未烬',     it: 'Libertà non estinta', desc: { zh: '达成「阜姆或死亡！」结局。', it: 'Raggiungere il finale "Fiume o morte!".' } }
   ];
 

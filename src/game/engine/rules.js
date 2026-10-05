@@ -895,6 +895,110 @@
     return out;
   };
 
+  /* ===================== Three-state battle resolution ===================== */
+  /* A siege is not a menu choice: the two sides are priced, compared, and the
+     result falls out of the comparison. The shape is lifted from
+     `social_democracy_alternate_history`'s `civil_war.scene.dry:73-84`, where the
+     republic's `total_power` is weighed against the enemy's and yields exactly
+     three outcomes — victory, a long war, or total defeat:
+
+       if (total_power > enemy_power * 1.1)      republic_victory
+       else if (total_power / enemy_power >= 0.6) long_war
+       else                                       total_defeat
+
+     Two deliberate differences from the reference:
+       - the margin is per-battle (`opts.margin`, default `W.BATTLE_MARGIN`), so a
+         siege Rome is committed to can be harder to survive than a street coup;
+       - a defender at zero is a defeat outright, because here the attacker is a
+         real army with artillery rather than a paramilitary of comparable quality.
+     `isFavorable` is kept for narrative temperature only, exactly as the
+     reference uses it: it decides which text to show, never who won. */
+  R.battleForces = function (state, side) {
+    var o = state.order;
+    var C = (W.BATTLE || {})[side] || {};
+    if (side === 'defender') {
+      /* What the Regency can actually put on the barricades: the Legion, plus the
+         units whose loyalty is a function of its own standing. */
+      var d = o.milizia * (C.milizia == null ? 1.0 : C.milizia)
+        + o.police * (C.police == null ? 2.0 : C.police)
+        + o.carabinieri * (C.carabinieri == null ? 1.5 : C.carabinieri)
+        + o.garrison * (C.garrison == null ? 8.0 : C.garrison) * (o.authority / 100)
+        + o.fervour * (C.fervour == null ? 4.0 : C.fervour);
+      /* A movement that has lost the street fights with itself. */
+      d *= 1 - R.factionDissent(state) / (C.dissentDiv || 200);
+      return Math.max(0, d);
+    }
+    /* The attacker is the Royal Army reinforced by the ships (the siege axis
+       `coup`, 0..140) plus Mussolini's squads. */
+    var a = o.garrison * (C.garrison == null ? 34.0 : C.garrison)
+      + Math.max(0, o.coup || 0) * (C.coup == null ? 26.0 : C.coup)
+      + o.squadre * (C.squadre == null ? 8.0 : C.squadre);
+    return Math.max(0, a);
+  };
+
+  R.resolveBattle = function (state, opts) {
+    opts = opts || {};
+    var d = opts.defenderPower == null ? R.battleForces(state, 'defender') : opts.defenderPower;
+    var a = opts.attackerPower == null ? R.battleForces(state, 'attacker') : opts.attackerPower;
+    return R._battleOutcome(state, d, a, opts);
+  };
+
+  /* The 1924 crisis: the fascist coup arrives together with the Treaty of Rome, so
+     the attacker is the squads AND the state that backs them. This is why it is a
+     separate pricing rather than a reuse of the siege or the 1922 coup: neither of
+     those has a foreign ultimatum behind it. `subversion` is the internal fascist
+     pressure (0..~140) and is what makes this attempt bigger than the 1922 one. */
+  R.annexationForces = function (state, side) {
+    if (side === 'defender') return R.battleForces(state, 'defender');
+    var o = state.order, C = W.COUP_1924 || {};
+    return Math.max(0,
+      o.squadre * (C.squadre == null ? 10.0 : C.squadre)
+      + Math.max(0, o.subversion || 0) * (C.subversion == null ? 40.0 : C.subversion)
+      + o.garrison * (C.garrison == null ? 20.0 : C.garrison));
+  };
+
+  R.resolveAnnexation = function (state, opts) {
+    opts = opts || {};
+    var d = opts.defenderPower == null ? R.annexationForces(state, 'defender') : opts.defenderPower;
+    var a = opts.attackerPower == null ? R.annexationForces(state, 'attacker') : opts.attackerPower;
+    return R._battleOutcome(state, d, a, opts);
+  };
+
+  /* The 1924 diplomatic crisis: the Treaty of Rome is enforced by the Royal Army
+     because the Italian fascists never grew strong enough to do it themselves
+     (`forze.fascisti < 60`). Same three-state resolution, weaker attacker — see
+     W.TREATY_1924 for why there is no `subversion` term here. */
+  R.treatyForces = function (state, side) {
+    if (side === 'defender') return R.battleForces(state, 'defender');
+    var o = state.order, C = W.TREATY_1924 || {};
+    return Math.max(0,
+      o.squadre * (C.squadre == null ? 4.0 : C.squadre)
+      + o.garrison * (C.garrison == null ? 12.0 : C.garrison));
+  };
+
+  R.resolveTreaty = function (state, opts) {
+    opts = opts || {};
+    var d = opts.defenderPower == null ? R.treatyForces(state, 'defender') : opts.defenderPower;
+    var a = opts.attackerPower == null ? R.treatyForces(state, 'attacker') : opts.attackerPower;
+    return R._battleOutcome(state, d, a, opts);
+  };
+
+  /* Shared three-state comparison, so every 1924 / siege path reads the same
+     thresholds and cannot drift apart. */
+  R._battleOutcome = function (state, d, a, opts) {
+    opts = opts || {};
+    var margin = opts.margin == null ? (W.BATTLE_MARGIN || 1.0) : opts.margin;
+    var floor = opts.floor == null ? (W.BATTLE_STALEMATE || 0.6) : opts.floor;
+    if (d <= 0) return { state: 'defeat', defender: 0, attacker: a, ratio: 0, favorable: false };
+    if (a <= 0) return { state: 'victory', defender: d, attacker: 0, ratio: Infinity, favorable: true };
+    var ratio = d / a;
+    return {
+      state: ratio > margin ? 'victory' : (ratio >= floor ? 'stalemate' : 'defeat'),
+      defender: d, attacker: a, ratio: ratio,
+      favorable: ratio >= (W.BATTLE_FAVORABLE || 0.95)
+    };
+  };
+
   /* ===================== Endings and achievements ===================== */
   R.resolveEnding = function (state) {
     var sorted = Meta.ENDINGS.slice().sort(function (a, b) { return a.priority - b.priority; });
@@ -925,6 +1029,10 @@
     if (mono.populationLost >= 5000) grant('ach_empty');
     if (mono.minViolenceOK && state.date.y >= 1924) grant('ach_calm');
     if (mono.minDissentOK && state.monthIndex >= 11) grant('ach_dissent');
+    /* Venice and Danzig live here now rather than in ENDINGS. */
+    if (state.laws.portofranco >= 3 && state.economy.traffic >= 85 &&
+        state.factions.sindacalisti.inf >= 20) grant('ach_venice');
+    if (state.flags.international_guarantee && state.flags.carta_done) grant('ach_danzig');
     if (state.ending === 'ending_fiume_o_morte') grant('ach_o_morte');
     return add;
   };

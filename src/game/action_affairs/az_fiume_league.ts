@@ -35,12 +35,25 @@ export const azFiumeLeague: Card = {
       { id: 'soviet',
         text: { zh: '借助阜姆联盟，改善与苏联之间的关系。', it: 'Servirsi della Lega per avvicinare la Russia sovietica.' },
         subtitle: { zh: '共产主义俄国如我们一样，拥有所有精神上有生命力的元素。', it: 'La Russia comunista ha, come noi, tutti gli elementi di vitalita spirituale.' },
-        preview: ['苏联 ++', '工团派异议 −−', '资本信心 −−', '法西斯派异议 ++'],
-        effect: { diplo: { soviet: 18, italy: -8, league: -4 },
-                  counters: { leagueUsed: 1 },
-                  economy: { capitalConfidence: -9 },
-                  flags: { soviet_contact: true },
-                  factions: { sindacalisti: { dis: -16 }, fascisti: { dis: 14 }, futuristi: { dis: -4 } } } },
+        preview: ['苏联关系 +8', '工团派异议 −−', '资本信心 −−', '法西斯派异议 ++'],
+        /* Once Livorno has split, the network reaches the new Communist Party as
+           well as Moscow, so the same act also moves the PCd'I — which lives in
+           `forze`, not in `relations`: the party is not in the Fiume assembly.
+           The doors are checked with the same `comintern_door` flag the rest of
+           the content layer uses. */
+        effect: function (s) {
+          const out: Record<string, unknown> = {
+            diplo: { soviet: 8, italy: -8, league: -4 },
+            counters: { leagueUsed: 1 },
+            economy: { capitalConfidence: -9 },
+            flags: { soviet_contact: true },
+            factions: { sindacalisti: { dis: -16 }, fascisti: { dis: 14 }, futuristi: { dis: -4 } }
+          };
+          if (s.flags && s.flags.comintern_door) {
+            out.forze = { comunisti: 6 };
+          }
+          return out;
+        } },
       { id: 'protesta',
         text: { zh: '向国际联盟发出正式抗议', it: 'Protesta formale alla Societa delle Nazioni' },
         subtitle: { zh: '在最粗鄙的语言撕开大国分赃的伪善面纱。', it: 'Strappare il velo dell\'ipocrisia con il linguaggio piu crudo.' },

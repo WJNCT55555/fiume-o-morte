@@ -107,7 +107,7 @@
     'gab.title':        { zh: '执政官会议', it: 'Consiglio dei Rettori' },
     'gab.sub':          { zh: '内阁', it: 'Gabinetto' },
     'spirito.title':    { zh: '国家精神', it: 'Spirito Nazionale' },
-    'spirito.sub':      { zh: '生效中的修正', it: 'Effetti' },
+    'spirito.sub':      { zh: '生效中的数值修正', it: 'Effetti numerici' },
 
     /* Shared buttons and labels */
     'btn.save':         { zh: '存档', it: 'Archivio' },
@@ -214,7 +214,6 @@
 
     /* Actions */
     'card.choose':      { zh: '选择（{n}）', it: 'Scegliere ({n})' },
-    'card.cost.hint':   { zh: '成本已在打出时扣除，这张卡已进入弃牌堆；必须做出选择。', it: 'Il costo è già pagato e la carta è scartata: la scelta è obbligatoria.' },
     'btn.back':         { zh: '返回', it: 'Indietro' },
     'deck.slots':       { zh: '预留处 {a} / {b}', it: 'Riserva {a} / {b}' },
     'deck.empty':       { zh: '空', it: 'vuoto' },

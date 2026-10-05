@@ -56,21 +56,31 @@ function mkState() {
 const CASES = {
   ending_silent_port: s => { s.economy.population = 40000; },
   ending_fuga: s => { s.flags.dannunzio_left = true; },
-  ending_natale: s => { s.flags.martyred = true; s.order.milizia = 100; },
   ending_fascio: s => { s.flags.coup_done = true; },
   ending_marcia_1920: s => { s.flags.marcia_1920 = true; },
   ending_civil_strife: s => { s.flags.coup_done = true; s.order.violence = 90; },
-  ending_historical: s => { s.flags.treaty_rome = true; },
-  ending_comune: s => { s.flags.carta_done = true; s.laws.lavoro = 3; s.laws.fisco = 2; },
-  /* `laws.statuto` no longer exists: the charter is a journal with implementation
-     requirements, and both of these endings gate on its completion flag. */
-  ending_danzig: s => { s.flags.international_guarantee = true; s.flags.carta_done = true; },
-  ending_carnaro: s => { s.flags.carta_done = true; s.date.y = 1927; s.date.m = 1; },
-  ending_venice: s => { s.laws.portofranco = 3; s.economy.traffic = 90; s.factions.sindacalisti.inf = 24; },
-  ending_exile_endured: s => { s.flags.exile_endured = true; },
+  /* 1924 危机：接受合并（外交臂）与武装驱离（1920 军事臂）是两条不同的历史出口 */
+  ending_annexation: s => { s.flags.annexation = true; },
+  ending_eviction: s => { s.flags.bloody_history = true; },
+  ending_comune: s => {
+    s.flags.carta_done = true; s.laws.lavoro = 3; s.laws.fisco = 2;
+    /* `postProcess` 会把 factions.inf 重新标定为总和 100、把 forze 钳到 [-40,100]，
+       所以要用唯一原语 adjustFactionInfluence 反复推，并在设置后重跑 postProcess 校验。 */
+    for (let i = 0; i < 40 && s.factions.sindacalisti.inf < 60; i++) {
+      R.adjustFactionInfluence(s, 'sindacalisti', 12);
+    }
+    s.forze.sindacalisti = 80;
+  },
   ending_fiume_o_morte: s => {
-    s.flags.porto_revived = true; s.economy.traffic = 90; s.flags.carta_done = true; s.date.y = 1927; s.date.m = 6;
-  }
+    s.flags.porto_revived = true; s.economy.traffic = 90; s.flags.carta_done = true;
+    s.date.y = 1924; s.date.m = 12;
+  },
+  /* Removed条目（保留注释以便追溯）：
+     ending_natale        — martyred && milizia < 300 数学上不可满足
+     ending_danzig        — 改为成就 ach_danzig
+     ending_carnaro       — date.y >= 1926 与 1924-12 截止冲突
+     ending_venice        — 改为成就 ach_venice
+     ending_exile_endured — 24 个月窗口比《罗马条约》晚 2 个月 */
 };
 
 const unreachable = [];

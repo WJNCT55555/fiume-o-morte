@@ -23,7 +23,57 @@
     cry: 'QVIS CONTRA NOS?'
   };
   W.START = { y: 1919, m: 9 };
-  W.MAX_END = { y: 1927, m: 12 };
+  /* The game ends in December 1924 on every difficulty. This is the hard stop
+     `Eng.checkEnd` falls back on; the narrative endgames (the Rome treaty in
+     1924-01, a fascist takeover, an exile that runs out) still settle earlier
+     when their own conditions fire. The window is therefore 1919-09 → 1924-12;
+     `ending_fiume_o_morte` is gated on this same month, and `ending_carnaro`
+     (which asked for 1926) has been removed rather than left unreachable. */
+  W.MAX_END = { y: 1924, m: 12 };
+
+  /* ===================== Battle resolution ===================== */
+  /* Pricing for `R.resolveBattle`. Shape taken from
+     `social_democracy_alternate_history` (`civil_war.scene.dry:73-84`): each side
+     is priced, the two are compared, and the outcome falls out of the comparison
+     — win above `thresholds.margin`, a drawn-out war down to
+     `thresholds.stalemate`, defeat below it. `thresholds.favorable` never decides
+     the outcome, it only picks which text is shown.
+
+     Coefficients are per-side multipliers on state that already exists, so the
+     fight reads off what the player actually built:
+       defender — the Legion above all (`milizia`), plus the municipal police and
+                  carabinieri, plus a small term for the corps whose loyalty follows
+                  the Regency's standing (`authority`), scaled down by how far the
+                  movement has fallen out with itself (`R.factionDissent`).
+                  `fervour` is deliberately NOT priced: enthusiasm does not stop
+                  naval artillery, and pricing it made the historical default line
+                  win the siege it historically lost.
+       attacker — the Royal Army and the fleet, i.e. the garrison reinforced by how
+                  far the siege has run (`coup`, 0..140), plus Mussolini's squads.
+     Tuned against the real default line (1920-12: milizia 6 706, garrison 22,
+     coup 140, squadre 55), which must LOSE — that is the historical outcome.
+     See .analysis/_battle_tune.js. */
+  W.BATTLE = {
+    defender: { milizia: 1.0, police: 2.0, carabinieri: 1.5, garrison: 2.0, fervour: 0, dissentDiv: 200 },
+    attacker: { garrison: 50.0, coup: 72.0, squadre: 8.0 },
+    thresholds: { margin: 1.0, stalemate: 0.6, favorable: 0.95 }
+  };
+  /* Pricing for the 1924 crisis (`R.resolveAnnexation`). Distinct from the siege
+     because the attacker here is the fascist squads backed by a foreign ultimatum,
+     not the Royal Navy: the squads matter more, the garrison less, and the internal
+     fascist pressure (`subversion`) is the term that did not exist in 1920. */
+  W.COUP_1924 = { squadre: 10.0, subversion: 40.0, garrison: 20.0 };
+  /* Pricing for the DIPLOMATIC 1924 crisis (`R.treatyForces`) — the variant that
+     fires when the Italian fascists are too weak to force the issue
+     (`forze.fascisti < 60`). The treaty still has to be enforced, but a party
+     that never grew cannot supply the muscle: no `subversion` term at all, and
+     smaller squad/garrison weights. This is what makes refusing the treaty
+     winnable, where refusing the fascist coup is not. */
+  W.TREATY_1924 = { squadre: 4.0, garrison: 12.0 };
+  /* Back-compat aliases for the three numbers the resolver reads directly. */
+  W.BATTLE_MARGIN = W.BATTLE.thresholds.margin;
+  W.BATTLE_STALEMATE = W.BATTLE.thresholds.stalemate;
+  W.BATTLE_FAVORABLE = W.BATTLE.thresholds.favorable;
 
   /* ======================= 1. Social classes ======================= */
   W.CLASSES = [
@@ -158,15 +208,29 @@
     { id: 'league',     zh: '国际联盟',     it: 'Società delle Nazioni', init: 36, color: '#4A7C7E' },
     { id: 'hungary',    zh: '匈牙利',       it: 'Regno d\'Ungheria', init: 34, color: '#6E8B3D' },
     { id: 'vatican',    zh: '教廷',         it: 'Santa Sede',       init: 30, color: '#C9A227' },
-    { id: 'comintern',  zh: '第三国际',     it: 'III Internazionale', init: 4, color: '#B0202F' }
+    /* The keys in `state.diplo` are the ids here. Cards have been writing
+       `diplo: { soviet: ... }` all along while this row was still called
+       `comintern`, which worked only because nothing read it by name — the list
+       is what the diplomacy screen renders. The actor is the Soviet state, not
+       the International, so the id now matches the key. */
+    { id: 'soviet',     zh: '苏联',         it: 'Russia sovietica', init: 4, color: '#B0202F' }
   ];
 
   W.POSTURES = [
-    { id: 'roma',        zh: '与罗马周旋',   it: 'Trattare con Roma',        desc: '用承认换解除封锁。代价是民族派的耐心与自治派的信任。' },
-    { id: 'equidistant', zh: '等距',         it: 'Equidistanza',             desc: '在两个邻国之间保持平衡；两边关系都缓慢下滑。' },
-    { id: 'belgrade',    zh: '与贝尔格莱德', it: 'Aprire a Belgrado',        desc: '换腹地与三角洲。代价是罗马与整个民族阵营。' },
-    { id: 'internation', zh: '把城市交给世界', it: 'Internazionalizzare Fiume', desc: '让国联接管。合法性上升，主权下降——但邓南遮绝不会喜欢。' }
+    { id: 'roma',        zh: '与罗马周旋',   it: 'Trattare con Roma',        desc: '改善与意大利王国的关系，同时疏远南斯拉夫。' },
+    { id: 'equidistant', zh: '等距',         it: 'Equidistanza',             desc: '不押注任何邻国；两边关系缓慢下滑，英法略有改善。' },
+    { id: 'belgrade',    zh: '与贝尔格莱德', it: 'Aprire a Belgrado',        desc: '改善与南斯拉夫的关系，代价是罗马的信任。' },
+    { id: 'internation', zh: '争取国际支持', it: 'Internazionalizzare Fiume', desc: '向协约国与国际联盟靠拢，两邻国的关系转冷。' }
   ];
+
+  /* Base change on each half-month turn. Both settlement and the diplomacy
+     dossier read this table, so the displayed posture never drifts from rules. */
+  W.POSTURE_DRIFT = {
+    roma: { italy: 0.8, yugoslavia: -0.6, uk: -0.1, france: -0.1 },
+    equidistant: { italy: -0.25, yugoslavia: -0.3, uk: 0.05, france: 0.05 },
+    belgrade: { yugoslavia: 0.8, italy: -0.6, league: -0.1 },
+    internation: { uk: 0.55, france: 0.55, usa: 0.4, league: 0.7, italy: -0.5, yugoslavia: -0.3 }
+  };
 
   ;
 
@@ -197,13 +261,32 @@
   W.ERA = { y: 1919, m: 9, d: 12, label: { zh: '事业', it: 'dell\'Impresa' } };
 
   /* ======================= 14. Difficulty ======================= */
+  /* `dateRule` decides how an event that CARRIES a `date` is scheduled. Three
+     modes, read by `Eng.pickEvent`:
+       'forced'        — the calendar wins. A dated event fires in its own month
+                         whether or not its own condition is ready; if it carries
+                         a condition too, the date still takes precedence over the
+                         condition's timing (the condition is only a gate, not a
+                         scheduler). This is 史实.
+       'conditionFirst'— the condition wins. A dated event is scheduled like any
+                         other conditional event, on its condition alone, with no
+                         calendar gate; the date is ignored for scheduling. This is
+                         what 普通 and 沙盒 use.
+       'dateOnly'      — the calendar is the only scheduler, and only for events
+                         that have a date AND no condition. A dated event that also
+                         carries a condition is NOT scheduled by this pass (it is
+                         picked up by the condition pass instead).
+     `dated` is gone: it could only express the first two of these. */
   W.DIFFICULTIES = [
-    { id: 'historical', zh: '史实', it: 'Storico', ap: 2, hand: 4, dated: true, coupMul: 1.00,
-      note: '事件严格按年月触发。默认线：1920 年 12 月血腥圣诞，1921 年 4 月失去议会多数。' },
-    { id: 'open',       zh: '普通', it: 'Normale', ap: 2, hand: 4, dated: false, coupMul: 0.85,
-      note: '只依赖条件，日期不再强制。摄政有可能活下来。' },
-    { id: 'sandbox',    zh: '沙盒', it: 'Sandbox', ap: 2, hand: 5, dated: true, coupMul: 0.50,
-      note: '解锁调试面板，不授予成就。' }
+    { id: 'historical', zh: '史实', it: 'Storico', ap: 2, hand: 4, dateRule: 'forced', coupMul: 1.00,
+      note: '带日期的事件一律按历史年月推入（同时有日期与条件时，日期优先）。默认线：1920 年 12 月血腥圣诞，1921 年 4 月失去议会多数。' },
+    { id: 'open',       zh: '普通', it: 'Normale', ap: 2, hand: 4, dateRule: 'conditionFirst', coupMul: 0.85,
+      note: '同时有日期与条件的事件改按条件触发；只有日期、没有条件的事件仍按历史年月推入。摄政有可能活下来。' },
+    /* Sandbox triggers events exactly like `open` (`dateRule` is identical): what
+       sandbox changes is the CARD side — hand 5 and the pick-a-card draw instead
+       of the random draw — plus coupMul and the debug panel. */
+    { id: 'sandbox',    zh: '沙盒', it: 'Sandbox', ap: 2, hand: 5, dateRule: 'conditionFirst', coupMul: 0.50,
+      note: '事件触发同普通难度；可指定抽牌，解锁调试面板，不授予成就。' }
   ];
 
   /* ======================= 14b. The forces outside Fiume ======================= */

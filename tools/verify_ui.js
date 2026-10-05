@@ -247,6 +247,27 @@ class CDP {
        the class survives only as an unused CSS rule. */
     if (g1.nav.join(',') !== 'eventi,azioni,mappa,crisi,economia,assemblea,diplomazia,leggi,popolazione' || !g1.tagArtwork) problems.push('GAME: nine tag-header navigation tabs are missing or misordered');
 
+    // Use a state with every active spirit to catch clipped values and ensure
+    // the numbers shown by the side panel match the selector output.
+    const spiritFixture = await evalJs(`(() => {
+      const F=window.Fiume, s=F.Engine.createState('1919-09','historical',91);
+      Object.assign(s.laws,{orario:2,lavoro:3,ordine:2,portofranco:2,lingua:2,scuola:2});
+      Object.assign(s.flags,{charter_promulgated:true,worker_control:true,smuggle:true});
+      const wrap=document.createElement('div'); wrap.id='spirit-fixture'; wrap.className='col col--r';
+      wrap.style.cssText='position:fixed;z-index:8500;top:20px;right:20px;width:360px;max-height:calc(100vh - 40px);overflow:auto;background:#17120f';
+      wrap.appendChild(F.UI.SidePanel.spiritsBlock(s)); document.body.appendChild(wrap);
+      wrap.querySelector('.sec__hd').click();
+      const rows=[...wrap.querySelectorAll('.spirit__effect')].map(x=>({label:x.querySelector('.spirit__label')?.textContent,value:x.querySelector('.spirit__v')?.textContent,clipped:x.scrollWidth>x.clientWidth+2}));
+      return {count:wrap.querySelectorAll('.spirit').length,markerCount:wrap.querySelectorAll('.spirit__marker').length,rows};
+    })()`);
+    console.log('国家精神数值:', JSON.stringify(spiritFixture));
+    if (spiritFixture.count !== 7 || spiritFixture.markerCount !== 2 ||
+        spiritFixture.rows.some(x => x.clipped || !/[+−]\d/.test(x.value || '')) ||
+        !spiritFixture.rows.some(x => x.label === '救济支出' && x.value === '+6.0 K£/半月'))
+      problems.push('SPIRITS: numeric effects or layout are incorrect');
+    await shot('02d-national-spirits.png');
+    await evalJs(`document.querySelector('#spirit-fixture')?.remove()`);
+
     // The same preview overlay serves an inline historical event and a card
     // menu. Exercise real pointer movement: the panel should track X while
     // staying attached directly below the hovered choice.
@@ -338,6 +359,33 @@ class CDP {
         if (economyMobile.right > 392 || !economyMobile.formulas) problems.push('390px 经济页面或公式面板溢出');
         await evalJs(`document.querySelector('.eco-formulas')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
         await shot('03-tab-economia-mobile.png');
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+      }
+      if (key === 'diplomazia') {
+        const diplomacy = await evalJs(`(() => ({
+          countries: document.querySelectorAll('.relation-entry--state').length,
+          movements: document.querySelectorAll('.forze-relations > .relation-entry--force').length,
+          postures: document.querySelectorAll('.diplo-posture').length,
+          meters: document.querySelectorAll('.relation-track[role="meter"]').length,
+          current: document.querySelectorAll('.diplo-posture[aria-pressed="true"]').length
+        }))()`);
+        if (diplomacy.countries !== 9 || diplomacy.movements !== 5 || diplomacy.postures !== 4 ||
+          diplomacy.meters !== 15 || diplomacy.current !== 1)
+          problems.push('外交关系分组、政治力量刻度或姿态未完整显示');
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: false });
+        await sleep(220);
+        const diplomacyMobile = await evalJs(`(() => {
+          const grid = document.querySelector('.diplo-relations-grid').getBoundingClientRect();
+          const posture = document.querySelector('.diplo-postures').getBoundingClientRect();
+          return { gridRight:grid.right, postureRight:posture.right,
+            gridColumns:getComputedStyle(document.querySelector('.diplo-relations-grid')).gridTemplateColumns.split(' ').length,
+            postureColumns:getComputedStyle(document.querySelector('.diplo-postures__grid')).gridTemplateColumns.split(' ').length };
+        })()`);
+        if (diplomacyMobile.gridRight > 392 || diplomacyMobile.postureRight > 392 ||
+          diplomacyMobile.gridColumns !== 1 || diplomacyMobile.postureColumns !== 1)
+          problems.push('390px 外交关系或外交姿态布局溢出');
+        await evalJs(`document.querySelector('.diplo-dossier')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
+        await shot('03-tab-diplomazia-390.png');
         await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
       }
       if (key === 'leggi') {

@@ -478,9 +478,26 @@ console.log('\n6c) 成就条件');
 {
   const retired = ['ach_carta', 'ach_movement', 'ach_exile'];
   const catalog = Meta.ACHIEVEMENTS.map(a => a.id);
-  ok(catalog.length === 17 && retired.every(id => !catalog.includes(id)) &&
-    catalog.includes('ach_eia_alala') && catalog.includes('ach_carta_implemented'),
-  '成就目录为 17 项，含宪章实施成就且无已删除成就');
+  /* 19 since `ending_venice` and `ending_danzig` became `ach_venice` /
+     `ach_danzig`: both were things a run accomplishes rather than ways it ends,
+     and both were being preempted by `ending_comune`. */
+  ok(catalog.length === 19 && retired.every(id => !catalog.includes(id)) &&
+    catalog.includes('ach_eia_alala') && catalog.includes('ach_carta_implemented') &&
+    catalog.includes('ach_venice') && catalog.includes('ach_danzig'),
+  '成就目录为 19 项，含宪章实施、威尼斯与但泽成就，且无已删除成就');
+  /* both achievements are granted by the conditions their endings used to carry */
+  {
+    const s = Eng.createState('1919-09', 'open', 42);
+    s.laws.portofranco = 3; s.economy.traffic = 90; s.factions.sindacalisti.inf = 24;
+    R.checkAchievements(s);
+    ok(s.achievements.includes('ach_venice'), '自由港 3 + 吞吐 90 + 工团派 24 → 解锁「第二个威尼斯」');
+    const d = Eng.createState('1919-09', 'open', 42);
+    d.flags.international_guarantee = true; d.flags.carta_done = true;
+    R.checkAchievements(d);
+    ok(d.achievements.includes('ach_danzig'), '共同保证 + 宪章完成 → 解锁「亚得里亚的但泽」');
+    ['ending_venice', 'ending_danzig', 'ending_natale', 'ending_exile_endured', 'ending_carnaro']
+      .forEach(id => ok(!Meta.ENDINGS.some(e => e.id === id), `${id} 已不再是结局`));
+  }
   const s = Eng.createState('1919-09', 'open', 42);
   s.order.fervour = 100;
   s.order.authority = 64;
@@ -701,6 +718,36 @@ console.log('\n13) 卡牌与事件选项按实际结算预览');
       optionId: view.options.find(option => option.enabled).id }).state;
   }
   ok(eventPreviews > 20, '史实时间线覆盖了多个事件预览');
+}
+
+console.log('\n14) 国家精神显示实际半月数值与剧情标记');
+{
+  const s = Eng.createState('1919-09', 'historical', 91);
+  Object.assign(s.laws, { orario: 2, lavoro: 3, ordine: 2, portofranco: 2, lingua: 2, scuola: 2 });
+  Object.assign(s.flags, { charter_promulgated: true, worker_control: true, smuggle: true,
+    international_guarantee: true, fascio_disarmed: true, dannunzio_left: true });
+  const before = JSON.stringify(s);
+  const spirits = F.Sel.spirits(s);
+  const find = name => spirits.find(entry => entry.zh === name);
+  const value = (name, label) => find(name)?.effects.find(line => line.zh === label)?.value;
+  ok(JSON.stringify(s) === before, '国家精神计算不会修改存档');
+  ok(value('工时立法', '罢工强度') === '−1.0 点/半月' &&
+    value('工时立法', '失业率') === '−0.24 百分点/半月' &&
+    value('工时立法', '资本信心') === '−0.4 点/半月', '工时立法三项半月效果准确');
+  ok(value('劳动保障', '罢工强度') === '−3.3 点/半月' &&
+    value('劳动保障', '救济支出') === '+6.0 K£/半月', '劳动保障显示罢工与实际支出');
+  ok(value('市政警察监督', '法西斯小队') === '−1.6 点/半月' &&
+    value('市政警察监督', '领袖权威') === '+0.6 点/半月', '公共秩序法显示真实数值');
+  ok(value('自由港制度', '资本信心') === '+2.4 点/半月' &&
+    value('官方语言制度', '南斯拉夫关系') === '+1.0 点/半月' &&
+    value('双语教育', '斯拉夫农民·军团支持') === '+0.50 点/半月',
+    '自由港与语言、教育效果来自现行规则');
+  ok(find('《卡尔纳罗宪章》')?.effects[0].value ===
+    (R.lawMonthly(s).order.coup < 0 ? '−' : '') + Math.abs(R.lawMonthly(s).order.coup).toFixed(2) + ' 点/半月',
+    '宪章围攻修正与当前立法进度一致');
+  ok(F.Sel.spiritMarkers(s).length === 5 &&
+    !spirits.some(entry => ['国际保证', '工人接管工厂', '边境走私', '法西斯已解除武装', '诗人已离开'].includes(entry.zh)),
+    '一次性剧情标记不冒充持续国家精神');
 }
 
 console.log('\n=== ' + (fails === 0 ? '全部通过 ✓' : fails + ' 项失败 ✗') + ' ===');

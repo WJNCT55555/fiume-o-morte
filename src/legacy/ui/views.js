@@ -1080,55 +1080,141 @@
     function tabDiplomazia(st, act) {
       var d = Sel.diplo(st);
       var forces = Sel.forze(st);
-      var col = h('div', { class: 'col' });
-      var b = h('div', { style: { padding: '9px 11px' } });
-      d.list.forEach(function (a) {
-        var row = h('div', { class: 'dip row', style: { gap: '9px', padding: '4px 0' } });
-        row.appendChild(h('div', { style: { width: '84px', fontSize: '12.5px' } }, a.zh));
-        var track = h('div', { class: 'bar flex1' });
-        track.appendChild(h('div', { class: 'bar__fill', style: { width: a.value + '%', background: a.color } }));
-        row.appendChild(track);
-        row.appendChild(h('div', { class: 'num', style: { width: '34px', textAlign: 'right', fontSize: '12px' } }, String(Math.round(a.value))));
-        b.appendChild(row);
-      });
-      var fb = h('div', { class: 'forze-relations' });
-      fb.appendChild(h('div', { class: 'forze-relations__summary' },
-        '进军罗马：六派中已达标 ' + forces.alliedCount + ' / ' + W.FORZA_FRONT_NEEDED + '（关系 ≥ 80）'));
-      forces.front.forEach(function (f) {
-        var color = f.atGate ? '#7BA05B' : f.consolidating ? '#C9A227' : f.color;
-        fb.appendChild(h('div', { class: 'forze-relation', title: f.note }, [
-          h('div', { class: 'forze-relation__head' }, [
-            h('span', { class: 'forze-relation__name' }, f.zh),
-            h('strong', { class: 'num', style: { color: color } }, f.value.toFixed(0))
-          ]),
-          h('div', { class: 'bar forze-relation__bar' },
-            h('div', { class: 'bar__fill', style: { width: Core.clamp(f.value, 0, 100) + '%', background: color } }))
-        ]));
-      });
-      if (!W.forzaExists(st, 'comunisti')) fb.appendChild(h('div', { class: 'tiny dim2' },
-        '意大利共产党尚未成立，成立后才计入六派关系。'));
-      if (forces.officer) fb.appendChild(h('div', { class: 'forze-relations__officer' },
-        '军官团默契 ' + forces.officer.value.toFixed(0) + ' / 60 · 进军罗马的独立条件'));
-      col.appendChild(h('div', { class: 'diplo-relations-grid' }, [
-        frame('', [banner(T('dip.title'), T('dip.sub')), b]),
-        frame('', [banner('与意大利力量的关系', '进军罗马 · 全国盟友'), fb])
+      var col = h('div', { class: 'col diplo-dossier' });
+      var activePosture = d.postures.filter(function (p) { return p.active; })[0];
+      col.appendChild(h('div', { class: 'diplo-intro' }, [
+        h('div', { class: 'diplo-intro__copy' }, [
+          h('strong', {}, '对外关系档案'),
+          h('span', {}, '国家关系以 0—100 计；意大利政治力量的态度以 −40—100 计。两者独立结算。')
+        ]),
+        h('div', { class: 'diplo-intro__posture' }, [
+          h('small', {}, '现行外交姿态'),
+          h('strong', {}, activePosture ? activePosture.zh : '未指定')
+        ])
       ]));
 
-      var pb = h('div', { style: { padding: '9px 11px' } });
-      var grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: '7px' } });
-      W.POSTURES.forEach(function (po) {
+      var b = h('div', { class: 'diplo-relations' });
+      var groups = [
+        { zh: '邻国', it: 'VICINI', ids: ['italy', 'yugoslavia'] },
+        { zh: '协约国与国际机构', it: 'INTESA', ids: ['uk', 'france', 'usa', 'league'] },
+        { zh: '其他外交渠道', it: 'ALTRI', ids: ['hungary', 'vatican', 'soviet'] }
+      ];
+      groups.forEach(function (group) {
+        b.appendChild(h('div', { class: 'diplo-relations__group' }, [
+          h('strong', {}, group.zh), h('small', {}, group.it)
+        ]));
+        group.ids.forEach(function (id) {
+          var a = d.list.filter(function (item) { return item.id === id; })[0];
+          if (!a) return;
+          var tone = a.value < 25 ? 'cold' : a.value < 60 ? 'cautious' : 'warm';
+          var reading = a.value < 25 ? '冷淡' : a.value < 60 ? '谨慎' : '友好';
+          b.appendChild(h('div', { class: 'relation-entry relation-entry--state relation-entry--' + tone }, [
+            h('div', { class: 'relation-entry__head' }, [
+              h('span', { class: 'relation-entry__identity' }, [
+                h('i', { class: 'relation-entry__sigil', style: { background: a.color }, 'aria-hidden': 'true' }),
+                h('span', { class: 'relation-entry__names' }, [
+                  h('strong', {}, a.zh), h('small', {}, a.it)
+                ])
+              ]),
+              h('span', { class: 'relation-entry__reading' }, reading),
+              h('strong', { class: 'relation-entry__value num' }, a.value.toFixed(1))
+            ]),
+            h('div', { class: 'relation-track relation-track--state', role: 'meter',
+              'aria-label': a.zh + '关系', 'aria-valuemin': '0', 'aria-valuemax': '100',
+              'aria-valuenow': String(a.value) }, [
+              h('i', { class: 'relation-track__half', 'aria-hidden': 'true' }),
+              h('span', { class: 'relation-track__fill', style: { width: Core.clamp(a.value, 0, 100) + '%' } })
+            ])
+          ]));
+        });
+      });
+      b.appendChild(h('div', { class: 'relation-scale relation-scale--state' }, [
+        h('span', {}, '0 · 疏远'), h('span', {}, '50 · 中间'), h('span', {}, '100 · 亲近')
+      ]));
+
+      var fb = h('div', { class: 'forze-relations' });
+      fb.appendChild(h('div', { class: 'forze-relations__summary' }, [
+        h('strong', {}, '关系达标 ' + forces.alliedCount + ' / ' + W.FORZA_FRONT_NEEDED + ' 派'),
+        h('span', {}, '六派中至少三派关系达到 80；日志开启后，60 为维系线。')
+      ]));
+      function forceEntry(f, officer) {
+        var zero = 40 / 140 * 100;
+        var position = Core.clamp((f.value + 40) / 140 * 100, 0, 100);
+        var positive = f.value >= 0;
+        var gate = officer ? 60 : f.gate;
+        var gatePosition = (gate + 40) / 140 * 100;
+        var tone = f.value < 0 ? 'cold' : f.value >= gate ? 'warm' : f.value >= 60 ? 'cautious' : 'neutral';
+        var status = f.value >= gate ? '已达标' : f.value >= 60 ? '达到维系线' : f.value < 0 ? '对立' : '待争取';
+        var entry = h('details', { class: 'relation-entry relation-entry--force relation-entry--' + tone });
+        entry.appendChild(h('summary', { class: 'relation-entry__summary' }, [
+          h('span', { class: 'relation-entry__head' }, [
+            h('span', { class: 'relation-entry__identity' }, [
+              h('i', { class: 'relation-entry__sigil', style: { background: f.color }, 'aria-hidden': 'true' }),
+              h('span', { class: 'relation-entry__names' }, [
+                h('strong', {}, f.zh), h('small', {}, f.it)
+              ])
+            ]),
+            h('span', { class: 'relation-entry__reading' }, status),
+            h('strong', { class: 'relation-entry__value num' },
+              (f.value > 0 ? '+' : '') + f.value.toFixed(1))
+          ]),
+          h('span', { class: 'relation-track relation-track--force', role: 'meter',
+            'aria-label': f.zh + '关系', 'aria-valuemin': '-40', 'aria-valuemax': '100',
+            'aria-valuenow': String(f.value) }, [
+            h('i', { class: 'relation-track__zero', style: { left: zero + '%' }, 'aria-hidden': 'true' }),
+            h('i', { class: 'relation-track__gate', style: { left: gatePosition + '%' }, 'aria-hidden': 'true' }),
+            h('span', { class: 'relation-track__fill' + (positive ? '' : ' is-negative'),
+              style: { left: Math.min(zero, position) + '%', width: Math.abs(position - zero) + '%' } })
+          ])
+        ]));
+        entry.appendChild(h('div', { class: 'relation-entry__detail' }, [
+          h('p', {}, f.note),
+          h('span', {}, officer ? '军官团需达到 60，是进军罗马的独立条件。' :
+            '日志开启后，60 为维系线；80 为进军罗马的达标线。')
+        ]));
+        return entry;
+      }
+      forces.front.forEach(function (f) { fb.appendChild(forceEntry(f, false)); });
+      if (!W.forzaExists(st, 'comunisti')) fb.appendChild(h('p', { class: 'forze-relations__pending' },
+        '意大利共产党尚未成立，成立后才出现在这份名单中。'));
+      fb.appendChild(h('div', { class: 'relation-scale relation-scale--force' }, [
+        h('span', {}, '−40'), h('span', {}, '0'), h('span', {}, '60 · 维系'),
+        h('span', {}, '80 · 达标'), h('span', {}, '100')
+      ]));
+      if (forces.officer) fb.appendChild(h('div', { class: 'forze-relations__officer' }, [
+        h('div', { class: 'forze-relations__officer-title' }, [
+          h('strong', {}, '独立条件 · 军官团'), h('span', {}, '进军罗马需达到 60')
+        ]),
+        forceEntry(forces.officer, true)
+      ]));
+      col.appendChild(h('div', { class: 'diplo-relations-grid' }, [
+        frame('diplo-column', [banner('国家与国际机构', '外交关系 · 0—100'), b]),
+        frame('diplo-column', [banner('意大利政治力量', '进军罗马 · −40—100'), fb])
+      ]));
+
+      var pb = h('div', { class: 'diplo-postures' });
+      var grid = h('div', { class: 'diplo-postures__grid' });
+      d.postures.forEach(function (po) {
         grid.appendChild(h('button', {
-          class: 'pick posture-pick' + (st.posture === po.id ? ' is-on' : ''),
-          type: 'button', style: { marginBottom: '0' },
+          class: 'diplo-posture' + (po.active ? ' is-on' : ''),
+          type: 'button', 'aria-pressed': po.active ? 'true' : 'false',
           onclick: function () { act.setPosture(po.id); }
         }, [
-          h('div', { class: 'pick__n' }, po.zh),
-          h('div', { class: 'pick__d' }, po.desc),
-          h('div', { class: 'tiny dim2', style: { fontStyle: 'italic', marginTop: '2px' } }, po.it)
+          h('div', { class: 'diplo-posture__head' }, [
+            h('strong', {}, po.zh), h('span', {}, po.active ? '现行' : '选择')
+          ]),
+          h('div', { class: 'diplo-posture__it' }, po.it),
+          h('p', {}, po.desc),
+          h('div', { class: 'diplo-posture__effects' }, po.effects.map(function (effect) {
+            return h('span', { class: 'diplo-posture__effect' + (effect.value < 0 ? ' is-negative' : '') },
+              effect.zh + ' ' + (effect.value > 0 ? '+' : '−') + Math.abs(effect.value));
+          }))
         ]));
       });
       pb.appendChild(grid);
-      col.appendChild(frame('', [banner(T('dip.posture'), T('dip.posture.sub')), pb]));
+      pb.appendChild(h('p', { class: 'diplo-postures__note' },
+        '数字为每半月结算时的基础关系变化；法律、事件及关系上限另行生效。切换姿态本身不消耗行动力。'));
+      col.appendChild(frame('', [banner(T('dip.posture'), '每半月基础变化 · ORIENTAMENTO'), pb]));
 
       return col;
     }
@@ -1847,13 +1933,12 @@
         bd.appendChild(btn);
       });
 
-      /* No way out: the cost has already been paid and the card discarded, so
-         the choice must be made. Mirrors the reference project, where playing
-         a card settles it in one step and its event then has to be resolved. */
-      return V.modal(Core.L(vm.name), deckName + (vm.ministry ? ' · ' + vm.ministry.toUpperCase() : ''), [bd], [
-        h('div', { class: 'tiny', style: { color: 'rgba(42,30,16,.55)', alignSelf: 'center' } },
-          T('card.cost.hint'))
-      ]);
+      /* The choice must be made: the cost is already paid and the card
+         discarded. The explanatory line that used to sit in the modal footer
+         spelled that out to the player, who has already seen the cost leave the
+         treasury. The footer is left empty rather than removed, so the modal
+         keeps its footer spacing. */
+      return V.modal(Core.L(vm.name), deckName + (vm.ministry ? ' · ' + vm.ministry.toUpperCase() : ''), [bd], []);
     };
 
     /* ============================================================
