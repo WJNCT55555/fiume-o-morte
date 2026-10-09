@@ -1,20 +1,27 @@
 /* ==========================================================================
    国际化接口
    ---------------------------------------------------------------------------
-   当前只发布中文（zh）。所有面向玩家的文本已经过两种通道分离：
+   已发布中文（zh）与意大利语（it）。所有面向玩家的文本经过两种通道分离：
 
    1) 界面骨架字符串（导航、面板标题、按钮、标签）
-      → 本文件的 I18N.STRINGS 表。新增语言时在这里补一列即可。
+      → 本文件的 I18N.STRINGS 表，每键一行语言列。287 键，zh 与 it 均已写完。
 
    2) 游戏内容（事件、卡牌、法律、结局、顾问、地区、阶层、党派……）
       → data/*.js 中每个文本节点本身就是 { zh, it } 结构，
-        由 Core.L(node) 按当前语言取值。it 同时充当历史语境的第二语言栏位。
+        由 Core.L(node) 按当前语言取值。1,931 个本地化块里 1,902 个带 it
+        （98.5%），缺 it 的 29 处全在 engine 层，由 Core.L 回退到 zh。
         新增语言时给这些节点加一个键（如 en: '...'）即可，缺键自动回退到 zh。
+
+   **已知缺口：界面层还有约 187 处中文字面量绕过本表**（views.js 137、
+   map.js 15、sidepanel.js 12、arengo.ts 12、ModalLayer.tsx 8 等），
+   因此切换意大利语后这些位置仍是中文——侧栏的「军团民意／领袖权威／派系名」、
+   地图图例、阿伦戈面板、设置与关于弹窗都属这一类。补齐这类字面量是三语化的
+   最后一批工作。
 
    用法：
      I18N.t('nav.mappa')            → 界面字符串
      I18N.L(card.name)              → 内容节点
-     I18N.setLang('it')             → 切换（当前只登记了 zh 为启用）
+     I18N.setLang('it')             → 切换（zh 与 it 已启用）
    ========================================================================== */
 (function (root, factory) {
   var mod = factory(root.Fiume.Core);
@@ -26,10 +33,12 @@
 
   var I = {};
 
-  /* Registered languages. enabled=false entries are placeholders; switching is ignored. */
+  /* Registered languages. `it` is enabled: its UI column and its content keys are
+     written. `en` stays a placeholder — see docs/三语化方案.md for what a third
+     locale still needs (the UI-layer literals that bypass this table). */
   I.LANGS = [
     { id: 'zh', label: '中文', native: '中文', enabled: true },
-    { id: 'it', label: '意大利语', native: 'Italiano', enabled: false },
+    { id: 'it', label: '意大利语', native: 'Italiano', enabled: true },
     { id: 'en', label: '英语', native: 'English', enabled: false }
   ];
   I.lang = 'zh';
@@ -43,6 +52,8 @@
     'bar.era':          { zh: '事业', it: 'dell\'Impresa' },
     'bar.anndi':        { zh: '第 {n} 年', it: 'Anno {n}' },
     'bar.allarme':      { zh: '行动力', it: 'PA' },
+    'bar.ap':           { zh: '本回合行动点', it: 'PA del turno' },
+    'bar.crisi':        { zh: '事态', it: 'Crisi' },
     'bar.armi':         { zh: '军械', it: 'Armi' },
     'bar.iscritti':     { zh: '党员', it: 'Iscritti' },
     'bar.memento':      { zh: 'MEMENTO AVDERE SEMPER', it: 'MEMENTO AVDERE SEMPER' },
@@ -70,7 +81,10 @@
     'set.music.soon':   { zh: '暂未开放', it: 'Non disponibile' },
     'set.ach':          { zh: '查看成就', it: 'Obiettivi' },
     'set.lang':         { zh: '语言', it: 'Lingua' },
+    'set.lang.current': { zh: '当前语言', it: 'Lingua attiva' },
     'set.lang.soon':    { zh: '即将推出', it: 'Prossimamente' },
+    'set.lang.active':  { zh: '使用中', it: 'In uso' },
+    'set.lang.locked':  { zh: '该语言尚未开放', it: 'Lingua non ancora disponibile' },
     'set.save':         { zh: '存档管理', it: 'Gestione archivi' },
     'set.ach.title':    { zh: '成就', it: 'Obiettivi' },
     'set.ach.sub':      { zh: '已解锁 {a} / {b}', it: 'Sbloccati {a} / {b}' },
@@ -81,6 +95,8 @@
     'side.classi':      { zh: '阶层民意', it: 'Classi sociali' },
     'cls.turnout':      { zh: '投票', it: 'affluenza' },
     'evboard.short':    { zh: '事件看板', it: 'TABELLONE' },
+    'evboard.choice':       { zh: '作出抉择', it: 'Scegli' },
+    'evboard.choice.count': { zh: '项选择', it: 'scelte' },
     'evboard.open':     { zh: '打开事件看板', it: 'Aprire il tabellone degli eventi' },
     'evboard.title':    { zh: '事件看板', it: 'Event Board' },
     'evboard.sub':      { zh: '本回合发生了以下事件，请逐一处理。', it: 'Questi sono gli eventi del turno. Risolverli uno per uno.' },
@@ -134,8 +150,13 @@
     'ev.last':          { zh: '最近一条', it: 'Ultimo fatto' },
     'ev.conseq':        { zh: '预期后果', it: 'Conseguenze previste' },
     'ev.nofree':        { zh: '每个选项都会写入状态，没有免费的选择。', it: 'Ogni scelta scrive nello stato: nessuna è gratuita.' },
-    'adv.title':        { zh: '顾问', it: 'Consiglieri' },
+    'adv.title':        { zh: '顾问团', it: 'Consiglieri' },
     'adv.sub':          { zh: '幕僚', it: 'Consiglio' },
+    'ev.pending.count': { zh: '本月 {n} 项待决事件', it: '{n} decisioni in sospeso' },
+    'ev.pending.none':  { zh: '本月无待决事项', it: 'Nessun ordine del giorno' },
+    'ev.pending.sub':   { zh: '待决', it: 'Decisione in sospeso' },
+    'end.ach.got':      { zh: '已达成', it: 'Raggiunti' },
+    'end.ach.none':     { zh: '暂无', it: 'Nessuno' },
     'adv.seated':       { zh: '在任 {a} / {b}', it: 'In carica {a} / {b}' },
     'adv.cooldown':     { zh: '顾问行动冷却 {n} 月', it: 'Raffreddamento {n} mesi' },
     'adv.cooling':      { zh: '冷却 {n} 月', it: 'Raffreddamento {n} mesi' },
@@ -231,7 +252,9 @@
     'deck.pickShort':   { zh: '挑选', it: 'Scegliere' },
     'deck.sandboxNote': { zh: '沙盒模式：可以直接挑选要哪一张。', it: 'Sandbox: si può scegliere direttamente la carta.' },
     'nav.locked':       { zh: '本月事件未决，先到「事件」栏处理', it: 'Evento in sospeso: passare a Eventi' },
-    'adv.title':        { zh: '顾问团', it: 'Consiglieri' },
+    /* 'adv.title' is defined once, near the other advisor keys. A second copy
+       here silently overrode it (last assignment wins), so the panel title and
+       the seat count disagreed. */
     'adv.deck':         { zh: '顾问牌库', it: 'Mazzo consiglieri' },
     'adv.empty':        { zh: '空位', it: 'vacante' },
     'adv.none':         { zh: '暂时没有可延揽的人。', it: 'Nessun consigliere disponibile.' },
@@ -346,6 +369,7 @@
     'start.legion.desc': { zh: '邓南遮与阜姆军团', it: 'D’Annunzio e la Legione Fiumana' },
     'start.scenario':   { zh: '剧本', it: 'Scenario' },
     'start.difficulty': { zh: '难度选择', it: 'Scelta della modalità' },
+    'start.difficulty.sub': { zh: '每局固定', it: 'Fissata a inizio partita' },
     'start.only':       { zh: '唯一可选', it: 'Unica fazione disponibile' },
     'start.caption':    { zh: '1920 年 9 月 8 日，省督府阳台前：卡尔纳罗摄政宣告成立', it: '8 settembre 1920: proclamazione della Reggenza' },
 
@@ -353,7 +377,6 @@
     'end.stats':        { zh: '本局统计', it: 'Statistiche' },
     'end.ach':          { zh: '成就', it: 'Obiettivi' },
     'end.noach':        { zh: '本局没有解锁任何成就。', it: 'Nessun obiettivo raggiunto.' },
-    'end.seats':        { zh: '军团兵席位', it: 'Seggi legionari' },
     'end.journals':     { zh: '日志完成', it: 'Diari completati' },
     'end.turn':         { zh: '第 {n} 回合', it: 'Turno {n}' },
 
@@ -382,7 +405,356 @@
     'err.needcond':     { zh: '条件不满足', it: 'Condizioni non soddisfatte' },
     'err.only3':        { zh: '最多三位在任顾问', it: 'Massimo tre consiglieri' },
     'err.advisordis':   { zh: '该派系异议过高，顾问拒绝行动', it: 'Il consigliere rifiuta: dissenso di corrente troppo alto' },
-    'err.eventsfirst':  { zh: '必须先处理当前事件', it: 'Risolvere prima l\'evento' }
+    'err.eventsfirst':  { zh: '必须先处理当前事件', it: 'Risolvere prima l\'evento' },
+
+    /* ---- UI-layer literals that used to be hardcoded in the view files ----
+       These live here so every player-facing string follows I18N.lang. The
+       `{n}`/`{a}` placeholders are substituted by I18N.t. */
+    'ui.close':         { zh: '关闭', it: 'Chiudi' },
+    'ui.dialog':        { zh: '对话框', it: 'Finestra' },
+    'ui.resume.title':  { zh: '继续上次对局？', it: 'Riprendere la partita?' },
+    'ui.resume.body':   { zh: '上次存档：{d}，第 {n} 回合。', it: 'Ultimo salvataggio: {d}, turno {n}.' },
+    'ui.resume.yes':    { zh: '继续', it: 'Riprendi' },
+    'ui.resume.no':     { zh: '开始新游戏', it: 'Nuova partita' },
+    'ui.settings':      { zh: '游戏设置', it: 'Impostazioni' },
+    'ui.saves':         { zh: '存档管理', it: 'Salvataggi' },
+    'ui.ach':           { zh: '成就', it: 'Obiettivi' },
+    'ui.about':         { zh: '关于游戏', it: 'Informazioni' },
+    'ui.autosave':      { zh: '自动存档', it: 'Automatico' },
+    'ui.slot':          { zh: '存档 {n}', it: 'Slot {n}' },
+    'ui.empty':         { zh: '空', it: 'vuoto' },
+    'ui.saves.note':    { zh: '存档保存在浏览器 localStorage。', it: 'I salvataggi sono conservati nel localStorage del browser.' },
+    'ui.about.body':    { zh: '《FIUME O MORTE!》以 1919–1924 年的阜姆为背景。你将以邓南遮的身份处理事件、使用卡牌、调整财政与外交政策，并面对制宪议会及城市的危机。',
+                          it: 'FIUME O MORTE! è ambientato a Fiume fra il 1919 e il 1924. Nei panni di D\'Annunzio affronterai gli eventi, giocherai le carte, governerai finanze e diplomazia e farai i conti con l\'Assemblea costituente e le crisi della città.' },
+    'ui.credits':       { zh: '人物肖像与历史照片来自 Wikimedia Commons；逐张许可见',
+                          it: 'Ritratti e fotografie storiche provengono da Wikimedia Commons; le licenze sono elencate nel' },
+    'ui.credits.link':  { zh: '素材清单', it: 'manifest delle risorse' },
+    'ui.credits.tail':  { zh: '。地图几何来自 OpenStreetMap 与 Natural Earth。',
+                          it: '. La geometria della mappa viene da OpenStreetMap e Natural Earth.' },
+    'ui.preview':       { zh: '效果预览', it: 'Anteprima effetti' },
+    'ui.notready':      { zh: '尚未开放', it: 'Non ancora disponibile' },
+    'set.about':        { zh: '关于与史料', it: 'Informazioni e fonti' },
+    'set.timeline':     { zh: '史实时间轴', it: 'Cronologia storica' },
+    'set.registro':     { zh: '行政记录', it: 'Registro amministrativo' },
+    'ach.progress':     { zh: '完成进度', it: 'Completamento' },
+    'save.write':       { zh: '写入', it: 'Salva' },
+    'save.read':        { zh: '读取', it: 'Carica' },
+
+    /* ---- Map ---- */
+    'map.aria':         { zh: '阜姆与周边地点示意地图；拖动平移，加减按钮或滚轮缩放，回车选择地区',
+                          it: 'Mappa schematica di Fiume e dintorni; trascina per spostare, usa i pulsanti o la rotellina per ingrandire, Invio per scegliere una zona' },
+    'map.leg.fiume':    { zh: '阜姆地点／军团影响', it: 'Luoghi di Fiume / influenza legionaria' },
+    'map.leg.italy':    { zh: '意大利控制区', it: 'Zona sotto controllo italiano' },
+    'map.leg.italyKastav': { zh: '意大利占领（含卡斯塔夫、苏沙克）', it: 'Occupazione italiana (con Castua e Sussak)' },
+    'map.leg.italySusak':  { zh: '意大利控制／苏沙克驻军', it: 'Controllo italiano / presidio di Sussak' },
+    'map.leg.shs':      { zh: 'S.H.S. 腹地（范围示意）', it: 'Entroterra del Regno S.H.S. (indicativo)' },
+    'map.leg.adriatic': { zh: '亚德里亚海', it: 'Mare Adriatico' },
+    'map.leg.eneo':     { zh: '埃内奥河', it: 'Fiumara Eneo' },
+    'map.leg.disputed': { zh: '争议地', it: 'Territorio conteso' },
+    'map.leg.legion':   { zh: '军团驻点', it: 'Presidio legionario' },
+    'map.leg.allied':   { zh: '协约国警备点', it: 'Posto interalleato' },
+    'map.zoom.in':      { zh: '放大地图', it: 'Ingrandisci la mappa' },
+    'map.zoom.out':     { zh: '缩小地图', it: 'Riduci la mappa' },
+    'map.zoom.reset':   { zh: '恢复地图', it: 'Reimposta la mappa' },
+    'map.hint':         { zh: '拖动平移 · 滚轮缩放', it: 'Trascina per spostare · rotellina per ingrandire' },
+    'map.control':      { zh: '控制', it: 'Controllo' },
+    'map.agitation':    { zh: '动荡', it: 'Agitazione' },
+    'map.note.italian': { zh: '此处有意大利占领军；控制值表示邓南遮势力，不代表主权或占领军兵力。',
+                          it: 'Qui è stanziato l\'esercito italiano; il valore di controllo indica la presenza di D\'Annunzio, non la sovranità né la forza del presidio.' },
+    'map.note.schematic': { zh: '地图为地点示意，非 1919 年官方行政区划。', it: 'La mappa è schematica e non riproduce le circoscrizioni ufficiali del 1919.' },
+    'map.scope':        { zh: '阜姆及周边 · {n} 个地点', it: 'Fiume e dintorni · {n} località' },
+    'map.base':         { zh: '现代底图 © OpenStreetMap · 历史占领范围示意', it: 'Base moderna © OpenStreetMap · aree di occupazione indicative' },
+    'map.unit.schematic': { zh: '位置示意，人数未考证', it: 'posizione indicativa, effettivi non verificati' },
+    'map.unit.game':    { zh: '游戏兵力', it: 'forza di gioco' },
+    'map.district.tip': { zh: '{d}，控制 {c}，动荡 {a}', it: '{d}, controllo {c}, agitazione {a}' },
+
+    /* ---- Party relations (chord plate tooltips) ---- */
+    'rel.close':        { zh: '亲近', it: 'vicini' },
+    'rel.opposed':      { zh: '对立', it: 'avversari' },
+    'rel.distant':      { zh: '疏淡', it: 'distanti' },
+    'rel.national':     { zh: '全国支持 {n}%', it: 'consenso nazionale {n}%' },
+
+    /* ---- Party-relations chord plate (chord.) ---- */
+    'chord.support':    { zh: '各党支持度', it: 'Consenso dei partiti' },
+    'chord.keynote':    { zh: '丝带越宽、越绿，关系越好；越窄、越红，关系越差',
+                          it: 'Più il nastro è largo e verde, migliori sono i rapporti; più è stretto e rosso, peggiori.' },
+    'chord.note':       { zh: '各党关系的基准是写定的史实立场，不随法条投票或选举阵营变动。每回合向基准回摆；同处内阁会把它推高。',
+                          it: 'I rapporti fra i partiti partono da posizioni storiche fissate: non cambiano con i voti sulle leggi né con gli schieramenti elettorali. Ogni turno tornano verso la base; far parte dello stesso gabinetto li alza.' },
+    'chord.mine.title': { zh: '与{a}的关系', it: 'Rapporti con {a}' },
+    'chord.tip.row':    { zh: '{a} ↔ {b}：{v}', it: '{a} ↔ {b}: {v}' },
+    'chord.sub':        { zh: '阜姆 · 各党派关系弦图', it: 'Fiume · diagramma dei rapporti fra i partiti' },
+
+    /* ---- Briefing panel (alerts strip) ---- */
+    'br.tag.bad':       { zh: '危急', it: 'Critico' },
+    'br.tag.warn':      { zh: '注意', it: 'Attenzione' },
+    'br.tag.info':      { zh: '史实', it: 'Storico' },
+    'br.tag.ok':        { zh: '正常', it: 'Normale' },
+    'br.coup.75':       { zh: '事态 {n}：卡维利亚的最后通牒已到。皇家陆军随时可能攻城。',
+                          it: 'Crisi {n}: l\'ultimatum di Caviglia è arrivato. Il Regio Esercito può attaccare la città da un momento all\'altro.' },
+    'br.coup.40':       { zh: '事态 {n}：封锁与外交孤立正在累积。',
+                          it: 'Crisi {n}: blocco e isolamento diplomatico si accumulano.' },
+    'br.coup.70':       { zh: '事态 {n}：法西斯的小队已经接近行动阈值。',
+                          it: 'Crisi {n}: le squadre fasciste si avvicinano alla soglia operativa.' },
+    'br.squadre':       { zh: '法西斯暴力 {n}：他们在街上已经有了自己的秩序。',
+                          it: 'Violenza fascista {n}: in strada hanno ormai un ordine proprio.' },
+    'br.violence':      { zh: '政治暴力 {n}：小店主与教士正在滑向法西斯。',
+                          it: 'Violenza politica {n}: bottegai e clero scivolano verso il fascismo.' },
+    'br.unemployment':  { zh: '失业 {n}%：工人正在同时转向社会党与共产党。',
+                          it: 'Disoccupazione {n}%: gli operai passano insieme ai socialisti e ai comunisti.' },
+    'br.traffic':       { zh: '港口吞吐 {n}：商人开始怀疑诗人会不会算账。',
+                          it: 'Traffico portuale {n}: i commercianti dubitano che il poeta sappia tenere i conti.' },
+    'br.deficit':       { zh: '月度赤字 {n} K£：军团军饷是最大的一笔。',
+                          it: 'Disavanzo del mese {n} K£: la paga dei legionari è la voce maggiore.' },
+    'br.inflation':     { zh: '通胀 {n}%：阜姆券正在失去它作为货币的礼貌。',
+                          it: 'Inflazione {n}%: la corona fiumana perde le buone maniere come moneta.' },
+    'br.dissent':       { zh: '党内整体异议 {a}：统一行动效率降至 {b}%。',
+                          it: 'Dissenso complessivo {a}: l\'efficienza dell\'azione unitaria scende al {b}%.' },
+    'br.milizia':       { zh: '军团兵力仅 {n}：不足以守住省督府。',
+                          it: 'La Legione conta solo {n} uomini: non bastano a tenere il Palazzo del Governo.' },
+    'br.calm':          { zh: '本回合没有紧急警报。', it: 'Nessun allarme urgente in questo turno.' },
+    'br.target':        { zh: '目标', it: 'obiettivo' },
+    'br.net':           { zh: '月度结余', it: 'Saldo del mese' },
+    'br.next':          { zh: '下一里程碑', it: 'prossima soglia' },
+    'br.trafficShort':  { zh: '港口吞吐', it: 'Traffico' },
+    'br.unempShort':    { zh: '失业率', it: 'Disoccupazione' },
+
+    /* ---- Cabinet (the seven Rectors) ---- */
+    'cab.holder':       { zh: '现任：', it: 'In carica: ' },
+    'cab.power':        { zh: '席位权重 ', it: 'Peso del seggio ' },
+    'cab.weight':       { zh: '权重', it: 'Peso' },
+    'cab.coalition':    { zh: '摄政联盟：', it: 'Coalizione di reggenza: ' },
+    'cab.cohesion':     { zh: '凝聚力', it: 'coesione' },
+
+    /* ---- Library (Settings → 图书馆): the model documentation ---- */
+    'lib.title':        { zh: '图书馆', it: 'Biblioteca' },
+    'lib.sub':          { zh: '模型与公式', it: 'Modelli e formule' },
+    'lib.open':         { zh: '图书馆', it: 'Biblioteca' },
+    'lib.intro':        { zh: '这里是本作全部结算规则的原文：经济、危机、选举。它们不参与决策，只是把引擎实际在算的东西摊开给你看。',
+                          it: 'Qui sono raccolte le regole di calcolo del gioco: economia, crisi, elezioni. Non servono a decidere, mostrano che cosa calcola davvero il motore.' },
+    'lib.economy':      { zh: '经济模型', it: 'Modello economico' },
+    'lib.economy.sub':  { zh: '每半月先按当前状态结算收支，再依次更新港口、失业、通胀、信心和人口。目标值不是即时跳变；每轮只追近一部分。clamp 表示限制在括号中的范围。',
+                          it: 'Ogni mezzo mese si salda il bilancio con lo stato attuale, poi si aggiornano porto, disoccupazione, inflazione, fiducia e popolazione. I valori convergono gradualmente; clamp limita il risultato all\'intervallo indicato.' },
+    'lib.crisis':       { zh: '危机模型', it: 'Modello delle crisi' },
+    'lib.crisis.sub':   { zh: '两条轴独立结算：围攻（罗马的耐心）与阴谋（法西斯的占领）。四条量表先合成紧张度 T，T 再推动两条轴。',
+                          it: 'Due assi indipendenti: l\'assedio (la pazienza di Roma) e la congiura (la presa fascista). Le quattro misure si combinano nella tensione T, e T muove i due assi.' },
+    'lib.election':     { zh: '选举结算', it: 'Calcolo elettorale' },
+    'lib.election.sub': { zh: '列表支持度 × 阶层投票率 × (1 − 该党弃权率) → 名单得票 → 按 1921 年选举法分配席位。多数派席位由得票第一的名单通吃，少数派按最大余数法。',
+                          it: 'Sostegno di lista × affluenza di classe × (1 − astensione del partito) → voti di lista → seggi secondo la legge elettorale del 1921. I seggi di maggioranza vanno alla lista prima arrivata, quelli di minoranza col metodo dei resti maggiori.' },
+    'lib.note.election':{ zh: '社会党的弃权传统（50%）会抬高其他名单的有效票占比——这正是 1921 年 4 月自治党拿到 66% 的原因之一。',
+                          it: 'L\'astensionismo socialista (50%) gonfia la quota di voti validi delle altre liste: è una delle ragioni del 66% autonomista dell\'aprile 1921.' },
+    'lib.formulas':     { zh: '港口 → 生产 → 就业', it: 'Porto → produzione → lavoro' },
+    'lib.confidence':   { zh: '信心与人口', it: 'Fiducia e popolazione' },
+    'lib.fiscal':       { zh: '每半月财政 · 单位 K£', it: 'Bilancio semimensile · K£' },
+    'lib.tension':      { zh: '紧张度 T（四条量表 → 围攻）', it: 'Tensione T (quattro misure → assedio)' },
+    'lib.siege':        { zh: '围攻 Δ事态（罗马的耐心）', it: 'Assedio Δcrisi (la pazienza di Roma)' },
+    'lib.plot':         { zh: '阴谋 Δ（法西斯的占领）', it: 'Congiura Δ (la presa fascista)' },
+    'lib.axes':         { zh: '两条轴互相独立：罗马的军队与墨索里尼的小队不是同一件事。',
+                          it: 'I due assi sono indipendenti: l\'esercito di Roma e le squadre di Mussolini non sono la stessa cosa.' },
+    'lib.target':       { zh: '当前值', it: 'Valore attuale' },
+    'dip.unspecified':  { zh: '未指定', it: 'Non indicata' },
+    'dip.current':      { zh: '现行', it: 'In vigore' },
+    'dip.choose':       { zh: '选择', it: 'Scegli' },
+    /* Only this one survives: the other `end.seats` in this file was a bare
+       suffix ('席位') that silently overrode it and only reads naturally when
+       the party is the Legion. The party is a parameter instead. */
+    'end.seats':        { zh: '{a}席位', it: 'Seggi di {a}' },
+    'lib.tension.math': { zh: 'T = clamp[0,100]( 0.30×(100−权威) + 0.25×(100−驻军) + 0.20×热忱 + 0.25×法西斯暴力 )',
+                          it: 'T = clamp[0,100]( 0.30×(100−autorità) + 0.25×(100−guarnigione) + 0.20×fervore + 0.25×violenza fascista )' },
+    'lib.siege.math':   { zh: 'Δ = clamp[−7, 22.5]( 0.09×T + 0.06×(100−驻军) − 0.025×权威 + 15 − 三项修正 )',
+                          it: 'Δ = clamp[−7, 22.5]( 0.09×T + 0.06×(100−guarnigione) − 0.025×autorità + 15 − tre correzioni )' },
+    'lib.plot.math':    { zh: 'Δ = clamp[−6, 20]( −6 + 0.30×法西斯小队 + 0.35×max(0,暴力−25) + 0.50×max(0,法西斯派影响力−15) − 0.04×军团民意 )',
+                          it: 'Δ = clamp[−6, 20]( −6 + 0.30×squadre fasciste + 0.35×max(0,violenza−25) + 0.50×max(0,influenza fascista−15) − 0.04×opinione sulla Legione )' },
+    'lib.election.seats': { zh: '1921 年选举法：{total} 席 = 城区 {cm} 多数 + {cn} 少数，子市镇 {sm} 多数 + {sn} 少数；少数派门槛 {th}%。',
+                          it: 'Legge elettorale del 1921: {total} seggi = città {cm} di maggioranza + {cn} di minoranza, sotto-comuni {sm} + {sn}; soglia di minoranza {th}%.' },
+
+    /* ---- Library: the economy formulas. The Italian was already written in
+       views.js as `ecoText(zh, it)`; these are the same strings, keyed. ---- */
+    'lib.eco.trafficTarget':      { zh: '吞吐目标', it: 'Obiettivo portuale' },
+    'lib.eco.trafficTarget.math': { zh: 'clamp(11 + 0.32×腹地 + 5×自由港等级 + 0.17×三角洲 + 0.13×工程 + 0.12×承认 − 0.20×暴力 − 0.10×罢工, 0, 100)',
+                                    it: 'clamp(11 + 0.32×entroterra + 5×livello porto franco + 0.17×delta + 0.13×opere + 0.12×riconoscimento − 0.20×violenza − 0.10×scioperi, 0, 100)' },
+    'lib.eco.industry':           { zh: '工业活跃度', it: 'Attività industriale' },
+    'lib.eco.industry.math':      { zh: 'clamp(0.60×工程 + 0.40×(100 − 罢工), 0, 100)',
+                                    it: 'clamp(0.60×opere + 0.40×(100 − scioperi), 0, 100)' },
+    'lib.eco.unempTarget':        { zh: '失业目标', it: 'Obiettivo disoccupazione' },
+    'lib.eco.unempTarget.math':   { zh: 'clamp(46 − 0.42×当前吞吐 − 0.12×工业活跃度, 4, 45)',
+                                    it: 'clamp(46 − 0.42×traffico attuale − 0.12×attività industriale, 4, 45)' },
+    'lib.eco.inflTarget':         { zh: '通胀目标', it: 'Obiettivo inflazione' },
+    'lib.eco.inflTarget.math':    { zh: 'clamp(4 + 0.25×max(失业−12, 0) + 0.12×罢工 + 0.004×max(债务−2500, 0), 1, 55)',
+                                    it: 'clamp(4 + 0.25×max(disoccupazione−12, 0) + 0.12×scioperi + 0.004×max(debito−2500, 0), 1, 55)' },
+    'lib.eco.confTarget':         { zh: '资本信心目标', it: 'Obiettivo fiducia' },
+    'lib.eco.confTarget.math':    { zh: 'clamp(70 − 0.50×罢工 + 0.25×(吞吐−40) − 0.30×暴力 + 0.20×合法性, 0, 100)',
+                                    it: 'clamp(70 − 0.50×scioperi + 0.25×(traffico−40) − 0.30×violenza + 0.20×legittimità, 0, 100)' },
+    'lib.eco.emigration':         { zh: '迁出人口', it: 'Emigrazione' },
+    'lib.eco.emigration.math':    { zh: 'clamp(20×(失业−12) + 4×(暴力−40), 0, 900)',
+                                    it: 'clamp(20×(disoccupazione−12) + 4×(violenza−40), 0, 900)' },
+    'lib.eco.nextPop':            { zh: '下轮人口', it: 'Popolazione successiva' },
+    'lib.eco.nextPop.math':       { zh: 'max(30000, 当前人口 − 迁出人口 + 30)',
+                                    it: 'max(30000, popolazione attuale − emigrazione + 30)' },
+    'lib.eco.convergence':        { zh: '每轮追近幅度', it: 'Convergenza per turno' },
+    'lib.eco.convergence.math':   { zh: '新值 = 旧值 + (目标−旧值)×比例；吞吐 9%，失业 12.5%，通胀 10%，信心 7.5%',
+                                    it: 'nuovo = vecchio + (obiettivo−vecchio)×quota; porto 9%, disoccupazione 12.5%, inflazione 10%, fiducia 7.5%' },
+    'lib.eco.each':               { zh: '每半月', it: 'mezzo mese' },
+    'lib.eco.incomeTax':          { zh: '有效所得税率', it: 'Aliquota effettiva sul reddito' },
+    'lib.eco.incomeTax.math':     { zh: '财政法 < 2 级为 0；2 级取 max(设定税率, 0.30)；3 级取 max(设定税率, 0.45)',
+                                    it: 'Livello fiscale < 2: 0; livello 2: max(aliquota impostata, 0.30); livello 3: max(aliquota impostata, 0.45)' },
+    'lib.eco.tax.porto.math':     { zh: '吞吐×3.1×港口税率×(0.75+0.005×资本信心)×(1+港口增收修正)',
+                                    it: 'traffico×3.1×aliquota portuale×(0.75+0.005×fiducia)×(1+bonus portuale)' },
+    'lib.eco.tax.dogana.math':    { zh: '吞吐×2.5×关税率×(1+0.05×关税法等级)×(1+关税增收修正)',
+                                    it: 'traffico×2.5×aliquota doganale×(1+0.05×livello dazi)×(1+bonus doganale)' },
+    'lib.eco.tax.consumo.math':   { zh: '(100−失业率)×0.45×消费税率×(1+消费税增收修正)',
+                                    it: '(100−disoccupazione)×0.45×aliquota sui consumi×(1+bonus consumi)' },
+    'lib.eco.tax.reddito.math':   { zh: '(100−失业率)×0.70×有效所得税率×(1+所得税增收修正)×(1+0.04×财政法等级)',
+                                    it: '(100−disoccupazione)×0.70×aliquota effettiva×(1+bonus reddito)×(1+0.04×livello fiscale)' },
+    'lib.eco.spending.math':      { zh: '行政 42 + 市警 (6+警员/40) + 军团 (人数×0.013) + 工程 (工程/100×12) + 债务 (债务×0.0035) + 救济 (max(失业−12,0)×1.7 + 劳动保障等级×2)',
+                                    it: 'amministrazione 42 + polizia (6+agenti/40) + legione (uomini×0.013) + opere (opere/100×12) + interessi (debito×0.0035) + soccorso (max(disoccupazione−12,0)×1.7 + tutele×2)' },
+    'lib.eco.net.math':           { zh: '四项收入合计 − 六项支出合计；盈余的最多 50% 用于偿债，赤字先用储备，再按 1.15 倍举债；债务达到 6500 后记入欠款。',
+                                    it: 'Quattro entrate meno sei spese; fino al 50% dell\'avanzo ripaga il debito. Il disavanzo usa le riserve, poi genera debito ×1.15; da 6500 viene registrato come arretrato.' },
+
+    /* ---- Election matrix (ele.) ---- */
+    'ele.classWeight':  { zh: '阶层 · 权重', it: 'Classe · peso' },
+    'ele.turnout':      { zh: '投票率', it: 'Affluenza' },
+    'ele.turnoutTip':   { zh: '投票率 {n}%', it: 'Affluenza {n}%' },
+    'ele.turnoutTotal': { zh: '全市加权投票率', it: 'Affluenza ponderata della città' },
+    'ele.note.lead':    { zh: '选举结算：', it: 'Calcolo elettorale: ' },
+    'ele.note.pointer': { zh: '列表支持度 × 阶层投票率 ×（1 − 该党弃权率）→ 名单得票 → 按 1921 年选举法分配席位。完整规则见「设置 → 图书馆」。',
+                          it: 'Sostegno di lista × affluenza di classe × (1 − astensione del partito) → voti di lista → seggi secondo la legge elettorale del 1921. Le regole complete sono in «Impostazioni → Biblioteca».' },
+    'cls.intro':        { zh: '城市的构成：各阶层的人口权重、政治倾向与投票率，以及政党在社会中的支持基础。',
+                          it: 'La composizione della città: peso demografico delle classi, orientamenti politici e affluenza, e le basi di consenso dei partiti nella società.' },
+    'tick.fallback':    { zh: '1920 年 9 月 12 日：进军一周年。阳台上宣读了《卡尔纳罗宪章》。',
+                          it: '12 settembre 1920: primo anniversario dell\'Impresa. Dal balcone viene letta la Carta del Carnaro.' },
+    'ui.kicker.major':     { zh: '重大事件 · EVENTO STRAORDINARIO', it: 'EVENTO STRAORDINARIO' },
+    'ui.kicker.chronicle': { zh: '时局纪事 · CRONACA', it: 'CRONACA' },
+    'start.emblem.alt':    { zh: '{a}党徽', it: 'Emblema di {a}' },
+    'evboard.done.count':  { zh: '已处理 {n} 项 · 详见档案', it: '{n} risolti · vedi archivio' },
+    'az.empty.guard':      { zh: '手牌为空。选择上方牌堆抽取本回合可用的行动。',
+                             it: 'Mano vuota. Pesca da uno dei mazzi qui sopra le azioni del turno.' },
+
+    /* ---- Economy dashboard (labels only; the formulas are in the library) ---- */
+    'eco.kpi.net':        { zh: '预计每半月收支', it: 'Saldo previsto ogni mezzo mese' },
+    'eco.kpi.net.note':   { zh: '盈余会逐步偿债', it: 'Il surplus ripaga il debito' },
+    'eco.kpi.target':     { zh: '目标 {n}%', it: 'Obiettivo {n}%' },
+    'eco.scale.note':     { zh: '指标 0—100 · 每半月结算', it: 'Indici 0—100 · ogni mezzo mese' },
+    'eco.chart.current':  { zh: '当前目标', it: 'Obiettivo attuale' },
+    'eco.chart.lead':     { zh: '金线标记目标；吞吐影响税收、就业与政治支持',
+                            it: 'La linea dorata indica l\'obiettivo; il porto incide su entrate, lavoro e consenso' },
+    'eco.trend.title':    { zh: '人口与就业轨迹', it: 'Popolazione e lavoro' },
+    'eco.trend.sub':      { zh: '随半月结算更新', it: 'Aggiornamento semimensile' },
+    'eco.trend.empty':    { zh: '下次结算后形成趋势', it: 'La tendenza apparirà al prossimo turno' },
+    'eco.trend.est':      { zh: '按当前状态预估', it: 'Stima sullo stato attuale' },
+
+    /* ---- Crisis panel ---- */
+    'cri.hourglass.aria':      { zh: '{t}压力', it: 'Pressione: {t}' },
+    'cri.hourglass.valuetext': { zh: '{v} / {m}；下层积沙表示当前压力', it: '{v} / {m}; la sabbia nel bulbo inferiore indica la pressione attuale' },
+    'cri.milestone.hit':       { zh: '◆ 已触发', it: '◆ Raggiunta' },
+    'cri.milestone.miss':      { zh: '◇ 未触发', it: '◇ Non raggiunta' },
+    'cri.siege.title':         { zh: '围攻 · 罗马的耐心', it: 'Assedio · la pazienza di Roma' },
+    'cri.plot.title':          { zh: '阴谋 · 法西斯的占领', it: 'Congiura · la presa fascista' },
+    'cri.forze.milizia':       { zh: '阜姆军团', it: 'Legione fiumana' },
+    'cri.forze.police':        { zh: '市警（编制估计）', it: 'Polizia municipale (organico stimato)' },
+    'cri.forze.carabinieri':   { zh: '皇家宪兵（意大利）', it: 'Carabinieri reali (Italia)' },
+    'cri.forze.squadre':       { zh: '法西斯小队（估计）', it: 'Squadre fasciste (stima)' },
+
+    /* ---- Foreign relations & the portico (dip.) ---- */
+    'dip.dossier':        { zh: '对外关系档案', it: 'Fascicolo delle relazioni estere' },
+    'dip.intro':          { zh: '国家关系以 0—100 计；意大利政治力量的态度以 −40—100 计。两者独立结算。',
+                            it: 'I rapporti fra Stati si misurano da 0 a 100; l\'atteggiamento delle forze politiche italiane da −40 a 100. I due conteggi sono indipendenti.' },
+    'dip.posture.current':{ zh: '现行外交姿态', it: 'Postura in vigore' },
+    'dip.posture.none':   { zh: '未指定', it: 'Non definita' },
+    'dip.tone.cold':      { zh: '冷淡', it: 'Fredda' },
+    'dip.tone.cautious':  { zh: '谨慎', it: 'Prudente' },
+    'dip.tone.warm':      { zh: '友好', it: 'Amichevole' },
+    'dip.aria.state':     { zh: '{a}关系', it: 'Rapporti con {a}' },
+    'dip.scale.low':      { zh: '0 · 疏远', it: '0 · Lontani' },
+    'dip.scale.mid':      { zh: '50 · 中间', it: '50 · Intermedi' },
+    'dip.scale.high':     { zh: '100 · 亲近', it: '100 · Vicini' },
+    'dip.portico.title':  { zh: '通往罗马的柱廊', it: 'Il portico verso Roma' },
+    'dip.portico.aria':   { zh: '关系达标 {a} / {b} 派', it: 'Soglia raggiunta: {a} / {b} fazioni' },
+    'dip.portico.note':   { zh: '六派中至少三派关系达到 80；日志开启后，{a} 为维系线。',
+                            it: 'Almeno tre delle sei fazioni devono arrivare a 80; dopo l\'apertura del diario la linea di tenuta è {a}.' },
+    'dip.force.fascisti':    { zh: '法西斯', it: 'Fascisti' },
+    'dip.force.socialisti':  { zh: '社会党', it: 'Socialisti' },
+    'dip.force.anarchici':   { zh: '无政府', it: 'Anarchici' },
+    'dip.force.comunisti':   { zh: '共产党', it: 'Comunisti' },
+    'dip.force.corradini':   { zh: '民族派', it: 'Nazionalisti' },
+    'dip.force.sindacalisti':{ zh: '工团派', it: 'Sindacalisti' },
+    'dip.dossier.aria':   { zh: '政治力量关系详情', it: 'Dettaglio dei rapporti fra le forze politiche' },
+    'dip.status.gate':    { zh: '已达标', it: 'Soglia raggiunta' },
+    'dip.status.hold':    { zh: '可维系', it: 'Mantenibile' },
+    'dip.status.open':    { zh: '待争取', it: 'Da conquistare' },
+    'dip.dossier.allied': { zh: '已计入进军罗马的政治盟友', it: 'Alleato già conteggiato per la marcia su Roma' },
+    'dip.dossier.distance': { zh: '距 {n} 达标线', it: 'A {n} dalla soglia' },
+    'dip.dossier.gate':   { zh: '✓ 已达标', it: '✓ Soglia raggiunta' },
+    'dip.dossier.gap':    { zh: '还差 {n} 点', it: 'Mancano {n} punti' },
+    'dip.portico.chart.aria': { zh: '意大利政治力量关系柱图，范围负40至100',
+                            it: 'Grafico a colonne dei rapporti con le forze politiche italiane, scala da −40 a 100' },
+    'dip.pillar.aria':    { zh: '{a}，关系 {v}，{s}。查看详情', it: '{a}, rapporto {v}, {s}. Vedi i dettagli.' },
+    'dip.pillar.valuetext': { zh: '{v}，{s}', it: '{v}, {s}' },
+    'dip.legend.zero':    { zh: '0 · 中立', it: '0 · Neutrale' },
+    'dip.legend.floor':   { zh: '{n} · 维系', it: '{n} · Tenuta' },
+    'dip.legend.gate':    { zh: '80 · 达标', it: '80 · Soglia' },
+    'dip.legend.click':   { zh: '点击柱子 · 查看立场', it: 'Clicca una colonna · vedi la posizione' },
+    'dip.portico.pending':{ zh: '意大利共产党尚未成立；成立后，第六根柱子才会加入柱廊。',
+                            it: 'Il Partito Comunista d\'Italia non è ancora nato; solo allora la sesta colonna entrerà nel portico.' },
+    'dip.officer.need':   { zh: '军官团需达到 {n}，是进军罗马的独立条件。',
+                            it: 'Il corpo degli ufficiali deve arrivare a {n}: è una condizione autonoma per la marcia su Roma.' },
+    'dip.officer.title':  { zh: '独立条件 · 军官团', it: 'Condizione autonoma · Corpo degli ufficiali' },
+    'dip.officer.sub':    { zh: '进军罗马需达到 {n}', it: 'Per la marcia su Roma servono {n}' },
+    'dip.states':         { zh: '国家与国际机构', it: 'Stati e organismi internazionali' },
+    'dip.states.sub':     { zh: '外交关系 · 0—100', it: 'Relazioni diplomatiche · 0—100' },
+    'dip.forces':         { zh: '意大利政治力量', it: 'Forze politiche italiane' },
+    'dip.forces.sub':     { zh: '进军罗马 · −40—100', it: 'Marcia su Roma · −40—100' },
+    'dip.posture.on':     { zh: '现行', it: 'In vigore' },
+    'dip.posture.pick':   { zh: '选择', it: 'Scegliere' },
+    'dip.postures.note':  { zh: '数字为每半月结算时的基础关系变化；法律、事件及关系上限另行生效。切换姿态本身不消耗行动力。',
+                            it: 'I numeri sono le variazioni di base calcolate ogni mezzo mese; leggi, eventi e tetti massimi agiscono a parte. Cambiare postura non costa punti azione.' },
+    'dip.posture.line':   { zh: '每半月基础变化', it: 'Variazione di base ogni mezzo mese' },
+    'dip.groups.neighbours': { zh: '邻国', it: 'Vicini' },
+    'dip.groups.entente': { zh: '协约国与国际机构', it: 'Intesa e organismi internazionali' },
+    'dip.groups.other':   { zh: '其他外交渠道', it: 'Altri canali diplomatici' },
+
+    /* ---- Side panel ---- */
+    'sp.legittimita':   { zh: '军团民意', it: 'Opinione sulla Legione' },
+    'sp.legittimita.h': { zh: '各阶层支持按人口加权，加上短期党派声望修正，再归一化；不计投票率。事件通过改变支持或声望间接影响民意。',
+                          it: 'Il sostegno delle classi, ponderato per popolazione, più le correzioni di prestigio di breve periodo, poi normalizzato. L\'affluenza non entra. Gli eventi agiscono sull\'opinione in modo indiretto, cambiando sostegno o prestigio.' },
+    'sp.authority':     { zh: '领袖权威', it: 'Autorità del Comandante' },
+    'sp.authority.h':   { zh: '命令被执行的程度。财政欠款会削弱它，公共秩序法会加强它。',
+                          it: 'Quanto gli ordini vengono eseguiti. Gli arretrati di cassa la indeboliscono, le leggi di ordine pubblico la rafforzano.' },
+    'sp.fervour':       { zh: '民众热忱', it: 'Fervore popolare' },
+    'sp.fervour.h':     { zh: '街头的亢奋。它推高紧张度，既是本钱也是危险。',
+                          it: 'L\'eccitazione della strada. Alza la tensione: è insieme una risorsa e un pericolo.' },
+    'sp.classes.note':  { zh: '按阶层人口加权，未折算投票率与弃权。选举结算见「经济 → 阶层支持度」。',
+                          it: 'Ponderato per popolazione di classe, senza affluenza né astensione. Il conteggio elettorale è in «Economia → sostegno delle classi».' },
+    'sp.classes.legend':{ zh: '金色数字 = 该阶层里{p}的支持份额。右侧三条为该阶层的投票率 / 组织渗透 / 战斗性。',
+                          it: 'Il numero dorato è la quota di sostegno per {p} in quella classe. Le tre voci a destra sono affluenza, penetrazione organizzativa e combattività.' },
+    'sp.noeffects':     { zh: '当前没有持续数值修正', it: 'Nessuna correzione numerica in corso' },
+    'sp.effects.note':  { zh: '显示基础修正；实际结算受其他效果和数值上限影响。除目标值外，均按每半月计算。',
+                          it: 'Sono mostrate le correzioni di base; il conteggio effettivo risente di altri effetti e dei limiti. Salvo i valori obiettivo, tutto è calcolato a mezzo mese.' },
+    'sp.flags':         { zh: '已记录的剧情状态', it: 'Stati narrativi registrati' },
+    'sp.flags.note':    { zh: '以下状态不额外提供持续数值修正；即时效果已在选择时结算。',
+                          it: 'Gli stati seguenti non aggiungono correzioni numeriche permanenti; gli effetti immediati sono già stati liquidati al momento della scelta.' },
+
+    /* ---- Arengo (assembly) ---- */
+    'ar.title':         { zh: '阿伦戈', it: 'Arengo' },
+    'ar.nomount':       { zh: '阿伦戈尚未渲染', it: 'L\'Arengo non è ancora montato' },
+    'ar.nomount.sub':   { zh: '议会视图由 src/ui/arengo.ts 提供，当前未挂载。',
+                          it: 'La vista delle camere è fornita da src/ui/arengo.ts e al momento non è montata.' },
+    'ar.err.render':    { zh: '议会渲染失败：{m}', it: 'Rendering delle camere non riuscito: {m}' },
+    'ar.empty':         { zh: '尚无席位', it: 'Nessun seggio' },
+    'ar.seats':         { zh: '{n} 席', it: '{n} seggi' },
+    'ar.legionByFaction': { zh: '军团席位按派系：', it: 'Seggi legionari per corrente: ' },
+    'ar.notconvoked':   { zh: '阿伦戈尚未召开', it: 'L\'Arengo non è ancora convocato' },
+    'ar.notconvoked.n': { zh: '《卡尔纳罗宪章》颁布后，两院才会组建（卡牌「召开阿伦戈」）。',
+                          it: 'Le due camere nascono solo dopo la promulgazione della Carta del Carnaro (carta «Convocare l\'Arengo»).' },
+    'ar.ottimi':        { zh: '最优者议会 · Consiglio degli Ottimi', it: 'Consiglio degli Ottimi' },
+    'ar.ottimi.rule':   { zh: '每 1000 名公民 1 席 · 任期 3 年', it: 'Un seggio ogni 1000 cittadini · mandato di 3 anni' },
+    'ar.citizens':      { zh: '公民 {n}', it: 'Cittadini {n}' },
+    'ar.franchise':     { zh: '公民身份法 L{n}', it: 'Legge di cittadinanza L{n}' },
+    'ar.termEnd':       { zh: '任期至第 {n} 回合', it: 'Mandato fino al turno {n}' },
+    'ar.provvisori':    { zh: '法团理事会 · Consiglio dei Provvisori', it: 'Consiglio dei Provvisori' },
+    /* Both figures come from W.CORPORATIONS and W.CORPORATION_SEATS, so the label
+       cannot drift from the table again: this line used to hardcode "九家" while
+       the table held seven. */
+    'ar.provvisori.rule': { zh: '{c} 家法团选举 · {n} 席', it: 'Eletto da {c} corporazioni · {n} seggi' },
   };
 
   /* ---------------- Lookup ---------------- */

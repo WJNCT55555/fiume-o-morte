@@ -14,7 +14,7 @@ export const ev192104Elezioni: GameEvent = {
       {
         id: 'listone', text: { zh: '与法西斯和民族派共组「国民集团」名单', it: 'Presentare il Blocco Nazionale con fascisti e nazionalisti' },
         preview: [{ zh: '按阶层支持计票', label: 'spoglio' }, { zh: '法西斯派影响力 +', label: 'Fascio +' }],
-        effect: function () { return { runElection: true, factions: { fascisti: { inf: 3 }, sindacalisti: { dis: 8 }, futuristi: { dis: 6 } }, journals: ['elezioni'] }; }
+        effect: function () { return { runElection: true, factions: { fascisti: { inf: 3 }, sindacalisti: { dis: 8 }, futuristi: { dis: 6 } }, journals: ['elezioni'], next: 'ev_1921_04_elezioni_esito' }; }
       },
       {
         id: 'sola', text: { zh: '单独参选：只有军团兵的名单', it: 'Correre da soli: lista legionaria' },
@@ -23,7 +23,8 @@ export const ev192104Elezioni: GameEvent = {
           return {
             runElection: true, splitList: { drop: 'ANI', share: 0.8 },
             factions: { arditi: { inf: 2, dis: -6 } },
-            journals: ['elezioni']
+            journals: ['elezioni'],
+            next: 'ev_1921_04_elezioni_esito'
           };
         }
       },
@@ -34,7 +35,8 @@ export const ev192104Elezioni: GameEvent = {
           return {
             runElection: true, boycott: true,
             order: { fervour: 8, squadre: 6, violence: 6 },
-            factions: { sindacalisti: { dis: 24 } }
+            factions: { sindacalisti: { dis: 24 } },
+            next: 'ev_1921_04_elezioni_esito'
           };
         }
       }

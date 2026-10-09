@@ -101,6 +101,67 @@ console.log('§11.5 一九一九年的两场投票');
   ok(Math.abs(acc.yesPct + acc.noPct + acc.absPct - 100) < 0.5, '三项占比合计 100%');
 }
 
+console.log('§17 文档与内容层一致');
+{
+  /* These are the claims that had drifted: the design document still said 43
+     events and the sourcebook still described four factions with the old
+     influence split, while the content layer had moved on. Reading the source
+     proves intent; this proves the prose still matches it. */
+  const events = F.Events || [];
+  ok(events.length > 0, `内容层注册事件 ${events.length} 个`);
+
+  const fs = require('fs');
+  const docsDir = path.join(__dirname, '..', 'docs');
+  const readDoc = f => fs.readFileSync(path.join(docsDir, f), 'utf8');
+  const design = readDoc('设计案.md');
+  const sourcebook = readDoc('历史考据.md');
+
+  const factionCount = W.FACTIONS.length;
+  const influence = W.FACTIONS.map(f => f.inf).join(' / ');
+  const CN_NUM = ['', '一', '两', '三', '四', '五', '六', '七', '八', '九'];
+  ok(design.includes(`**${events.length} 个事件**`),
+     `设计案 §15 的事件总数应写 ${events.length}`);
+  /* Either phrasing is fine; what must not survive is a count that disagrees
+     with the roster. A stale "六股" / "四派" is what this catches. */
+  const factionCountStated = new RegExp(`${CN_NUM[factionCount]} ?股|${CN_NUM[factionCount]} ?派`).test(sourcebook)
+    && !/六股|四派/.test(sourcebook);
+  ok(factionCountStated,
+     `历史考据 §0.5 应写「这${CN_NUM[factionCount]}股」，且不得残留旧的四派／六股说法`);
+  ok(sourcebook.includes(influence),
+     `历史考据 §0.5 的派系影响力应是 ${influence}`);
+  ok(!/\d+ 月 \d+ 日?[^\n]*1920-08-12|1920-08-12[^\n]*《卡尔纳罗宪章》/.test(sourcebook),
+     '历史考据不应把宪章颁布日写成 1920-08-12（史实与事件均为 1920-09-08）');
+  ok(!/66% 的投票率/.test(sourcebook),
+     '历史考据不应把自治派得票率 66% 写成投票率');
+  /* The unit that joined at Ronchi was the Brigata Granatieri di Sardegna —
+     "Sassari" is a different brigade, and "萨萨里掷弹兵团" is neither name. */
+  ok(!/萨萨里掷弹兵/.test(sourcebook),
+     '历史考据的 Ronchi 会合单位应是撒丁掷弹兵旅（Granatieri di Sardegna），不是萨萨里');
+  /* Wilson wanted Fiume under a League guarantee; a League *headquarters* in
+     Fiume is a different claim and has no support. The sourcebook is allowed
+     to name the false claim while refuting it, so only an unrefuted assertion
+     fails: "国联总部设在阜姆" not preceded by a hedge or followed by 无证据. */
+  const leagueHq = /国联总部设在阜姆/g;
+  let badLeagueHq = false, m;
+  while ((m = leagueHq.exec(sourcebook))) {
+    const around = sourcebook.slice(Math.max(0, m.index - 20), m.index + m[0].length + 12);
+    if (!/无(任何)?证据|待考|误|不是|並非|并非|所谓/.test(around)) badLeagueHq = true;
+  }
+  ok(!badLeagueHq,
+     '历史考据不应断言威尔逊提议把国联总部设在阜姆（国联总部为日内瓦）');
+  /* Santa Margherita Ligure was signed 1922-10-23, and it executed the Rapallo
+     border rather than "confirming" Sušak, which Rapallo had settled in 1920. */
+  ok(!/1922-08-01/.test(sourcebook),
+     '历史考据的圣玛格丽塔利古雷协定日期应是 1922-10-23，不是 1922-08-01');
+  /* Depoli took over on 1922-03-23, after Prodam (to 03-15) and Cabruna (to 03-23). */
+  ok(!/1922-03-06 \/ 03-17/.test(sourcebook),
+     '历史考据的政变后过渡应是 Prodam → Cabruna → Depoli(1922-03-23)，不是 03-06/03-17');
+  /* 1921-06-26 is the day Alpini fired on legionaries at Porto Baross; Sforza's
+     parliamentary statement on the treaty was 1920-11-26. */
+  ok(!/1921-06-26[\s\S]{0,80}Sforza/.test(sourcebook),
+     '历史考据把 Porto Baross 事件日与 Sforza 的议会声明日（1920-11-26）混为一件事');
+}
+
 console.log();
 console.log(`PASS ${pass} / ${pass + fail}`);
 process.exit(fail ? 1 : 0);

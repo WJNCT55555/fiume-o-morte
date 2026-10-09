@@ -26,6 +26,8 @@ require(path.join(base, 'game', 'engine', 'rules.js'));
 require(path.join(base, 'game', 'registries', 'contentRegistry.ts'));
 require(path.join(base, 'game', 'engine', 'reducers.js'));
 require(path.join(base, 'game', 'engine', 'selectors.js'));
+/* The catalogue, so the checks below can assert on the strings a player reads. */
+require(path.join(base, 'lib', 'i18n.js'));
 
 const F = globalThis.Fiume;
 const { Core, World: W, Rules: R, Engine: Eng, Meta } = F;
@@ -37,19 +39,117 @@ function ok(cond, msg) {
 
 const portraitDir = path.join(__dirname, '..', 'public', 'img', 'Portrait');
 fs.readdirSync(portraitDir).forEach(file => {
-  ok(/^Portrait_[A-Z][A-Za-z0-9]*(?:_[A-Z][A-Za-z0-9]*)*\.(?:jpg|png|webp)$/.test(file), `portrait filename ${file}`);
+  ok(/^Portrait_[a-z0-9]+(?:_[a-z0-9]+)*\.png$/.test(file), `portrait filename ${file}`);
 });
+
+/* A file whose bytes disagree with its extension loads fine from Node and still
+   fails in the browser, because the server sends the declared content type.
+   Portrait_Riccardo_Gigante was WebP bytes named .png for exactly that reason. */
+const IMAGE_SIGNATURES = [
+  { ext: '.png', test: b => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
+  { ext: '.jpg', test: b => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { ext: '.webp', test: b => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP' },
+];
+fs.readdirSync(portraitDir).forEach(file => {
+  const bytes = fs.readFileSync(path.join(portraitDir, file)).subarray(0, 12);
+  const ext = path.extname(file).toLowerCase();
+  const sig = IMAGE_SIGNATURES.find(s => s.ext === ext);
+  ok(sig && sig.test(bytes), `portrait ${file} does not contain ${ext} data`);
+});
+
 W.PARTIES.forEach(party => {
   ok(!!party.leader?.zh && !!party.leader?.it, `party ${party.id} needs a named leader`);
   if (party.leader?.portrait) ok(fs.existsSync(path.join(__dirname, '..', 'public', party.leader.portrait)), `party ${party.id} portrait is missing`);
-  if (party.player) ok(!!party.emblem && fs.existsSync(path.join(__dirname, '..', 'public', party.emblem)), `playable party ${party.id} emblem is missing`);
+  /* Every party that declares an emblem must have the file. Checking only the
+     playable party let PCR stay unwired: nothing renders it on the start screen,
+     so a missing emblem was invisible until a player looked at another panel. */
+  if (party.emblem) ok(fs.existsSync(path.join(__dirname, '..', 'public', party.emblem)), `party ${party.id} emblem is missing: ${party.emblem}`);
 });
 ok(W.PARTIES.filter(p => p.player).map(p => p.id).join(',') === 'LEG', 'only the Legion is playable for now');
+/* The seat charts read left to right along the political spectrum, so `order` is
+   load-bearing, not decoration: d3-parliament hands contiguous arcs to parties in
+   the order it is given, which means a wrong axis silently redraws the chamber as
+   a different political map. Both axes are asserted literally — renumbering them
+   is a design decision, not a refactor, and should have to break a test. */
+{
+  const PARTY_AXIS = ['PCR', 'PSI', 'AUT', 'PAD', 'LEG', 'ANI'];
+  const axis = W.PARTIES.slice().sort((a, b) => a.order - b.order).map(p => p.id);
+  ok(axis.join(',') === PARTY_AXIS.join(','),
+    '政党席位轴必须是从左到右的意识形态顺序；实际：' + axis.join(', '));
+  ok(W.PARTIES.every(p => typeof p.order === 'number'),
+    '每个政党都要有 order，否则它会被排到最右');
+  const FACTION_AXIS = ['sindacalisti', 'futuristi', 'arditi', 'irredentisti', 'fascisti'];
+  const faxis = W.FACTIONS.slice().sort((a, b) => a.order - b.order).map(f => f.id);
+  ok(faxis.join(',') === FACTION_AXIS.join(','),
+    '派系轴必须是从左到右的顺序；实际：' + faxis.join(', '));
+  ok(W.FACTIONS.every(f => typeof f.order === 'number'), '每个派系都要有 order');
+  ok(new Set(W.PARTIES.map(p => p.order)).size === W.PARTIES.length,
+    '政党的 order 不得重复');
+  ok(new Set(W.FACTIONS.map(f => f.order)).size === W.FACTIONS.length,
+    '派系的 order 不得重复');
+  /* The roster reads along the axis too, not by influence. */
+  const roster = F.Sel.factions(Eng.createState('1919-09', 'historical', 7)).list.map(f => f.id);
+  ok(roster.join(',') === FACTION_AXIS.join(','),
+    '派系面板顺序必须同轴；实际：' + roster.join(', '));
+}
+/* The assembly, the chord plate and the start screen all show a party emblem, so
+   an unset one is a hole rather than a style choice. */
+{
+  const missing = W.PARTIES.filter(p => !p.emblem).map(p => p.id);
+  ok(missing.length === 0, '每个政党都有党徽：' + (missing.length ? missing.join(', ') : '全部就位'));
+}
+
+/* Advisor portraits are content, not UI: they live on the advisor records in
+   src/game/advisors/*.ts and are read through Sel.advisors. A declared portrait
+   must exist; the advisors below are the ones with no likeness on file yet, so
+   that list can only shrink. */
+const advisorsWithoutPortrait = W.ADVISORS.filter(a => !a.portrait).map(a => a.id);
+W.ADVISORS.forEach(advisor => {
+  if (!advisor.portrait) return;
+  ok(fs.existsSync(path.join(__dirname, '..', 'public', advisor.portrait)), `advisor ${advisor.id} portrait is missing`);
+});
+/* A named allowlist rather than a count: a new advisor added without a likeness
+   now fails here instead of sliding in under an upper bound. These two are the
+   ones with no portrait on file. */
+const PORTRAIT_GAPS = ['miani', 'micheletti'];
+ok(advisorsWithoutPortrait.slice().sort().join(',') === PORTRAIT_GAPS.slice().sort().join(','),
+  '无肖像顾问名单应与 PORTRAIT_GAPS 一致；实际：' + (advisorsWithoutPortrait.join(', ') || '无'));
+/* Declaring a portrait is not the same as showing one: the roster, the seat row
+   and the deck all read it off `Sel.advisors`, so a field dropped in that
+   projection turns every advisor into a lettered placeholder while the files sit
+   unused on disk. Assert the field survives the projection. */
+{
+  const s = Eng.createState('1919-09', 'historical', 7);
+  const projected = F.Sel.advisors(s);
+  ok(projected.length === W.ADVISORS.length, '顾问列表长度与数据一致');
+  W.ADVISORS.forEach(a => {
+    const row = projected.filter(x => x.id === a.id)[0];
+    if (!row) { ok(false, `Sel.advisors 漏掉了顾问 ${a.id}`); return; }
+    if (a.portrait) {
+      ok(row.portrait === a.portrait,
+        `Sel.advisors 必须传出 ${a.id} 的肖像（否则界面退回字母缩写）`);
+    }
+    ok(row.factionZh && row.factionIt !== undefined, `顾问 ${a.id} 的派系名必须双语`);
+  });
+}
+/* Retiring an advisor must also free the seat it held in existing saves: seats
+   are ids, the panel only renders advisors that still exist, and DISMISS looks
+   the id up in the same list, so a stale id would be unremovable. */
+{
+  const s = Eng.createState('1919-09', 'historical', 7);
+  s.advisors.active = ['a_retired_advisor', W.ADVISORS[0].id, W.ADVISORS[1].id];
+  const loaded = Eng.dispatch(Eng.createState('1919-09', 'historical', 7),
+    { type: 'LOAD_STATE', state: s }).state;
+  ok(loaded.advisors.active.indexOf('a_retired_advisor') < 0,
+    '载入存档时剔除已下线的顾问 id，释放其席位');
+  ok(loaded.advisors.active.length === 2, '剔除后席位计数与实际在任顾问一致');
+}
 const imageManifest = require(path.join(__dirname, '..', 'public', 'img', 'manifest.json'));
 Object.entries(imageManifest).forEach(([key, item]) => {
   ok(fs.existsSync(path.join(__dirname, '..', 'public', 'img', item.file)), `manifest image ${key} is missing`);
 });
 
+/* Every portrait the game can show, whichever layer declares it. */
 function checkInvariants(s, tag) {
   W.CLASSES.forEach(c => {
     const cls = s.classes[c.id];
@@ -73,7 +173,7 @@ function checkInvariants(s, tag) {
   const fi = W.FACTIONS.reduce((a, f) => a + s.factions[f.id].inf, 0);
   ok(Math.abs(fi - 100) < 0.6, `[${tag}] factions inf sums ${fi}`);
   W.FACTIONS.forEach(f => ok(s.factions[f.id].dis >= 0 && s.factions[f.id].dis <= 100, `[${tag}] dis ${f.id}`));
-  ['authority', 'garrison', 'fervour', 'squadre', 'violence'].forEach(k => {
+  ['authority', 'garrison', 'fervour', 'squadre', 'violence', 'coup', 'subversion'].forEach(k => {
     ok(s.order[k] >= 0 && s.order[k] <= 100, `[${tag}] order.${k}=${s.order[k]}`);
   });
   ok(s.order.milizia >= 0, `[${tag}] milizia negative`);
@@ -371,8 +471,7 @@ console.log('\n6a.1) 德·安布里斯与宪章立法链');
     const card = Eng.CARD_BY_ID[cardId];
     Eng.applyCardEffect(enacted, card, card.options.find(option => option.id === optionId));
   }
-  enact('gv_arengo', 'convocare');
-  enact('gv_cittadinanza', 'residenza');
+  enact('gv_arengo', 'convocare');  enact('gv_cittadinanza', 'residenza');
   enact('gv_polizia', 'comunale');
   enact('gv_stampa', 'liberta');
   enact('gv_lingua', 'bilingue');
@@ -382,6 +481,82 @@ console.log('\n6a.1) 德·安布里斯与宪章立法链');
   Eng.postProcess(enacted);
   ok(Meta.CHARTER_REQUIREMENTS.every(r => enacted.laws[r.id] >= r.level) && carta.complete(enacted),
     '宪章七项目标可由现有事件和法律卡牌效果全部落实');
+  /* The Provvisori caption prints the number of Corporations, so the figure and
+     the table can only move together. It read "九家" while the table held seven. */
+  {
+    const convoked = Eng.createState('1919-09', 'historical', 7);
+    convoked.flags.charter_promulgated = true;
+    R.arengoTick(convoked);
+    const prov = convoked.arengo && convoked.arengo.provvisori;
+    ok(!!prov, '宪章颁布后法团理事会应当召开');
+    if (prov) {
+      ok(Object.keys(prov.byCorporation).length === W.CORPORATIONS.length,
+        '法团理事会实际召开的法团数应等于 W.CORPORATIONS.length（' + W.CORPORATIONS.length + '）');
+      ok(prov.seats === W.CORPORATION_SEATS,
+        '法团理事会席位应等于 W.CORPORATION_SEATS（' + W.CORPORATION_SEATS + '）');
+      const label = F.I18N.t('ar.provvisori.rule',
+        { c: Object.keys(prov.byCorporation).length, n: prov.seats });
+      ok(label.indexOf(String(W.CORPORATIONS.length)) >= 0 && label.indexOf(String(W.CORPORATION_SEATS)) >= 0,
+        '法团理事会说明里的数字必须来自数据表：' + label);
+      ok(label.indexOf('九') < 0 && label.indexOf('60 席') !== -1,
+        '法团理事会说明不再硬编码错误的家数：' + label);
+    }
+  }
+  /* The Charter card must seat the Arengo the moment it resolves, not one
+     ADVANCE later. Its option carries `conveneChambers`, which is a routing key
+     rather than a state patch: R.applyEffect ignores keys it does not know, so
+     the card path has to lift it out the same way the event path does. When it
+     did not, `charter_promulgated` was set and `state.arengo` stayed null, and
+     the politics tab showed nothing until the player happened to advance a turn. */
+  {
+    const cs = Eng.createState('1919-09', 'historical', 7);
+    cs.date = { y: 1920, m: 9, d: 12 };
+    cs.turn = 21; cs.monthIndex = 21;
+    cs.cabinet.istruzione = cs.playerForce;
+    cs.flags.charter_program = true;
+    cs.ap = 2; cs.hand = ['gv_arengo'];
+    const charterCard = Eng.CARD_BY_ID.gv_arengo;
+    ok(charterCard.require(cs), '召开阿伦戈卡牌在 1920 年 9 月且掌握教育席位时可用');
+    let after = Eng.dispatch(cs, { type: 'PLAY_CARD', cardId: 'gv_arengo' }).state;
+    ok(after.pendingCard === 'gv_arengo', '打出后进入选项菜单');
+    after = Eng.dispatch(after, { type: 'RESOLVE_CARD_OPTION', optionId: 'convocare' }).state;
+    ok(!!after.flags.charter_promulgated, '召开选项必须颁布宪章');
+    ok(!!after.arengo, '打出宪章卡后议会必须立刻成立（不依赖下一次 ADVANCE）');
+    if (after.arengo) {
+      ok(after.arengo.ottimi.seats > 0 && after.arengo.provvisori.seats === W.CORPORATION_SEATS,
+        '两院席位在卡牌结算时就已算好');
+      ok(Object.keys(after.arengo.provvisori.byCorporation).length === W.CORPORATIONS.length,
+        '法团理事会成立时即包含全部法团');
+      /* The ADVANCE tick must not rebuild it into a different chamber. */
+      const ticked = Eng.dispatch(Object.assign({}, after, { currentEvent: null }),
+        { type: 'ADVANCE' }).state;
+      ok(ticked.arengo && ticked.arengo.ottimi.seats === after.arengo.ottimi.seats,
+        '回合推进不会改变已成立议会的构成');
+    }
+  }
+  /* The September 1920 event is the other route to promulgation, and it must
+     seat the councils too. Enforced as an invariant in postProcess rather than
+     trusted to each authoring site, so a third route added later cannot regress. */
+  {
+    const es = Eng.createState('1919-09', 'historical', 7);
+    es.date = { y: 1920, m: 9, d: 8 };
+    es.turn = 25; es.monthIndex = 25;
+    es.currentEvent = 'ev_1920_09_carta';
+    const prom = Eng.dispatch(es, { type: 'RESOLVE_EVENT', optionId: 'a' }).state;
+    ok(!!prom.flags.charter_promulgated, '阳台事件选项 a 必须颁布宪章');
+    ok(!!prom.arengo, '颁布宪章的事件路径也必须立刻成立两院');
+    /* Old saves: promulgated but never seated must heal on load. */
+    const stale = Eng.createState('1919-09', 'historical', 7);
+    stale.flags.charter_promulgated = true;
+    stale.arengo = null;
+    const healed = Eng.dispatch(Eng.createState('1919-09', 'historical', 7),
+      { type: 'LOAD_STATE', state: stale }).state;
+    ok(!!healed.arengo, '宪章已颁布但缺议会的旧存档，载入时自动补建');
+    /* And a state with no charter must NOT grow chambers. */
+    const plain = Eng.createState('1919-09', 'historical', 7);
+    const idle = Eng.dispatch(plain, { type: 'ADVANCE' }).state;
+    ok(!idle.arengo, '未颁布宪章时不得凭空成立议会');
+  }
   Meta.CHARTER_REQUIREMENTS.forEach(r => { debated.laws[r.id] = r.level; });
   ok(carta.complete(debated), '七项法律全部达到目标时日志可完成');
   debated.laws.stampa = 1;
@@ -661,9 +836,65 @@ console.log('\n12) 意大利政治力量与进军罗马门槛');
     '意共成立后出现并可计入三个达标关系');
 }
 
-console.log('\n13) 卡牌与事件选项按实际结算预览');
+/* The election result: a ballot whose outcome the player can only read off a
+   column of numbers is a wasted screen, so the count seats a chamber. Assert the
+   chain that reaches it and the data that draws it. */
+console.log('\n12b) 选举结果事件展示议会图');
 {
-  const s = Eng.createState('1919-09', 'historical', 42);
+  const ballot = Eng.EVENT_BY_ID['ev_1921_04_elezioni'];
+  const count = Eng.EVENT_BY_ID['ev_1921_04_elezioni_esito'];
+  ok(!!ballot && !!count, '选举事件与结果事件都已注册');
+  ballot.options.forEach(o => {
+    const patch = typeof o.effect === 'function'
+      ? o.effect(Core.deepClone(Eng.createState('1921-03', 'historical', 7)))
+      : o.effect;
+    ok(patch && patch.next === 'ev_1921_04_elezioni_esito',
+      `选举选项 ${o.id} 必须链到结果事件`);
+    ok(patch && patch.runElection === true,
+      `选举选项 ${o.id} 必须结算选举，否则结果事件无票可读`);
+  });
+  ok(!count.date && count.chain === true, '结果事件由链条打开，不自行按日期触发');
+
+  /* Every path — participation, a solo list, a boycott — must produce a usable
+     count screen; the boycott path is the one with no chamber to seat. */
+  ['listone', 'sola', 'boicottare'].forEach(optionId => {
+    const s = Eng.createState('1921-03', 'historical', 7);
+    s.currentEvent = 'ev_1921_04_elezioni';
+    const after = Eng.dispatch(s, { type: 'RESOLVE_EVENT', optionId }).state;
+    ok(after.currentEvent === 'ev_1921_04_elezioni_esito',
+      `${optionId} 结算后当前事件应当是结果事件（实际 ${after.currentEvent}）`);
+    const res = count.result(after, { R, W, Core, Eng });
+    ok(!!res, `${optionId} 的结果事件必须产出计票`);
+    if (optionId === 'boicottare') {
+      /* A boycott is not an empty chamber: the ballot still seats an assembly,
+         it seats one without the Legion. The chart has to be drawn — that is
+         exactly the picture the choice buys. */
+      const mine = after.assembly[after.playerForce] || 0;
+      const others = Object.keys(after.assembly).reduce((a, p) => a + after.assembly[p], 0);
+      ok(others > 0, '抵制后议会仍然组成（只是没有军团兵的席位）');
+      ok(mine === 0, '抵制后军团的席位应为 0');
+      ok(Array.isArray(res.seats) && res.seats.length > 0,
+        '抵制后仍要画出议会，因为它画的就是「没有你」');
+      ok(!res.seats.some(b => b.id === after.playerForce),
+        '军团的色块不应出现在抵制后的议会里');
+    } else {
+      ok(Array.isArray(res.seats) && res.seats.length > 0, `${optionId} 的结果必须带半圆数据`);
+      const seated = res.seats.reduce((a, b) => a + b.seats, 0);
+      const assembly = Object.keys(after.assembly).reduce((a, p) => a + after.assembly[p], 0);
+      ok(seated === assembly,
+        `${optionId} 半圆席位数应等于 assembly 合计（${seated} vs ${assembly}）`);
+      res.seats.forEach(b => {
+        ok(!!b.color && /^#[0-9A-Fa-f]{3,8}$/.test(b.color), `半圆色块 ${b.id} 需要有颜色`);
+        ok(!!b.name && !!b.name.zh && !!b.name.it, `半圆色块 ${b.id} 的名称必须双语`);
+      });
+      ok(!!res.seatsCaption && !!res.seatsCaption.zh && !!res.seatsCaption.it,
+        `${optionId} 的结果必须有双语图注`);
+    }
+  });
+}
+
+console.log('\n13) 卡牌与事件选项按实际结算预览');
+{  const s = Eng.createState('1919-09', 'historical', 42);
   s.currentEvent = 'ev_1919_09_marcia';
   s.order.fervour = 100;
   const before = JSON.stringify(s);
@@ -718,6 +949,37 @@ console.log('\n13) 卡牌与事件选项按实际结算预览');
       optionId: view.options.find(option => option.enabled).id }).state;
   }
   ok(eventPreviews > 20, '史实时间线覆盖了多个事件预览');
+
+  /* Every preview line must be finished prose. A label built from a content node
+     that never went through Core.L renders as "[object Object]", and a template
+     that never went through previewFill keeps its "{a}" placeholder — both are
+     silent at runtime and only visible to a player reading the panel, so they are
+     asserted here across every card and event option instead. */
+  {
+    const malformed = /\[object |\{[a-z]\}|undefined|NaN/;
+    const offenders = [];
+    let scanned = 0;
+    const scan = (label, lines) => (lines || []).forEach(line => {
+      scanned++;
+      if (malformed.test(line)) offenders.push(label + ' → ' + line);
+    });
+    Eng.ALL_CARDS.forEach(card => {
+      const cs = Eng.createState('1919-09', 'historical', 7);
+      cs.pendingCard = card.id;
+      const view = F.Sel.cardView(cs);
+      if (view) view.options.forEach(o => scan(card.id + '/' + o.id, o.preview));
+    });
+    Eng.ALL_EVENTS.forEach(ev => {
+      const es = Eng.createState('1919-09', 'historical', 7);
+      es.currentEvent = ev.id;
+      const view = F.Sel.eventView(es);
+      if (view) view.options.forEach(o => scan(ev.id + '/' + o.id, o.preview));
+    });
+    ok(scanned > 1000, '效果预览扫描覆盖了全部卡牌与事件：' + scanned + ' 行');
+    ok(offenders.length === 0,
+      '效果预览没有未替换的占位符或对象字符串' +
+      (offenders.length ? '：' + offenders.slice(0, 4).join('；') + '（共 ' + offenders.length + ' 行）' : ''));
+  }
 }
 
 console.log('\n14) 国家精神显示实际半月数值与剧情标记');
@@ -748,6 +1010,54 @@ console.log('\n14) 国家精神显示实际半月数值与剧情标记');
   ok(F.Sel.spiritMarkers(s).length === 5 &&
     !spirits.some(entry => ['国际保证', '工人接管工厂', '边境走私', '法西斯已解除武装', '诗人已离开'].includes(entry.zh)),
     '一次性剧情标记不冒充持续国家精神');
+}
+
+console.log('\n15) 两条危机的压力范围统一为 0–100');
+{
+  const s = Eng.createState('1919-09', 'historical', 151);
+  ok(W.CRISIS_MAX === 100, '危机压力的统一上限为 100');
+  s.order.coup = 98;
+  s.order.subversion = 98;
+  R.applyEffect(s, { order: { coup: 20, subversion: 20 } });
+  ok(s.order.coup === 100 && s.order.subversion === 100, '两条压力的选项效果不会超过 100');
+  R.applyEffect(s, { order: { coup: -200, subversion: -200 } });
+  ok(s.order.coup === 0 && s.order.subversion === 0, '两条压力的选项效果不会低于 0');
+
+  const monthly = Eng.createState('1919-09', 'historical', 152);
+  monthly.date = { y: 1920, m: 6, d: 1 };
+  Object.assign(monthly.order, { coup: 99, subversion: 99, squadre: 90, violence: 90 });
+  Eng.advanceWeek(monthly, () => 0.5);
+  ok(monthly.order.coup === 100 && monthly.order.subversion === 100,
+    '半月结算在 100 封顶');
+  ok(monthly.order.coupMilestones.includes('i100') && monthly.order.subversionMilestones.includes('s100'),
+    '封顶时仍触发两条危机的最终里程碑');
+
+  const old = Eng.createState('1919-09', 'historical', 153);
+  Object.assign(old.order, { coup: 140, subversion: -8 });
+  Object.assign(old.prev, { coup: 120, subversion: -3 });
+  old.series.coup = [0, 70, 140];
+  old.series.subversion = [-8, 50, 130];
+  old.order.coupMilestones = ['i25', 'i50', 'i75', 'i100'];
+  old.order.subversionMilestones = ['s25', 's50'];
+  const before = JSON.stringify(old);
+  const loaded = Eng.dispatch(s, { type: 'LOAD_STATE', state: old }).state;
+  ok(loaded.order.coup === 100 && loaded.order.subversion === 0 && JSON.stringify(old) === before,
+    '直接载入会规范压力范围且不修改传入的存档');
+  const previousStorage = global.localStorage;
+  let migrated;
+  try {
+    global.localStorage = { getItem: () => JSON.stringify({ auto: { state: old }, slots: [] }) };
+    migrated = F.Sel.Save.load('auto');
+  } finally {
+    if (previousStorage === undefined) delete global.localStorage; else global.localStorage = previousStorage;
+  }
+  ok(migrated && migrated.order.coup === 100 && migrated.order.subversion === 0 &&
+    migrated.prev.coup === 100 && migrated.prev.subversion === 0 &&
+    migrated.series.coup.join(',') === '0,70,100' && migrated.series.subversion.join(',') === '0,50,100',
+    '同版本旧存档的当前压力、快照和历史读数统一到 0–100');
+  ok(migrated && JSON.stringify(migrated.order.coupMilestones) === JSON.stringify(old.order.coupMilestones) &&
+    JSON.stringify(migrated.order.subversionMilestones) === JSON.stringify(old.order.subversionMilestones),
+    '旧存档已经触发的里程碑保持不变');
 }
 
 console.log('\n=== ' + (fails === 0 ? '全部通过 ✓' : fails + ' 项失败 ✗') + ' ===');

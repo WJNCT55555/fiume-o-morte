@@ -79,7 +79,8 @@
         var top = null;
         W.PARTIES.forEach(function (p) { if (!top || cls.support[p.id] > cls.support[top.id]) top = p; });
         return {
-          id: c.id, zh: c.zh, it: c.it, pop: cls.pop, note: Core.L(c.note || {}),
+          id: c.id, zh: c.zh, it: c.it, pop: cls.pop,
+          note: Core.L({ zh: c.note || '', it: c.noteIt || c.note || '' }),
           cityPct: Math.round((c.city || 0) * 100),
           turnout: Core.round1(cls.turnout),
           top: top.id, topColor: top.color, topValue: Core.round1(cls.support[top.id]),
@@ -101,7 +102,8 @@
       var rows = W.CLASSES.map(function (c) {
         var cls = st.classes[c.id];
         return {
-          id: c.id, zh: c.zh, it: c.it, pop: cls.pop, note: Core.L(c.note || {}),
+          id: c.id, zh: c.zh, it: c.it, pop: cls.pop,
+          note: Core.L({ zh: c.note || '', it: c.noteIt || c.note || '' }),
           cityPct: Math.round((c.city || 0) * 100),
           turnout: Core.round1(cls.turnout),
           cells: cols.map(function (col) {
@@ -183,12 +185,17 @@
       var monthly = R.lawMonthly(st);
       function amount(n, digits, unit) {
         var rounded = Number(n.toFixed(digits));
+        /* The unit is a {zh, it} node like the label, so the reading follows the
+           active language too ("点/半月" / "pt./mezzo mese"). */
         return (rounded > 0 ? '+' : rounded < 0 ? '−' : '') +
-          Math.abs(rounded).toFixed(digits) + (unit || '');
+          Math.abs(rounded).toFixed(digits) + (unit ? Core.L(unit) : '');
       }
-      function effect(zh, n, digits, unit) {
-        return { zh: zh, value: amount(n, digits, unit) };
+      /* Every label this builds is a bilingual node. The panel prints it through
+         Core.L, so a bare Chinese string here shows Chinese in every locale. */
+      function effect(zh, it, n, digits, unit) {
+        return { zh: zh, it: it, value: amount(n, digits, unit) };
       }
+      var LVL = { zh: ' 级', it: ' liv.' };
       function withoutLaw(id) {
         var other = Core.deepClone(st);
         other.laws[id] = 0;
@@ -206,61 +213,81 @@
         }
         return sum(monthly) - sum(R.lawMonthly(withoutLaw(id)));
       }
+      var PER_HALF = { zh: ' 点/半月', it: ' pt./mezzo mese' };
+      var PTS = { zh: ' 点', it: ' pt.' };
+      var PT_HALF = { zh: ' 百分点/半月', it: ' pp./mezzo mese' };
+      var KE_HALF = { zh: ' K£/半月', it: ' K£/mezzo mese' };
       if (st.flags.charter_promulgated) {
         var charter = R.charterProgress(st);
-        out.push({ icon: 'column', zh: '《卡尔纳罗宪章》', meta: charter.met + '/' + charter.total + ' 项达标', effects: [
-          effect('围攻压力', monthly.order.coup || 0, 2, ' 点/半月'),
-          effect('军团支持流失基数', -0.25 * charter.score, 2, ' 点/半月')
+        out.push({ icon: 'column', zh: '《卡尔纳罗宪章》', it: 'Carta del Carnaro',
+          meta: charter.met + '/' + charter.total + Core.L({ zh: ' 项达标', it: ' obiettivi raggiunti' }), effects: [
+          effect('围攻压力', 'Pressione dell\'assedio', monthly.order.coup || 0, 2, PER_HALF),
+          effect('军团支持流失基数', 'Perdita di base del sostegno', -0.25 * charter.score, 2, PER_HALF)
         ] });
       }
-      if (L.orario >= 1) out.push({ icon: 'fasces', zh: '工时立法', meta: L.orario + ' 级', effects: [
-        effect('罢工强度', lawDelta('orario', 'economy', 'strike'), 1, ' 点/半月'),
-        effect('失业率', lawDelta('orario', 'economy', 'unemployment'), 2, ' 百分点/半月'),
-        effect('资本信心', lawDelta('orario', 'economy', 'capitalConfidence'), 1, ' 点/半月')
+      if (L.orario >= 1) out.push({ icon: 'fasces', zh: '工时立法', it: 'Legge sull\'orario',
+        meta: L.orario + Core.L(LVL), effects: [
+        effect('罢工强度', 'Intensità degli scioperi', lawDelta('orario', 'economy', 'strike'), 1, PER_HALF),
+        effect('失业率', 'Disoccupazione', lawDelta('orario', 'economy', 'unemployment'), 2, PT_HALF),
+        effect('资本信心', 'Fiducia del capitale', lawDelta('orario', 'economy', 'capitalConfidence'), 1, PER_HALF)
       ] });
       if (L.lavoro >= 1) {
         var relief = R.spending(st).relief - R.spending(withoutLaw('lavoro')).relief;
-        out.push({ icon: 'fasces', zh: '劳动保障', meta: L.lavoro + ' 级', effects: [
-          effect('罢工强度', lawDelta('lavoro', 'economy', 'strike'), 1, ' 点/半月'),
-          effect('救济支出', relief, 1, ' K£/半月')
+        out.push({ icon: 'fasces', zh: '劳动保障', it: 'Tutele del lavoro',
+          meta: L.lavoro + Core.L(LVL), effects: [
+          effect('罢工强度', 'Intensità degli scioperi', lawDelta('lavoro', 'economy', 'strike'), 1, PER_HALF),
+          effect('救济支出', 'Spesa assistenziale', relief, 1, KE_HALF)
         ] });
       }
-      if (L.ordine >= 2) out.push({ icon: 'legittimita', zh: '市政警察监督', meta: L.ordine + ' 级', effects: [
-        effect('法西斯小队', lawDelta('ordine', 'order', 'squadre'), 1, ' 点/半月'),
-        effect('领袖权威', lawDelta('ordine', 'order', 'authority'), 1, ' 点/半月')
+      if (L.ordine >= 2) out.push({ icon: 'legittimita', zh: '市政警察监督', it: 'Vigilanza sulla polizia',
+        meta: L.ordine + Core.L(LVL), effects: [
+        effect('法西斯小队', 'Squadre fasciste', lawDelta('ordine', 'order', 'squadre'), 1, PER_HALF),
+        effect('领袖权威', 'Autorità del Comandante', lawDelta('ordine', 'order', 'authority'), 1, PER_HALF)
       ] });
-      if (L.portofranco >= 1) out.push({ icon: 'coins', zh: '自由港制度', meta: L.portofranco + ' 级', effects: [
-        effect('港口吞吐目标', R.trafficTarget(st) - R.trafficTarget(withoutLaw('portofranco')), 1, ' 点'),
-        effect('资本信心', lawDelta('portofranco', 'economy', 'capitalConfidence'), 1, ' 点/半月')
+      if (L.portofranco >= 1) out.push({ icon: 'coins', zh: '自由港制度', it: 'Regime del porto franco',
+        meta: L.portofranco + Core.L(LVL), effects: [
+        effect('港口吞吐目标', 'Obiettivo del traffico', R.trafficTarget(st) - R.trafficTarget(withoutLaw('portofranco')), 1, PTS),
+        effect('资本信心', 'Fiducia del capitale', lawDelta('portofranco', 'economy', 'capitalConfidence'), 1, PER_HALF)
       ] });
       if (L.lingua >= 1) {
-        var langEffects = [effect('南斯拉夫关系', lawDelta('lingua', 'diplo', 'yugoslavia'), 1, ' 点/半月')];
+        var langEffects = [effect('南斯拉夫关系', 'Rapporti con la Jugoslavia', lawDelta('lingua', 'diplo', 'yugoslavia'), 1, PER_HALF)];
         if (L.lingua >= 2) langEffects.push(effect('斯拉夫农民·自治党支持',
-          supportDelta('lingua', 'contadini', 'AUT'), 1, ' 点/半月'));
-        out.push({ icon: 'star', zh: '官方语言制度', meta: L.lingua + ' 级', effects: langEffects });
+          'Contadini croati · sostegno autonomista', supportDelta('lingua', 'contadini', 'AUT'), 1, PER_HALF));
+        out.push({ icon: 'star', zh: '官方语言制度', it: 'Regime linguistico ufficiale',
+          meta: L.lingua + Core.L(LVL), effects: langEffects });
       }
-      if (L.scuola >= 1) out.push({ icon: 'star', zh: '双语教育', meta: L.scuola + ' 级', effects: [
-        effect('斯拉夫农民·军团支持', supportDelta('scuola', 'contadini', 'LEG'), 2, ' 点/半月')
+      if (L.scuola >= 1) out.push({ icon: 'star', zh: '双语教育', it: 'Istruzione bilingue',
+        meta: L.scuola + Core.L(LVL), effects: [
+        effect('斯拉夫农民·军团支持', 'Contadini croati · sostegno alla Legione', supportDelta('scuola', 'contadini', 'LEG'), 2, PER_HALF)
       ] });
       return out;
     };
 
     S.spiritMarkers = function (st) {
+      /* Bilingual nodes: the marker list prints through Core.L. */
       var markers = [
-        ['international_guarantee', '国际保证'], ['worker_control', '工人接管工厂'],
-        ['smuggle', '边境走私'], ['fascio_disarmed', '法西斯解除武装'],
-        ['dannunzio_left', '诗人已离开']
+        ['international_guarantee', '国际保证', 'Garanzia internazionale'],
+        ['worker_control', '工人接管工厂', 'Operai al controllo delle fabbriche'],
+        ['smuggle', '边境走私', 'Contrabbando di frontiera'],
+        ['fascio_disarmed', '法西斯解除武装', 'Fascio disarmato'],
+        ['dannunzio_left', '诗人已离开', 'Il Poeta ha lasciato la città']
       ];
-      return markers.filter(function (entry) { return !!st.flags[entry[0]]; }).map(function (entry) { return entry[1]; });
+      return markers.filter(function (entry) { return !!st.flags[entry[0]]; })
+        .map(function (entry) { return { zh: entry[1], it: entry[2] }; });
     };
 
     S.factions = function (st) {
       return {
+        /* Seated along the movement's own left-to-right axis (`FACTIONS[].order`),
+           not by influence: an ordering by size reshuffles itself every time a
+           card moves a point, and a political spectrum that reorders is not one. */
         list: W.FACTIONS.map(function (f) {
           var x = st.factions[f.id];
           return { id: f.id, zh: f.zh, it: f.it, color: f.color, blurb: f.blurb,
-            inf: Core.round1(x.inf), dis: Core.round1(x.dis) };
-        }).sort(function (a, b) { return b.inf - a.inf; }),
+            order: f.order, inf: Core.round1(x.inf), dis: Core.round1(x.dis) };
+        }).sort(function (a, b) {
+          return (a.order == null ? 999 : a.order) - (b.order == null ? 999 : b.order);
+        }),
         dissent: Core.round1(R.factionDissent(st)),
         unity: Core.round1(R.unityEfficiency(st) * 100)
       };
@@ -295,7 +322,11 @@
       var list = W.FORZE.filter(function (f) { return W.forzaExists(st, f.id); }).map(function (f) {
         var v = Core.round1(z[f.id] == null ? f.init : z[f.id]);
         var gate = f.gate == null ? 80 : f.gate;
-        return { id: f.id, zh: f.zh, it: f.it, color: f.color, note: Core.L(f.note || {}),
+        /* `Core.L` passes a plain string straight through, so the Italian has to
+           travel as a node. A bare `Core.L(f.note)` left these paragraphs in
+           Chinese in every locale. */
+        return { id: f.id, zh: f.zh, it: f.it, color: f.color,
+          note: Core.L({ zh: f.note || '', it: f.noteIt || f.note || '' }),
           value: v, allied: !!f.allied, gate: gate,
           atGate: v >= gate, consolidating: !!f.allied && v >= frontMin };
       });
@@ -342,8 +373,14 @@
       return W.LAWS.map(function (L) {
         var lvl = st.laws[L.id] || 0;
         var required = Meta.CHARTER_REQUIREMENTS.filter(function (r) { return r.id === L.id; })[0];
+        /* `label` is the name of the level now in force; `levelList` is every
+           level in both languages, for the law dossier's ladder. */
         return { id: L.id, zh: L.zh, it: L.it, level: lvl, max: L.max,
-          label: L.levels[lvl], levels: L.levels.slice(), effect: W.LAW_EFFECTS[L.id], source: W.LAW_SOURCES[L.id],
+          label: L.levels[lvl], labelIt: (L.levelsIt || [])[lvl] || '',
+          levels: L.levels.slice(), levelList: L.levels.map(function (zh, n) {
+            return { zh: zh, it: (L.levelsIt || [])[n] || zh, n: n };
+          }),
+          effect: W.LAW_EFFECTS[L.id], source: W.LAW_SOURCES[L.id],
           charterTarget: required ? required.level : null };
       });
     };
@@ -435,9 +472,14 @@
         var f = a.faction ? W.FACTIONS.filter(function (x) { return x.id === a.faction; })[0] : null;
         var cdLeft = Math.max(0, st.advisors.cooldown - (st.turn - st.advisors.lastAction));
         var dis = (f && st.factions[f.id]) ? Core.round1(st.factions[f.id].dis) : 0;
+        /* `portrait` has to travel with the advisor: the roster, the seat row and
+           the deck all render it, and dropping it here silently reduced every
+           advisor to a lettered placeholder. */
         return { id: a.id, zh: a.zh, it: a.it, bio: a.bio, action: a.action,
+          portrait: a.portrait || '',
           faction: a.faction, external: !a.faction,
-          factionZh: f ? f.zh : '外部盟友', factionColor: f ? f.color : '#8A8377',
+          factionZh: f ? f.zh : '外部盟友', factionIt: f ? f.it : 'Alleati esterni',
+          factionColor: f ? f.color : '#8A8377',
           active: st.advisors.active.indexOf(a.id) >= 0, unlocked: unlocked,
           dissent: dis, cdLeft: cdLeft };
       });
@@ -446,75 +488,244 @@
     /* Resolve a choice on a cloned state. The live reducer applies caps,
        zero-sum transfers, derived opinion and event routing; handwritten
        option.preview strings cannot reliably describe those outcomes. */
+    /* ---- Effect-preview vocabulary ------------------------------------------
+       The preview is built here, not in the view, so every label it emits has to
+       carry its own Italian: a bare Chinese string would come out Chinese in the
+       Italian locale no matter how the view renders it. These are {zh, it} nodes.
+
+       `previewJoin(kind, ...)` glues parts with the connector the language wants,
+       so "手工业者与小店主·军团支持" and "Artigiani e bottegai · consenso dei
+       legionari" are one code path rather than two. */
+    var PL = {
+      funds: { zh: '金库', it: 'Cassa' },
+      arms: { zh: '军备', it: 'Armi' },
+      ap: { zh: '行动力', it: 'Punti azione' },
+      legitimacy: { zh: '军团民意', it: 'Opinione sulla Legione' },
+      relation: { zh: '关系', it: 'rapporti' },
+      /* A faction reads as "{name}力量" in Chinese but needs a preposition in
+         Italian ("influenza dei Sindacalisti"), so the {a} sits inside the phrase.
+         All five faction names are masculine plurals, so `dei` fits each. */
+      influence: { zh: '{a}力量', it: 'influenza dei {a}' },
+      dissent: { zh: '{a}异议', it: 'dissenso dei {a}' },
+      /* Chinese appends the noun directly ("军团支持"); Italian reads "consenso
+         del Partito". The ' · ' between the class and this phrase comes from the
+         'cat' connector, so the suffix itself carries no leading separator. */
+      supportSuffix: { zh: '{a}支持', it: 'consenso del {a}' },      nationalSupport: { zh: '全国支持', it: 'consenso nazionale' },
+      seats: { zh: '议会席位', it: 'seggi' },
+      cohesion: { zh: '联盟凝聚力', it: 'Coesione della coalizione' },
+      join: { zh: '加入执政联盟：{a}', it: 'Entra nella coalizione: {a}' },
+      quit: { zh: '退出执政联盟：{a}', it: 'Esce dalla coalizione: {a}' },
+      cabinet: { zh: '{a}：{b} → {c}', it: '{a}: {b} → {c}' },
+      journalIn: { zh: '开启日志：{a}', it: 'Diario aperto: {a}' },
+      flagOn: { zh: ' · 生效', it: ' · attivo' },
+      flagOff: { zh: ' · 取消', it: ' · revocato' },
+      ending: { zh: '结局：{a}', it: 'Finale: {a}' },
+      achievement: { zh: '解锁成就：{a}', it: 'Obiettivo sbloccato: {a}' },
+      situation: { zh: '局势：{a}', it: 'Situazione: {a}' },
+      lawLevel: { zh: '（第 {a} 级 → 第 {b} 级）', it: ' (liv. {a} → liv. {b})' },
+      unavailable: { zh: '效果预览不可用', it: 'Anteprima non disponibile' },
+      district: { zh: '{a}·{b}', it: '{a} · {b}' },
+      pairRelation: { zh: '{a}与{b}关系', it: 'Rapporti {a}–{b}' },
+      points: { zh: ' 点', it: ' pt.' },
+      seatsUnit: { zh: ' 席', it: ' seggi' },
+      chainCard: { zh: '接续卡牌：{a}', it: 'Carta successiva: {a}' },
+      phase: { zh: '局势阶段：{a}', it: 'Fase: {a}' },
+      queueEvent: { zh: '加入待办事件：{a}', it: 'Evento in coda: {a}' },
+      followUp: { zh: '后续事件：{a}', it: 'Evento successivo: {a}' },
+      noChange: { zh: '无即时数值变化', it: 'Nessun valore cambia subito' }
+    };
+    /* 'mod' = a modifier that follows a name ("意大利王国关系" / "Rapporti con il
+       Regno d'Italia"); 'cat' = side-by-side names ("手工业者与小店主·军团支持").
+       A `true` connector means "no separator", which cannot be expressed as an
+       empty string in a {zh, it} node: Core.L falls through to `it` on a falsy
+       reading, so an empty zh value would leak the Italian one. */
+    var PREVIEW_SEP = {
+      mod: { zh: true, it: ' ' },
+      cat: { zh: '·', it: ' · ' },
+      /* Chinese appends the noun ("…军团支持"); Italian reads "… · consenso del
+         Partito", so the connector differs per language. */
+      of: { zh: true, it: ' ' }
+    };
+    function previewJoin(kind) {
+      var sepNode = PREVIEW_SEP[kind] || PREVIEW_SEP.mod;
+      /* `arguments` must be read before the loop below: inside the forEach
+         callback it refers to the callback's own arguments, not this function's. */
+      var args = [];
+      for (var i = 1; i < arguments.length; i++) args.push(arguments[i]);
+      /* Built per language, so a part that needs a preposition ("consenso del
+         Partito") can differ in shape between zh and it. An empty reading is a
+         legitimate part (the 'mod' connector is empty in Chinese); only a
+         missing node is dropped. */
+      var out = {};
+      ['zh', 'it'].forEach(function (lang) {
+        var parts = [];
+        args.forEach(function (a) {
+          if (a == null || (typeof a === 'string' && a === '')) return;
+          parts.push(typeof a === 'string' ? a : (a[lang] || a.zh || a.it || ''));
+        });
+        var sep = sepNode[lang];
+        out[lang] = sep === true ? parts.join('') : parts.join(sep == null ? '' : sep);
+      });
+      return Core.L(out);
+    }
+    /* Fill a {a}/{b}/{c} template in whichever language is active. A value may
+       itself be a {zh, it} node (a card or party name), which is resolved
+       recursively so a nested placeholder cannot survive into the output. */
+    function previewFill(tmpl, vars) {
+      function resolve(lang, v) {
+        if (v == null) return '';
+        if (typeof v === 'string') return v;
+        if (typeof v === 'number') return String(v);
+        return v[lang] || v.zh || v.it || '';
+      }
+      var out = {};
+      Object.keys(tmpl).forEach(function (lang) {
+        var s = tmpl[lang];
+        Object.keys(vars).forEach(function (k) {
+          s = s.split('{' + k + '}').join(resolve(lang, vars[k]));
+        });
+        out[lang] = s;
+      });
+      return Core.L(out);
+    }
+
     var PREVIEW_ORDER = {
-      authority: '领袖权威', garrison: '意大利驻军', fervour: '民众热忱', squadre: '法西斯小队',
-      violence: '政治暴力', tension: '紧张局势', coup: '法西斯占领风险', subversion: '颠覆风险',
-      milizia: '军团兵力', police: '市政警察', carabinieri: '皇家宪兵'
+      authority: { zh: '领袖权威', it: 'Autorità del Comandante' },
+      garrison: { zh: '意大利驻军', it: 'Presidio italiano' },
+      fervour: { zh: '民众热忱', it: 'Fervore popolare' },
+      squadre: { zh: '法西斯小队', it: 'Squadre fasciste' },
+      violence: { zh: '政治暴力', it: 'Violenza politica' },
+      tension: { zh: '紧张局势', it: 'Tensione' },
+      coup: { zh: '法西斯占领风险', it: 'Rischio di presa fascista' },
+      subversion: { zh: '颠覆风险', it: 'Rischio di sovversione' },
+      milizia: { zh: '军团兵力', it: 'Forza della Legione' },
+      police: { zh: '市政警察', it: 'Polizia municipale' },
+      carabinieri: { zh: '皇家宪兵', it: 'Carabinieri reali' }
     };
     var PREVIEW_ECONOMY = {
-      traffic: '港口吞吐指数', hinterland: '腹地通达', delta: '三角洲控制', works: '港口工程',
-      recognition: '国际承认', strike: '罢工强度', unemployment: '失业率', inflation: '通胀率',
-      population: '人口', treasury: '国库储备', debt: '债务', arrears: '欠款',
-      capitalConfidence: '资本信心', lastRevenue: '上期收入'
+      traffic: { zh: '港口吞吐指数', it: 'Indice del porto' },
+      hinterland: { zh: '腹地通达', it: 'Accesso all\'entroterra' },
+      delta: { zh: '三角洲控制', it: 'Controllo del delta' },
+      works: { zh: '港口工程', it: 'Opere portuali' },
+      recognition: { zh: '国际承认', it: 'Riconoscimento internazionale' },
+      strike: { zh: '罢工强度', it: 'Intensità degli scioperi' },
+      unemployment: { zh: '失业率', it: 'Disoccupazione' },
+      inflation: { zh: '通胀率', it: 'Inflazione' },
+      population: { zh: '人口', it: 'Popolazione' },
+      treasury: { zh: '国库储备', it: 'Riserve' },
+      debt: { zh: '债务', it: 'Debito' },
+      arrears: { zh: '欠款', it: 'Arretrati' },
+      capitalConfidence: { zh: '资本信心', it: 'Fiducia del capitale' },
+      lastRevenue: { zh: '上期收入', it: 'Entrate del periodo scorso' }
     };
     var PREVIEW_COUNTERS = {
-      strikes: '罢工次数', violenceEvents: '暴力事件', emigrants: '离城人数',
-      exileMonths: '流亡月数', resistMonths: '抵抗月数', calmMonths: '平静月数',
-      electionsHeld: '选举次数'
+      strikes: { zh: '罢工次数', it: 'Scioperi' },
+      violenceEvents: { zh: '暴力事件', it: 'Episodi di violenza' },
+      emigrants: { zh: '离城人数', it: 'Emigranti' },
+      exileMonths: { zh: '流亡月数', it: 'Mesi di esilio' },
+      resistMonths: { zh: '抵抗月数', it: 'Mesi di resistenza' },
+      calmMonths: { zh: '平静月数', it: 'Mesi di calma' },
+      electionsHeld: { zh: '选举次数', it: 'Elezioni tenute' }
     };
     var PREVIEW_FLAGS = {
-      charter_promulgated: '《卡尔纳罗宪章》颁布', charter_debate_resolved: '宪章辩论完成',
-      charter_program: '宪章立法纲领', charter_drafted: '宪章草案', deambris_arrived: '德·安布里斯加入',
-      free_election: '自由选举', no_election: '取消选举', single_list: '单一名单',
-      runMunicipal: '市政选举', splitList: '分立名单', boycott: '抵制选举',
-      exile: '流亡', coup_done: '政变已发生', smuggle: '边境走私',
-      worker_control: '工人接管', blasich_contact: '布拉西奇接触',
-      blasich_in: '布拉西奇入阁', grand_coalition: '大联合',
-      natale_done: '血腥圣诞', dannunzio_left: '邓南遮离开', treaty_rome: '《罗马条约》',
-      soviet_contact: '苏维埃接触', magyar_exiles: '匈牙利流亡者网络', balkan_plot: '巴尔干密约',
-      modus_accepted: '接受临时方案', modus_blocked: '拒绝临时方案', modus_delayed: '延后临时方案',
-      modus_voted: '临时方案表决', fascio_disarmed: '法西斯解除武装',
-      cervo_scandal: '金鹿旅馆丑闻', carne_scolpita: '雕刻的肉事件',
-      persia: '波斯号事件', persia_refused: '拒绝波斯号',
-      carnaro_bonds: '卡尔纳罗公债', milan_loan: '米兰借款',
-      factories_leased: '工厂租赁', fascist_money: '法西斯资金',
-      mussolini_letter: '墨索里尼来信', rome_talks: '与罗马谈判',
-      marcia_1920_refused: '拒绝进军罗马', officer_contact: '接触意大利军官团',
-      marcia_1920_open: '进军罗马路线', marcia_1920_early: '提前进军',
-      marcia_1920_waited: '暂缓进军', balcony_declaration: '阳台宣言',
-      adunata_scandal: '集会丑闻', occupied_islands: '占领岛屿',
-      accept_rapallo: '接受《拉帕洛条约》', comintern_door: '意大利共产党成立',
-      psi_split_from_pcdi: '社会党与共产党分裂', baross_deal: '巴罗斯港协议',
-      baross_arbitration: '巴罗斯港仲裁', stay: '留守阜姆',
-      italian_occupation: '意大利占领', civic_resistance: '市民抵抗',
-      legion_party: '军团政党', rest_in_city: '留在城中', stay_political: '继续政治斗争',
-      underground: '转入地下', behind_scenes: '幕后谈判', partial_deal: '部分妥协',
-      bombacci_front: '邦巴奇加入阵线', bombacci_rebuffed: '拒绝邦巴奇',
-      blood_christmas: '血腥圣诞战斗', martyred: '殉难',
-      marcia_1920: '向罗马进军', marcia_1920_failed: '进军罗马失败',
-      refused_march: '拒绝进军', gramsci_front: '葛兰西加入阵线',
-      malatesta_front: '马拉泰斯塔加入阵线', fascist_embrace: '接纳法西斯',
-      fascist_alliance: '法西斯同盟', fascist_refused: '拒绝法西斯'
+      charter_promulgated: { zh: '《卡尔纳罗宪章》颁布', it: 'Carta del Carnaro promulgata' },
+      charter_debate_resolved: { zh: '宪章辩论完成', it: 'Dibattito sulla Carta concluso' },
+      charter_program: { zh: '宪章立法纲领', it: 'Programma legislativo della Carta' },
+      charter_drafted: { zh: '宪章草案', it: 'Bozza della Carta' },
+      deambris_arrived: { zh: '德·安布里斯加入', it: 'De Ambris è arrivato' },
+      free_election: { zh: '自由选举', it: 'Elezioni libere' },
+      no_election: { zh: '取消选举', it: 'Elezioni annullate' },
+      single_list: { zh: '单一名单', it: 'Lista unica' },
+      runMunicipal: { zh: '市政选举', it: 'Elezioni municipali' },
+      splitList: { zh: '分立名单', it: 'Liste separate' },
+      boycott: { zh: '抵制选举', it: 'Boicottaggio elettorale' },
+      exile: { zh: '流亡', it: 'Esilio' },
+      coup_done: { zh: '政变已发生', it: 'Colpo di Stato avvenuto' },
+      smuggle: { zh: '边境走私', it: 'Contrabbando di frontiera' },
+      worker_control: { zh: '工人接管', it: 'Operai al controllo' },
+      blasich_contact: { zh: '布拉西奇接触', it: 'Contatto con Blasich' },
+      blasich_in: { zh: '布拉西奇入阁', it: 'Blasich nel gabinetto' },
+      grand_coalition: { zh: '大联合', it: 'Grande coalizione' },
+      natale_done: { zh: '血腥圣诞', it: 'Natale di sangue' },
+      dannunzio_left: { zh: '邓南遮离开', it: 'D\'Annunzio ha lasciato la città' },
+      treaty_rome: { zh: '《罗马条约》', it: 'Trattato di Roma' },
+      soviet_contact: { zh: '苏维埃接触', it: 'Contatto con i sovietici' },
+      magyar_exiles: { zh: '匈牙利流亡者网络', it: 'Rete degli esuli magiari' },
+      balkan_plot: { zh: '巴尔干密约', it: 'Patto balcanico segreto' },
+      modus_accepted: { zh: '接受临时方案', it: 'Modus vivendi accettato' },
+      modus_blocked: { zh: '拒绝临时方案', it: 'Modus vivendi rifiutato' },
+      modus_delayed: { zh: '延后临时方案', it: 'Modus vivendi rinviato' },
+      modus_voted: { zh: '临时方案表决', it: 'Voto sul modus vivendi' },
+      fascio_disarmed: { zh: '法西斯解除武装', it: 'Fascio disarmato' },
+      cervo_scandal: { zh: '金鹿旅馆丑闻', it: 'Scandalo del Cervo' },
+      carne_scolpita: { zh: '雕刻的肉事件', it: 'Caso della «carne scolpita»' },
+      persia: { zh: '波斯号事件', it: 'Caso della Persia' },
+      persia_refused: { zh: '拒绝波斯号', it: 'Persia rifiutata' },
+      carnaro_bonds: { zh: '卡尔纳罗公债', it: 'Prestito del Carnaro' },
+      milan_loan: { zh: '米兰借款', it: 'Prestito di Milano' },
+      factories_leased: { zh: '工厂租赁', it: 'Fabbriche affittate' },
+      fascist_money: { zh: '法西斯资金', it: 'Finanziamenti fascisti' },
+      mussolini_letter: { zh: '墨索里尼来信', it: 'Lettera di Mussolini' },
+      rome_talks: { zh: '与罗马谈判', it: 'Trattative con Roma' },
+      marcia_1920_refused: { zh: '拒绝进军罗马', it: 'Marcia su Roma rifiutata' },
+      officer_contact: { zh: '接触意大利军官团', it: 'Contatto con il corpo ufficiale' },
+      marcia_1920_open: { zh: '进军罗马路线', it: 'Linea della marcia su Roma' },
+      marcia_1920_early: { zh: '提前进军', it: 'Marcia anticipata' },
+      marcia_1920_waited: { zh: '暂缓进军', it: 'Marcia rinviata' },
+      balcony_declaration: { zh: '阳台宣言', it: 'Dichiarazione dal balcone' },
+      adunata_scandal: { zh: '集会丑闻', it: 'Scandalo dell\'adunata' },
+      occupied_islands: { zh: '占领岛屿', it: 'Isole occupate' },
+      accept_rapallo: { zh: '接受《拉帕洛条约》', it: 'Trattato di Rapallo accettato' },
+      comintern_door: { zh: '意大利共产党成立', it: 'Nascita del Partito Comunista' },
+      psi_split_from_pcdi: { zh: '社会党与共产党分裂', it: 'Scissione fra socialisti e comunisti' },
+      baross_deal: { zh: '巴罗斯港协议', it: 'Accordo di Porto Baross' },
+      baross_arbitration: { zh: '巴罗斯港仲裁', it: 'Arbitrato su Porto Baross' },
+      stay: { zh: '留守阜姆', it: 'Restare a Fiume' },
+      italian_occupation: { zh: '意大利占领', it: 'Occupazione italiana' },
+      civic_resistance: { zh: '市民抵抗', it: 'Resistenza civica' },
+      legion_party: { zh: '军团政党', it: 'Partito della Legione' },
+      rest_in_city: { zh: '留在城中', it: 'Restare in città' },
+      stay_political: { zh: '继续政治斗争', it: 'Continuare la lotta politica' },
+      underground: { zh: '转入地下', it: 'Passare alla clandestinità' },
+      behind_scenes: { zh: '幕后谈判', it: 'Trattative dietro le quinte' },
+      partial_deal: { zh: '部分妥协', it: 'Compromesso parziale' },
+      bombacci_front: { zh: '邦巴奇加入阵线', it: 'Bombacci entra nel fronte' },
+      bombacci_rebuffed: { zh: '拒绝邦巴奇', it: 'Bombacci respinto' },
+      blood_christmas: { zh: '血腥圣诞战斗', it: 'Combattimenti del Natale di sangue' },
+      martyred: { zh: '殉难', it: 'Martirio' },
+      marcia_1920: { zh: '向罗马进军', it: 'Marcia su Roma' },
+      marcia_1920_failed: { zh: '进军罗马失败', it: 'Marcia su Roma fallita' },
+      refused_march: { zh: '拒绝进军', it: 'Marcia rifiutata' },
+      gramsci_front: { zh: '葛兰西加入阵线', it: 'Gramsci entra nel fronte' },
+      malatesta_front: { zh: '马拉泰斯塔加入阵线', it: 'Malatesta entra nel fronte' },
+      fascist_embrace: { zh: '接纳法西斯', it: 'Abbraccio ai fascisti' },
+      fascist_alliance: { zh: '法西斯同盟', it: 'Alleanza con i fascisti' },
+      fascist_refused: { zh: '拒绝法西斯', it: 'Fascisti rifiutati' }
     };
     function previewNumber(n) {
       var v = Math.round(n * 100) / 100;
       return (Math.abs(v - Math.round(v)) < 0.005) ? String(Math.round(v)) :
         (Math.abs(v * 10 - Math.round(v * 10)) < 0.005 ? v.toFixed(1) : v.toFixed(2));
     }
+    /* The label and the reading are always separated, in both languages: zh wants
+       a space too ("领袖权威 +5", not "领袖权威+5"). */
     function previewDelta(lines, label, before, after, unit) {
       if (typeof before !== 'number' || typeof after !== 'number' ||
           !isFinite(before) || !isFinite(after) || Math.abs(after - before) < 0.005) return;
       var d = after - before;
-      lines.push(label + ' ' + (d > 0 ? '+' : '−') + previewNumber(Math.abs(d)) + (unit || ''));
+      lines.push((typeof label === 'string' ? label : Core.L(label)) + ' ' +
+        (d > 0 ? '+' : '−') + previewNumber(Math.abs(d)) + (unit || ''));
     }
     function previewFields(lines, before, after, labels, unit) {
       Object.keys(labels).forEach(function (key) {
         previewDelta(lines, labels[key], before[key], after[key], unit);
       });
     }
-    function previewName(list, id) {
+    /* Resolve an id to its {zh, it} node, so the caller can compose a bilingual
+       label instead of pasting the Chinese name into a sentence. */
+    function previewNode(list, id) {
       var found = list.filter(function (x) { return x.id === id; })[0];
-      return found ? found.zh : id;
+      return found || { zh: id, it: id };
     }
     function previewEffectPatch(option, state) {
       // The callback may read or alter its argument. Never give it the live state.
@@ -526,31 +737,32 @@
         var source = Core.deepClone(st);
         var patch = previewEffectPatch(option, source);
         var result = Eng.dispatch(source, { type: type, optionId: option.id });
-        if (result.toast && result.toast.kind === 'warn') return ['效果预览不可用'];
+        if (result.toast && result.toast.kind === 'warn') return [Core.L(PL.unavailable)];
         var after = result.state;
         var lines = [];
-        previewDelta(lines, '金库', st.funds, after.funds, ' K£');
-        previewDelta(lines, '军备', st.arms, after.arms);
-        previewDelta(lines, '行动力', st.ap, after.ap);
+        previewDelta(lines, PL.funds, st.funds, after.funds, ' K£');
+        previewDelta(lines, PL.arms, st.arms, after.arms);
+        previewDelta(lines, PL.ap, st.ap, after.ap);
         previewFields(lines, st.order, after.order, PREVIEW_ORDER);
         previewFields(lines, st.economy, after.economy, PREVIEW_ECONOMY);
-        previewDelta(lines, '军团民意', st.legitimacy, after.legitimacy);
+        previewDelta(lines, PL.legitimacy, st.legitimacy, after.legitimacy);
 
         W.LAWS.forEach(function (law) {
           var from = st.laws[law.id] || 0, to = after.laws[law.id] || 0;
-          if (from !== to) lines.push(law.zh + ' ' + (to > from ? '+' : '−') + Math.abs(to - from) +
-            '（第 ' + from + ' 级 → 第 ' + to + ' 级）');
+          if (from !== to) lines.push(
+            previewJoin('mod', law, (to > from ? '+' : '−') + Math.abs(to - from)) +
+            previewFill(PL.lawLevel, { a: from, b: to }));
         });
         W.DIPLO_ACTORS.forEach(function (actor) {
-          previewDelta(lines, actor.zh + '关系', st.diplo[actor.id], after.diplo[actor.id]);
+          previewDelta(lines, previewJoin('mod', actor, PL.relation), st.diplo[actor.id], after.diplo[actor.id]);
         });
         W.FORZE.forEach(function (force) {
           if (W.forzaExists && !W.forzaExists(after, force.id)) return;
-          previewDelta(lines, force.zh + '关系', (st.forze || {})[force.id], (after.forze || {})[force.id]);
+          previewDelta(lines, previewJoin('mod', force, PL.relation), (st.forze || {})[force.id], (after.forze || {})[force.id]);
         });
         W.FACTIONS.forEach(function (faction) {
-          previewDelta(lines, faction.zh + '力量', st.factions[faction.id].inf, after.factions[faction.id].inf);
-          previewDelta(lines, faction.zh + '异议', st.factions[faction.id].dis, after.factions[faction.id].dis);
+          previewDelta(lines, previewFill(PL.influence, { a: faction }), st.factions[faction.id].inf, after.factions[faction.id].inf);
+          previewDelta(lines, previewFill(PL.dissent, { a: faction }), st.factions[faction.id].dis, after.factions[faction.id].dis);
         });
 
         // Show the class/party named by the actual effect. Normalisation moves
@@ -568,73 +780,99 @@
         Object.keys(supportTargets).forEach(function (key) {
           var target = supportTargets[key], cls = target[0], party = target[1];
           if (!st.classes[cls] || !after.classes[cls]) return;
-          previewDelta(lines, previewName(W.CLASSES, cls) + '·' + previewName(W.PARTIES, party) + '支持',
-            st.classes[cls].support[party] || 0, after.classes[cls].support[party] || 0, ' 点');
+          previewDelta(lines, previewJoin('cat', previewNode(W.CLASSES, cls),
+            previewFill(PL.supportSuffix, { a: previewNode(W.PARTIES, party) })),
+            st.classes[cls].support[party] || 0, after.classes[cls].support[party] || 0, Core.L(PL.points));
         });
         if (patch.parties) Object.keys(patch.parties).forEach(function (party) {
-          previewDelta(lines, previewName(W.PARTIES, party) + '全国支持',
-            (st.partySupport || {})[party] || 0, (after.partySupport || {})[party] || 0, ' 点');
+          previewDelta(lines, previewJoin('mod', previewNode(W.PARTIES, party), PL.nationalSupport),
+            (st.partySupport || {})[party] || 0, (after.partySupport || {})[party] || 0, Core.L(PL.points));
         });
         if (patch.relations) patch.relations.forEach(function (pair) {
-          previewDelta(lines, previewName(W.PARTIES, pair[0]) + '与' + previewName(W.PARTIES, pair[1]) + '关系',
+          previewDelta(lines, previewFill(PL.pairRelation, {
+            a: previewNode(W.PARTIES, pair[0]), b: previewNode(W.PARTIES, pair[1]) }),
             R.relationOf(st, pair[0], pair[1]), R.relationOf(after, pair[0], pair[1]));
         });
         W.DISTRICTS.forEach(function (district) {
+          var labels = {
+            control: { zh: '控制', it: 'controllo' },
+            agitation: { zh: '动荡', it: 'agitazione' },
+            unemployment: { zh: '失业率', it: 'disoccupazione' }
+          };
           ['control', 'agitation', 'unemployment'].forEach(function (key) {
-            var labels = { control: '控制', agitation: '动荡', unemployment: '失业率' };
-            previewDelta(lines, district.zh + '·' + labels[key], st.districts[district.id][key],
-              after.districts[district.id][key]);
+            previewDelta(lines, previewFill(PL.district, { a: district, b: labels[key] }),
+              st.districts[district.id][key], after.districts[district.id][key]);
           });
         });
         previewFields(lines, st.counters, after.counters, PREVIEW_COUNTERS);
-        previewFields(lines, st.revenueBoost, after.revenueBoost,
-          { porto: '港口收入加成', dogana: '关税收入加成', consumo: '消费税收入加成', reddito: '所得税收入加成' });
-        previewDelta(lines, '联盟凝聚力', st.coalition.cohesion, after.coalition.cohesion);
+        previewFields(lines, st.revenueBoost, after.revenueBoost, {
+          porto: { zh: '港口收入加成', it: 'Maggior gettito portuale' },
+          dogana: { zh: '关税收入加成', it: 'Maggior gettito doganale' },
+          consumo: { zh: '消费税收入加成', it: 'Maggior gettito sui consumi' },
+          reddito: { zh: '所得税收入加成', it: 'Maggior gettito sul reddito' }
+        });
+        previewDelta(lines, PL.cohesion, st.coalition.cohesion, after.coalition.cohesion);
         after.coalition.members.forEach(function (id) {
-          if (st.coalition.members.indexOf(id) < 0) lines.push('加入执政联盟：' + previewName(W.PARTIES, id));
+          if (st.coalition.members.indexOf(id) < 0) lines.push(previewFill(PL.join, { a: previewNode(W.PARTIES, id) }));
         });
         st.coalition.members.forEach(function (id) {
-          if (after.coalition.members.indexOf(id) < 0) lines.push('退出执政联盟：' + previewName(W.PARTIES, id));
+          if (after.coalition.members.indexOf(id) < 0) lines.push(previewFill(PL.quit, { a: previewNode(W.PARTIES, id) }));
         });
         W.PARTIES.forEach(function (party) {
-          previewDelta(lines, party.zh + '议会席位', st.assembly[party.id] || 0,
-            after.assembly[party.id] || 0, ' 席');
+          previewDelta(lines, previewJoin('mod', party, PL.seats), st.assembly[party.id] || 0,
+            after.assembly[party.id] || 0, Core.L(PL.seatsUnit));
         });
         Object.keys(after.cabinet).forEach(function (ministry) {
-          if (after.cabinet[ministry] !== st.cabinet[ministry]) lines.push(
-            previewName(W.MINISTRIES, ministry) + '：' + previewName(W.PARTIES, st.cabinet[ministry]) +
-            ' → ' + previewName(W.PARTIES, after.cabinet[ministry]));
+          if (after.cabinet[ministry] !== st.cabinet[ministry]) lines.push(previewFill(PL.cabinet, {
+            a: previewNode(W.MINISTRIES, ministry),
+            b: previewNode(W.PARTIES, st.cabinet[ministry]),
+            c: previewNode(W.PARTIES, after.cabinet[ministry])
+          }));
         });
         Object.keys(after.journals).forEach(function (id) {
-          if (!st.journals[id] && after.journals[id]) lines.push('开启日志：' +
-            previewName(Meta.JOURNALS, id));
+          if (!st.journals[id] && after.journals[id]) {
+            lines.push(previewFill(PL.journalIn, { a: previewNode(Meta.JOURNALS, id) }));
+          }
         });
         Object.keys(after.flags).forEach(function (key) {
           if (after.flags[key] !== st.flags[key] && patch.flags && Object.prototype.hasOwnProperty.call(patch.flags, key)) {
-            lines.push((PREVIEW_FLAGS[key] || '局势：' + key) + (after.flags[key] ? ' · 生效' : ' · 取消'));
+            /* `PREVIEW_FLAGS[key]` is a node and `previewFill` returns a string;
+               both go through Core.L so the concatenation never sees an object. */
+            var flagNode = Core.L(PREVIEW_FLAGS[key] || previewFill(PL.situation, { a: key }));
+            lines.push(flagNode + (after.flags[key] ? Core.L(PL.flagOn) : Core.L(PL.flagOff)));
           }
         });
-        if (after.pendingCard && after.pendingCard !== st.pendingCard && Eng.CARD_BY_ID[after.pendingCard]) {
-          lines.push('接续卡牌：' + Core.L(Eng.CARD_BY_ID[after.pendingCard].name));
+        /* The patch key is `openCard`; reading `pendingCard` here meant the card
+           name was never substituted and the label rendered as "接续卡牌：{a}". */
+        var opened = after.openCard || after.pendingCard;
+        if (opened && opened !== (st.openCard || st.pendingCard) && Eng.CARD_BY_ID[opened]) {
+          lines.push(previewFill(PL.chainCard, { a: Eng.CARD_BY_ID[opened].name }));
         }
         if (after.phase !== st.phase && after.phase !== 'ended') {
-          var phaseNames = { event: '事件', action: '行动', exile: '流亡', occupied: '占领' };
-          lines.push('局势阶段：' + (phaseNames[after.phase] || after.phase));
+          var phaseNames = {
+            event: { zh: '事件', it: 'evento' }, action: { zh: '行动', it: 'azione' },
+            exile: { zh: '流亡', it: 'esilio' }, occupied: { zh: '占领', it: 'occupazione' }
+          };
+          lines.push(previewFill(PL.phase, { a: phaseNames[after.phase] || after.phase }));
         }
         after.eventQueue.forEach(function (id) {
           if (st.eventQueue.indexOf(id) < 0 && Eng.EVENT_BY_ID[id])
-            lines.push('加入待办事件：' + Core.L(Eng.EVENT_BY_ID[id].title));
+            lines.push(previewFill(PL.queueEvent, { a: Eng.EVENT_BY_ID[id].title }));
         });
         if (type === 'RESOLVE_EVENT' && after.currentEvent && after.currentEvent !== st.currentEvent && Eng.EVENT_BY_ID[after.currentEvent]) {
-          lines.push('后续事件：' + Core.L(Eng.EVENT_BY_ID[after.currentEvent].title));
+          lines.push(previewFill(PL.followUp, { a: Eng.EVENT_BY_ID[after.currentEvent].title }));
         }
-        if (after.ending && after.ending !== st.ending) lines.push('结局：' + previewName(Meta.ENDINGS, after.ending));
+        if (after.ending && after.ending !== st.ending) {
+          lines.push(previewFill(PL.ending, { a: previewNode(Meta.ENDINGS, after.ending) }));
+        }
         if (after.achievements.length > st.achievements.length) after.achievements.forEach(function (id) {
-          if (st.achievements.indexOf(id) < 0) lines.push('解锁成就：' + previewName(Meta.ACHIEVEMENTS, id));
+          if (st.achievements.indexOf(id) < 0) {
+            lines.push(previewFill(PL.achievement, { a: previewNode(Meta.ACHIEVEMENTS, id) }));
+          }
         });
-        return lines.length ? lines : ['无即时数值变化'];
+        return lines.length ? lines : [Core.L(PL.noChange)];
       } catch (e) {
-        return ['效果预览不可用'];
+        return [Core.L(PL.unavailable)];
       }
     };
 
@@ -659,12 +897,15 @@
     S.relations = function (st) {
       var cols = W.PARTIES.filter(function (p) { return p.id !== st.playerForce; });
       return {
+        /* `it` travels with every name: the chord plate and its rail render
+           these through Core.L, so dropping it here left the Italian locale
+           showing Chinese party names. */
         cols: cols.map(function (p) {
-          return { id: p.id, zh: p.zh, short: p.short, color: p.color, camp: p.camp };
+          return { id: p.id, zh: p.zh, it: p.it, short: p.short, color: p.color, camp: p.camp };
         }),
         rows: W.PARTIES.map(function (a) {
           return {
-            id: a.id, zh: a.zh, short: a.short, color: a.color,
+            id: a.id, zh: a.zh, it: a.it, short: a.short, color: a.color,
             player: a.id === st.playerForce,
             cells: cols.map(function (b) {
               var v = R.relationOf(st, a.id, b.id);
@@ -679,7 +920,10 @@
     S.districts = function (st) {
       return W.DISTRICTS.map(function (d) {
         var x = st.districts[d.id];
-        return { id: d.id, zh: d.zh, it: d.it, status: d.status, note: d.note,
+        /* The note is a bilingual node like the name, so the map's district
+           detail follows the language setting. */
+        return { id: d.id, zh: d.zh, it: d.it, status: d.status,
+          note: { zh: d.note || '', it: d.noteIt || d.note || '' },
           control: Core.round1(x.control), agitation: Core.round1(x.agitation),
           unemployment: Core.round1(x.unemployment), ethnicIt: Math.round(x.ethnicIt), ethnicSl: Math.round(x.ethnicSl),
           strategic: d.strategic, industry: d.industry, port: d.port };
@@ -860,6 +1104,11 @@
             st.laws.lavoro = [0, 0, 1, 3][oldLabour];
             st.version = 13;
           }
+          /* Same-version saves never reach a migration step, so the invariants
+             have to be applied here too: a save written before the crisis axes
+             were unified carries 0–140 in `order`, `prev` and `series` alike, and
+             only one entry point normalising them was the bug. */
+          if (Eng.postProcess) Eng.postProcess(st);
           return st;
         } catch (e) { return null; }
       },

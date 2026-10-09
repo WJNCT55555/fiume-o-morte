@@ -5,14 +5,14 @@ export const ev191909Marcia: GameEvent = {
     id: 'ev_1919_09_marcia', date: { y: 1919, m: 9, d: 12 }, opening: true,
     condition: function (s) { return s.playerForce === 'LEG'; },
     title: { zh: '1919 年 9 月 12 日：进军', it: '12 settembre 1919: la Marcia' },
-    body: { zh: '9 月 11 日夜里，你从 Ronchi dei Legionari 出发，身边大约两百人。到 Ronchi 的时候，' +
-        '萨萨里掷弹兵团的一个营加入了你们——他们本该拦住你。\n\n' +
-        '车队沿着海岸公路往东。第二天上午，你进了阜姆。\n\n' +
+    body: { zh: '9 月 11 日夜里，你到了 Ronchi dei Legionari。第二天拂晓车队出发时，身边大约两百人。' +
+        '在 Ronchi 加入你们的是撒丁掷弹兵（Granatieri di Sardegna）的一个营——他们本该拦住你。\n\n' +
+        '车队沿着海岸公路往东。当天午后，你进了阜姆。\n\n' +
         '全城在等你：意大利人、克罗地亚人、斯洛文尼亚人，还有协约国的占领军。' +
         '你走上省督府的阳台，对广场上的人说，这座城市并入意大利。\n\n' +
         '罗马没有授权你做这件事。尼蒂首相在几小时后下令封锁这座城。',
-      it: 'Nella notte dell\'11 settembre sei partito da Ronchi dei Legionari con duecento uomini. A Ronchi si è unito a voi un battaglione dei Granatieri di Sardegna: dovevano fermarvi.\n\n' +
-        'La colonna risale la costa verso est. La mattina dopo entri a Fiume.\n\n' +
+      it: 'Nella notte dell\'11 settembre sei arrivato a Ronchi dei Legionari; la colonna è partita all\'alba del giorno dopo, con duecento uomini. A Ronchi si è unito a voi un battaglione dei Granatieri di Sardegna: dovevano fermarvi.\n\n' +
+        'La colonna risale la costa verso est. Nel primo pomeriggio entri a Fiume.\n\n' +
         'La città vi aspetta: italiani, croati, sloveni, e le truppe di occupazione interalleate. Dal balcone del Palazzo del Governo annunci l\'annessione della città all\'Italia.\n\n' +
         'Roma non ti ha autorizzato. Poche ore dopo il presidente Nitti ordina il blocco della città.' },
     options: [

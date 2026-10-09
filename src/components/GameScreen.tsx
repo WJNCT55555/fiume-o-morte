@@ -17,7 +17,8 @@ export function GameScreen() {
   if (columns.length !== 3) throw new Error('Game board structure is incomplete');
   // A pending decision blocks the month, so it is pinned above whichever tab is
   // open. The month's event board has its own tab (事件) instead of floating
-  // over every other one. Only a super event takes over the whole screen.
+  // over every other one. The separate SuperEventLayer presents major moments
+  // above this sheet without changing its choices or resolving the event.
   const pending = legacyUI.Sel.eventView(state);
   const inline = pending
     ? legacyToReact(legacyUI.Views.eventModal(state, actions), refresh, 'event')

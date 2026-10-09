@@ -28,7 +28,7 @@ export const ev191911Blocco: GameEvent = {
         effect: function () { return { funds: 240, economy: { inflation: -5, strike: -6 }, support: [['portuali', 'LEG', 4], ['operai', 'LEG', 2]], diplo: { yugoslavia: 6 }, flags: { smuggle: true } }; }
       },
       {
-        id: 'd', text: { zh: '拒绝配给。让军团兵去征用。', it: 'Niente razionamento. Requsiscono i legionari.' },
+        id: 'd', text: { zh: '拒绝配给。让军团兵去征用。', it: 'Niente razionamento. Requisiscono i legionari.' },
         preview: [{ zh: '摄政领袖权威 +', label: 'autorità +' }, { zh: '政治暴力 ++', label: 'violenza ++' }, { zh: '手工业者/有产精英 −−', label: 'Fiumani −−' }],
         effect: function () { return { funds: 380, order: { authority: 4, violence: 14, squadre: 6 }, support: [['artigiani', 'LEG', -4], ['borghesia', 'LEG', -5]], factions: { arditi: { dis: -8 } } }; }
       }

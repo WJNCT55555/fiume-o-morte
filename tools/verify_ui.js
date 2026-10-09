@@ -138,8 +138,8 @@ class CDP {
       if (r.exceptionDetails) throw new Error('eval: ' + JSON.stringify(r.exceptionDetails).slice(0, 400));
       return r.result.value;
     }
-    async function shot(name) {
-      const r = await cdp.send('Page.captureScreenshot', { format: 'png' });
+    async function shot(name, clip) {
+      const r = await cdp.send('Page.captureScreenshot', { format: 'png', ...(clip ? { clip, captureBeyondViewport: true } : {}) });
       fs.writeFileSync(path.join(OUT, name), Buffer.from(r.data, 'base64'));
     }
 
@@ -157,7 +157,7 @@ class CDP {
                  lockedForces: document.querySelectorAll('.start-force__pick:disabled').length,
                  emblems: [...document.querySelectorAll('.start-force__emblem')].filter(img => img.complete && img.naturalWidth > 0).length,
                  leader: document.querySelector('.start-leader__plaque')?.textContent || null,
-                 leaderPortrait: (() => { const img = document.querySelector('.start-leader__portrait img'); return !!img && img.complete && img.naturalWidth > 0 && img.getAttribute('src')?.includes('Portrait_Dannunzio.png'); })(),
+                 leaderPortrait: (() => { const img = document.querySelector('.start-leader__portrait img'); return !!img && img.complete && img.naturalWidth > 0 && img.getAttribute('src')?.includes('Portrait_gabriele_d_annunzio.png'); })(),
                  leaderFrame: (() => { const f = document.querySelector('.start-leader__frame'); return !!f && getComputedStyle(f).backgroundImage.includes('leader_frame.png'); })(),
                  columns: (() => { const f = document.querySelector('.start-force')?.getBoundingClientRect(), l = document.querySelector('.start-leader')?.getBoundingClientRect(), d = document.querySelector('.start-difficulty')?.getBoundingClientRect(); return !!f && !!l && !!d && f.right <= l.left && l.right <= d.left; })(),
                  removedTextVisible: /意大利卡尔纳罗摄政 · 1920|史实起点|52 000 人|史实线：|史料与致谢|史料基线：/.test(document.querySelector('.stage-full')?.textContent || '') };
@@ -245,7 +245,7 @@ class CDP {
        The old `hasAction` clause is gone with it: it looked for `.action-trigger`,
        which exists nowhere in the codebase — the action panel became a tab, and
        the class survives only as an unused CSS rule. */
-    if (g1.nav.join(',') !== 'eventi,azioni,mappa,crisi,economia,assemblea,diplomazia,leggi,popolazione' || !g1.tagArtwork) problems.push('GAME: nine tag-header navigation tabs are missing or misordered');
+    if (g1.nav.join(',') !== 'eventi,azioni,mappa,crisi,economia,arengo,diplomazia,leggi,popolazione' || !g1.tagArtwork) problems.push('GAME: nine tag-header navigation tabs are missing or misordered');
 
     // Use a state with every active spirit to catch clipped values and ensure
     // the numbers shown by the side panel match the selector output.
@@ -336,7 +336,7 @@ class CDP {
 
     // 3. 逐页签截图
     const svgInfo = {};
-    for (const key of ['mappa','economia','azioni','assemblea','diplomazia','leggi','crisi','archivio']) {
+    for (const key of ['mappa','economia','azioni','arengo','diplomazia','leggi','crisi','archivio']) {
       await evalJs(`(() => { const b=document.querySelector('${key === 'azioni' ? '.action-trigger' : '.navbtn[data-tab="' + key + '"]'}'); if(b) b.click(); return !!b; })()`);
       await sleep(650);
       await shot('03-tab-' + key + '.png');
@@ -364,29 +364,85 @@ class CDP {
       if (key === 'diplomazia') {
         const diplomacy = await evalJs(`(() => ({
           countries: document.querySelectorAll('.relation-entry--state').length,
-          movements: document.querySelectorAll('.forze-relations > .relation-entry--force').length,
+          movements: document.querySelectorAll('.forze-pillar').length,
           postures: document.querySelectorAll('.diplo-posture').length,
-          meters: document.querySelectorAll('.relation-track[role="meter"]').length,
+          meters: document.querySelectorAll('.diplo-dossier [role="meter"]').length,
+          selected: document.querySelectorAll('.forze-pillar[aria-pressed="true"]').length,
           current: document.querySelectorAll('.diplo-posture[aria-pressed="true"]').length
         }))()`);
         if (diplomacy.countries !== 9 || diplomacy.movements !== 5 || diplomacy.postures !== 4 ||
-          diplomacy.meters !== 15 || diplomacy.current !== 1)
+          diplomacy.meters !== 15 || diplomacy.current !== 1 || diplomacy.selected !== 1)
           problems.push('外交关系分组、政治力量刻度或姿态未完整显示');
+        await evalJs(`document.querySelector('.forze-pillar[data-force="sindacalisti"]').click()`);
+        await sleep(120); // React applies the UI-only selection on the next render.
+        const pillarSelection = await evalJs(`(() => {
+          const target=document.querySelector('.forze-pillar[data-force="sindacalisti"]');
+          return {selected:target.getAttribute('aria-pressed'),name:document.querySelector('.forze-dossier__identity strong')?.textContent,
+            distance:document.querySelector('.forze-dossier__distance strong')?.textContent};
+        })()`);
+        console.log('政治力量详情选择:', JSON.stringify(pillarSelection));
+        if (pillarSelection.selected !== 'true' || pillarSelection.name !== '意大利革命工团主义者' ||
+            !pillarSelection.distance?.includes('还差')) problems.push('政治力量柱子的详情选择错误');
+        await evalJs(`scrollTo(0,0)`);
+        await shot('03-tab-diplomazia-pillars.png');
+        await evalJs(`document.querySelector('.forze-pillar[data-force="sindacalisti"]').focus()`);
+        await cdp.send('Input.dispatchKeyEvent', {type:'keyDown',key:'ArrowLeft',code:'ArrowLeft'});
+        await cdp.send('Input.dispatchKeyEvent', {type:'keyUp',key:'ArrowLeft',code:'ArrowLeft'});
+        await sleep(120);
+        const pillarKeyboard = await evalJs(`({selected:document.querySelector('.forze-pillar[aria-pressed="true"]')?.getAttribute('data-force'),focused:document.activeElement?.getAttribute('data-force')})`);
+        if (pillarKeyboard.selected !== 'corradini' || pillarKeyboard.focused !== 'corradini')
+          problems.push('政治力量柱子的键盘焦点或选择错误');
         await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: false });
         await sleep(220);
         const diplomacyMobile = await evalJs(`(() => {
           const grid = document.querySelector('.diplo-relations-grid').getBoundingClientRect();
           const posture = document.querySelector('.diplo-postures').getBoundingClientRect();
           return { gridRight:grid.right, postureRight:posture.right,
+            porticoRight:document.querySelector('.forze-portico').getBoundingClientRect().right,
+            pillarsFit:[...document.querySelectorAll('.forze-pillar')].every(p=>p.scrollWidth<=p.clientWidth+2),
             gridColumns:getComputedStyle(document.querySelector('.diplo-relations-grid')).gridTemplateColumns.split(' ').length,
             postureColumns:getComputedStyle(document.querySelector('.diplo-postures__grid')).gridTemplateColumns.split(' ').length };
         })()`);
         if (diplomacyMobile.gridRight > 392 || diplomacyMobile.postureRight > 392 ||
-          diplomacyMobile.gridColumns !== 1 || diplomacyMobile.postureColumns !== 1)
+          diplomacyMobile.gridColumns !== 1 || diplomacyMobile.postureColumns !== 1 ||
+          diplomacyMobile.porticoRight > 392 || !diplomacyMobile.pillarsFit)
           problems.push('390px 外交关系或外交姿态布局溢出');
         await evalJs(`document.querySelector('.diplo-dossier')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
         await shot('03-tab-diplomazia-390.png');
+        // The founded communist movement, zero, both endpoints, and gate values
+        // must share one scale without changing the underlying game state.
+        const pillarEdges = await evalJs(`(() => {
+          const F=window.Fiume,s=F.Engine.createState('1919-09','historical',37);
+          s.flags.comintern_door=true;
+          Object.assign(s.forze,{fascisti:80,socialisti:-40,anarchici:0,comunisti:100,corradini:60,sindacalisti:79.5});
+          const before=JSON.stringify(s),original=document.querySelector('.diplo-dossier');
+          const node=F.Views.game(s,{tab:'diplomazia'},{}).querySelector('.diplo-dossier');
+          window.__forzeOriginal=original; original.replaceWith(node);
+          const read=id=>{const p=node.querySelector('.forze-pillar[data-force="'+id+'"]');
+            return {value:p.querySelector('[role="meter"]').getAttribute('aria-valuenow'),
+              height:parseFloat(p.querySelector('.forze-pillar__fill').style.height),
+              bottom:parseFloat(p.querySelector('.forze-pillar__fill').style.bottom)};};
+          const first=node.querySelector('.forze-pillar');first.focus();
+          first.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+          return {count:node.querySelectorAll('.forze-pillar').length,negative:read('socialisti'),zero:read('anarchici'),
+            maximum:read('comunisti'),atGate:node.querySelectorAll('.forze-pillar.is-at-gate').length,
+            keyboard:node.querySelector('.forze-pillar[aria-pressed="true"]')?.getAttribute('data-force'),
+            unchanged:JSON.stringify(s)===before,
+            fits:[...node.querySelectorAll('.forze-pillar')].every(p=>p.scrollWidth<=p.clientWidth+2)};
+        })()`);
+        console.log('政治力量柱图边界:',JSON.stringify(pillarEdges));
+        if (pillarEdges.count !== 6 || pillarEdges.negative.value !== '-40' ||
+          Math.abs(pillarEdges.negative.height - 28.5714) > .01 || pillarEdges.negative.bottom !== 0 ||
+          pillarEdges.zero.height !== 0 || Math.abs(pillarEdges.maximum.height - 71.4286) > .01 ||
+          pillarEdges.atGate !== 2 || pillarEdges.keyboard !== 'socialisti' || !pillarEdges.unchanged || !pillarEdges.fits)
+          problems.push('政治力量柱图的负值、零点、达标线、键盘选择或六派布局错误');
+        await evalJs(`document.querySelector('.forze-relations')?.scrollIntoView({block:'start',behavior:'instant'})`);
+        await shot('03-tab-diplomazia-six-390.png');
         await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+        await evalJs(`scrollTo(0,0)`);
+        await sleep(150);
+        await shot('03-tab-diplomazia-six.png');
+        await evalJs(`(() => {document.querySelector('.diplo-dossier').replaceWith(window.__forzeOriginal);delete window.__forzeOriginal;})()`);
       }
       if (key === 'leggi') {
         const lawOverview = await evalJs(`(() => ({
@@ -418,6 +474,80 @@ class CDP {
         await sleep(100);
         await shot('03-tab-leggi-390.png');
         await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
+      }
+      if (key === 'crisi') {
+        const crisis = await evalJs(`(() => ({
+          meters:document.querySelectorAll('.crisis-hourglass[role="meter"]').length,
+          charts:document.querySelectorAll('.crisis-axis svg').length,
+          oldBars:document.querySelectorAll('.crisis-axis .bar').length,
+          milestones:document.querySelectorAll('.crisis-axis__milestone').length,
+          next:document.querySelectorAll('.crisis-axis__next').length,
+          layout:[...document.querySelectorAll('.crisis-axis')].every(axis=>{
+            const glass=axis.querySelector('.crisis-hourglass').getBoundingClientRect(),
+              row=axis.querySelector('.crisis-axis__title-row').getBoundingClientRect(),
+              value=axis.querySelector('.crisis-axis__value').getBoundingClientRect();
+            return value.top>=row.top && value.bottom<=row.bottom+1 &&
+              [...axis.querySelectorAll('.crisis-axis__milestone')].every(m=>m.getBoundingClientRect().left>glass.right);
+          }),
+          curved:[...document.querySelectorAll('.crisis-hourglass__outline')].every(p=>p.getAttribute('d').includes('C')),
+          values:[...document.querySelectorAll('.crisis-hourglass')].map(m=>({min:m.getAttribute('aria-valuemin'),max:m.getAttribute('aria-valuemax'),value:m.getAttribute('aria-valuenow')}))
+        }))()`);
+        if(crisis.meters!==2 || crisis.charts!==2 || crisis.oldBars!==0 || crisis.milestones!==8 ||
+          crisis.next!==0 || !crisis.layout || !crisis.curved ||
+          crisis.values.some(m=>m.min!=='0'||m.max!=='100')) problems.push('危机沙漏、右侧里程碑、标题读数或旧提示移除错误');
+        await evalJs(`scrollTo(0,0)`);
+        const clip = await evalJs(`(() => {const r=document.querySelector('.crisis-pair').getBoundingClientRect();return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:1};})()`);
+        await shot('03-crisis-hourglasses.png',clip);
+        // Multiple history samples must not bring the removed sparklines back.
+        // Check actual chamber areas at every milestone and both endpoints.
+        let chamberArea;
+        for(const pressure of [0,25,50,75,100]) {
+          const edge = await evalJs(`(() => {
+            const F=window.Fiume,s=F.Engine.createState('1919-09','historical',41);
+            s.order.coup=${pressure};s.order.subversion=100-${pressure};
+            s.series.coup=[5,10,20,${pressure}];s.series.subversion=[0,30,70,100-${pressure}];
+            if(${pressure}===50)s.order.coupMilestones=['i25','i50'];
+            const before=JSON.stringify(s),temp=F.Views.game(s,{tab:'crisi'},{});
+            const pair=temp.querySelector('.crisis-pair');
+            function area(poly){const str=poly.getAttribute('points').trim();if(!str)return 0;
+              const pts=str.split(/\\s+/).map(p=>p.split(',').map(Number));
+              return Math.abs(pts.reduce((sum,p,i)=>{const q=pts[(i+1)%pts.length];return sum+p[0]*q[1]-q[0]*p[1];},0))/2;}
+            return {unchanged:JSON.stringify(s)===before,charts:pair.querySelectorAll('svg').length,
+              passed:pair.querySelectorAll('.crisis-axis__milestone.is-passed').length,
+              next:pair.querySelectorAll('.crisis-axis__next').length,
+              fills:[...pair.querySelectorAll('.crisis-hourglass')].map(m=>{const a=area(m.querySelector('.crisis-hourglass__sand--upper')),b=area(m.querySelector('.crisis-hourglass__sand--lower'));
+                return {pressure:Number(m.getAttribute('aria-valuenow')),ratio:b/(a+b),total:a+b};})};
+          })()`);
+          console.log('危机沙漏边界 '+pressure+':',JSON.stringify(edge));
+          if(chamberArea===undefined)chamberArea=edge.fills[0].total;
+          if(!edge.unchanged || edge.charts!==2 || edge.next!==0 ||
+            edge.fills.some(f=>Math.abs(f.ratio-f.pressure/100)>1e-6 || Math.abs(f.total-chamberArea)>1e-5) ||
+            (pressure===50 && edge.passed!==2)) problems.push('沙漏沙量比例、历史节点或状态隔离错误：'+pressure);
+        }
+        // A representative pair also shows the reached milestone treatment.
+        await evalJs(`(() => {
+          const F=window.Fiume,s=F.Engine.createState('1919-09','historical',41);
+          s.order.coup=50;s.order.subversion=75;
+          s.order.coupMilestones=['i25','i50'];s.order.subversionMilestones=['s25','s50','s75'];
+          window.__crisisOriginal=document.querySelector('.crisis-pair');
+          window.__crisisOriginal.replaceWith(F.Views.game(s,{tab:'crisi'},{}).querySelector('.crisis-pair'));
+        })()`);
+        await shot('03-crisis-hourglasses-milestones.png',clip);
+        await evalJs(`document.querySelector('.crisis-pair').replaceWith(window.__crisisOriginal);delete window.__crisisOriginal;`);
+        await cdp.send('Emulation.setDeviceMetricsOverride', {width:390,height:900,deviceScaleFactor:1,mobile:false});
+        await sleep(180);
+        const mobileCrisis = await evalJs(`(() => {const pair=document.querySelector('.crisis-pair');return {
+          right:pair.getBoundingClientRect().right,columns:getComputedStyle(pair).gridTemplateColumns.split(' ').length,
+          fits:[...pair.querySelectorAll('.crisis-axis__instrument')].every(x=>x.scrollWidth<=x.clientWidth+2),
+          layout:[...pair.querySelectorAll('.crisis-axis')].every(axis=>{
+            const glass=axis.querySelector('.crisis-hourglass').getBoundingClientRect();
+            return axis.querySelectorAll('.crisis-axis__milestone').length===4 &&
+              [...axis.querySelectorAll('.crisis-axis__milestone')].every(m=>m.getBoundingClientRect().left>glass.right);
+          })};})()`);
+        if(mobileCrisis.right>392 || mobileCrisis.columns!==1 || !mobileCrisis.fits || !mobileCrisis.layout) problems.push('390px 危机沙漏或右侧里程碑布局溢出');
+        await evalJs(`document.querySelector('.crisis-pair').scrollIntoView({block:'start',behavior:'instant'})`);
+        await shot('03-tab-crisi-390.png');
+        await cdp.send('Emulation.setDeviceMetricsOverride', {width:1680,height:1100,deviceScaleFactor:1,mobile:false});
       }
       svgInfo[key] = await evalJs(`(() => ({
         parlSeats: document.querySelectorAll('.parl__seat').length,

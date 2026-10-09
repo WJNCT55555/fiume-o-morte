@@ -23,7 +23,7 @@ export const azFiumeLeague: Card = {
     cost: { ap: 1 },
     options: [
       { id: 'patrioti',
-        text: { zh: '呼唤意大利国内的爱国主义者，激起他们对国联的憎恶。', it: 'Chiamare i patrioti d\'Italia contro la Societa delle Nazioni.' },
+        text: { zh: '呼唤意大利国内的爱国主义者，激起他们对国联的憎恶。', it: 'Chiamare i patrioti d\'Italia contro la Società delle Nazioni.' },
         subtitle: { zh: '以残缺的胜利为名，让凡尔赛的虚伪和平在悲愤中颤抖。', it: 'In nome della vittoria mutilata.' },
         preview: ['意大利 −−', '国民集团 +', '民众热忱 +', '事态累积 +'],
         effect: { order: { fervour: 7, coup: 5 },
@@ -55,8 +55,8 @@ export const azFiumeLeague: Card = {
           return out;
         } },
       { id: 'protesta',
-        text: { zh: '向国际联盟发出正式抗议', it: 'Protesta formale alla Societa delle Nazioni' },
-        subtitle: { zh: '在最粗鄙的语言撕开大国分赃的伪善面纱。', it: 'Strappare il velo dell\'ipocrisia con il linguaggio piu crudo.' },
+        text: { zh: '向国际联盟发出正式抗议', it: 'Protesta formale alla Società delle Nazioni' },
+        subtitle: { zh: '在最粗鄙的语言撕开大国分赃的伪善面纱。', it: 'Strappare il velo dell\'ipocrisia con il linguaggio più crudo.' },
         preview: ['国联 −−−', '英法 −', '民众热忱 ++'],
         effect: { diplo: { league: -20, uk: -7, france: -7, usa: -3 },
                   counters: { leagueUsed: 1 },

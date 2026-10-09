@@ -214,19 +214,14 @@
   };
 
   /* ---------- i18n: every content node carries {zh, it, ...} ---------- */
-  /* The active language is set by Fiume.I18N; missing keys fall back to zh. */
+  /* The active language is set by Fiume.I18N; missing keys fall back to zh.
+     ONE language is shown at a time: `Core.L` renders the active locale and
+     nothing else. There used to be a `Core.sub` that printed the Italian
+     underneath the active text as a "second line"; every call site now renders
+     a single language, so the helper is gone. If a node genuinely needs two
+     different lines — a rule, a count, a scope note — give them separate keys
+     in I18N.STRINGS rather than printing the same sentence twice. */
   Core.lang = 'zh';
-  /* The secondary line of a content node (its subtitle). Chinese mode is the
-     source language, so it shows nothing: the Italian is not a decoration to be
-     displayed alongside, it is the same text in another language. When the it
-     and en locales are written, this is what fills the subtitle slot. */
-  Core.sub = function (node, lang) {
-    lang = lang || Core.lang || 'zh';
-    if (lang === 'zh') return '';
-    if (node == null) return '';
-    if (typeof node === 'string') return '';
-    return node[lang] || '';
-  };
 
   Core.L = function (node, lang) {
     if (node == null) return '';

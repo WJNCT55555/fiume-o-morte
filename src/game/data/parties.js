@@ -13,35 +13,43 @@
   var P = W;
   /* ======================= 2. Parties (the historical spectrum of Fiume, 1919-1924) ======================= */
   /* camp: annessione = annexationist / autonomia = autonomist / cattolico = Catholic / classe = class party */
+  /* `order` is the seat-chart axis, not an identifier: the chambers and the
+     election charts seat every party from the left of Fiume's own spectrum to the
+     right, so a hemicycle reads as a political map instead of a ranking. It is
+     deliberately NOT the same as electoral weight — a chamber sorted by seats
+     tells you who won, and this one tells you where everyone stood, which is what
+     the two-council design is about. Never renumber these without checking that
+     the parties still read left to right. */
   W.PARTIES = [
-    { id: 'LEG', zh: '军团', it: 'Legione del Carnaro', short: 'LEG', color: '#C9A227',
-      camp: 'annessione', player: true, emblem: 'img/Party/Emblem_Legionaria.png',
-      leader: { zh: '加布里埃莱·邓南遮', it: 'Gabriele D\'Annunzio', portrait: 'img/Portrait/Portrait_Dannunzio.png' },
-      blurb: '在这群从战壕烈火中挣脱出来的垂死幽灵与狂徒眼中，现实世界的条约与界碑不过是平庸官僚的遮羞布，唯有速度、暴力与诗人的狂想才配作为立国的宪章。在可卡因、民族进军与狂欢夜曲的麻醉下，以自我毁灭式的决绝姿态，将一座城市推向了政治狂热与艺术革命交错的深渊。' },
-    { id: 'AUT', zh: '自治党', it: 'Partito Autonomo', short: 'AUT', color: '#2E7D45',
-      camp: 'autonomia', player: false, emblem: 'img/Party/Emblem_Partito autonomo.png',
-      lockedNote: { zh: '尚未开放', it: 'non ancora disponibile' },
-      leader: { zh: '里卡多·扎内拉', it: 'Riccardo Zanella', portrait: 'img/Portrait/Portrait_Riccardo_Zanella.jpg' },
-      blurb: '守望着港口海关大楼与石砌栈桥的世俗市民不愿臣服于罗马的鹰旗，也不屑屈从于贝尔格莱德的王冠，他们依然在阴暗的街角和咖啡馆里固执地等待着狂热退潮，重拾那个只属于市民时代的自由城邦。' },
-    { id: 'PAD', zh: '自治民主党', it: 'Partito Autonomo Democratico', short: 'PAD', color: '#7FA65A',
-      camp: 'autonomia', emblem: 'img/Party/Emblem_Partito Autonomo Democratico Fiumano.png',
-      leader: { zh: '鲁杰罗·戈塔尔迪', it: 'Ruggero Gotthardi' },
-      blurb: '中间知识分子与改良派，试图在狂风暴雨的民族仇杀与阶级仇恨之间架起一道脆弱的木桥。他们徒劳地试图说服每一个狂热派系：没有阶级与族群的妥协，再崇高的城邦神话最终也只会在封锁线的饥馑中沦为一摊死灰。' },
-    { id: 'PCR', zh: '人民委员会', it: 'Consiglio Nazionale', short: 'PCR', color: '#1f2e7d',
-      camp: 'autonomia', leader: { zh: '贝尼亚米诺·格罗霍瓦茨', it: 'Beniamino Grohovaz' },
+    { id: 'PCR', zh: '人民委员会', it: 'Consiglio Nazionale', short: 'PCR', order: 0, color: '#1f2e7d',
+      camp: 'autonomia', emblem: 'img/Party/Emblem_Consiglio Nazionale.png',
+      leader: { zh: '贝尼亚米诺·格罗霍瓦茨', it: 'Beniamino Grohovaz' },
       blurb: '在沉默笼罩的南斯拉夫劳工聚居区，他们是被意大利民族聚光灯刻意抹去的巨大阴影。对他们而言，阜姆不是神圣的意大利祭坛，而是斯拉夫肌体上不可分割的咽喉；只要埃内奥河还在流淌，他们便绝不会在拉丁诗人的狂欢歌声中屈服。' },
-    /* The id stays ANI: it is the internal key used by the electoral lists,
-       the relations matrix, the chamber axis and existing saves. Only the
-       displayed abbreviation and the Italian name change. */
-    { id: 'ANI', zh: '意大利国民委员会', it: 'Consiglio Nazionale Italiano di Fiume', short: 'CNI', color: '#80580d',
-      camp: 'annessione', emblem: 'img/Party/Emblem_Consiglio nazionale italiano di Fiume.png',
-      leader: { zh: '乔瓦尼·朱里亚蒂', it: 'Giovanni Giuriati' },
-      blurb: '意大利裔资产阶级体面绅士们常自诩为守卫“文明防线”的最前沿哨兵。怀着对斯拉夫化浪潮的刻骨恐惧与对祖国怀抱的病态渴望，他们亲手把狂野诗人迎进城门。不过他们很快就会惊恐地发现他们迎来的不仅仅是一位“解放者”，还可能是一只会吞噬他们的恶龙......' },
-    { id: 'PSI', zh: '社会党', it: 'Partito Socialista Internazionale di Fiume', short: 'PSI', color: '#B0202F',
+    { id: 'PSI', zh: '社会党', it: 'Partito Socialista Internazionale di Fiume', short: 'PSI', order: 1, color: '#B0202F',
       camp: 'classe', player: false, emblem: 'img/Party/Emblem_Partito Socialista Internazionale di Fiume.png',
       lockedNote: { zh: '尚未开放', it: 'non ancora disponibile' },
       leader: { zh: '萨穆埃莱·迈伦德尔', it: 'Samuele Mayländer' },
-      blurb: '在被封锁线勒紧咽喉的沿海工厂阴影里，冷眼旁视着狂欢节般的资产阶级民族主义癫狂。他们低沉地嘶吼——民主！进步！和平！资产阶级与冒险家合谋的荒诞戏码在阜姆上演时，他们只冷眼等待着这场闹剧在饥饿面前自行轰塌。' }
+      blurb: '在被封锁线勒紧咽喉的沿海工厂阴影里，冷眼旁视着狂欢节般的资产阶级民族主义癫狂。他们低沉地嘶吼——民主！进步！和平！资产阶级与冒险家合谋的荒诞戏码在阜姆上演时，他们只冷眼等待着这场闹剧在饥饿面前自行轰塌。' },
+    { id: 'AUT', zh: '自治党', it: 'Partito Autonomo', short: 'AUT', order: 2, color: '#2E7D45',
+      camp: 'autonomia', player: false, emblem: 'img/Party/Emblem_Partito autonomo.png',
+      lockedNote: { zh: '尚未开放', it: 'non ancora disponibile' },
+      leader: { zh: '里卡多·扎内拉', it: 'Riccardo Zanella', portrait: 'img/Portrait/Portrait_riccardo_zanella.png' },
+      blurb: '守望着港口海关大楼与石砌栈桥的世俗市民不愿臣服于罗马的鹰旗，也不屑屈从于贝尔格莱德的王冠，他们依然在阴暗的街角和咖啡馆里固执地等待着狂热退潮，重拾那个只属于市民时代的自由城邦。' },
+    { id: 'PAD', zh: '自治民主党', it: 'Partito Autonomo Democratico', short: 'PAD', order: 3, color: '#7FA65A',
+      camp: 'autonomia', emblem: 'img/Party/Emblem_Partito Autonomo Democratico Fiumano.png',
+      leader: { zh: '鲁杰罗·戈塔尔迪', it: 'Ruggero Gotthardi' },
+      blurb: '中间知识分子与改良派，试图在狂风暴雨的民族仇杀与阶级仇恨之间架起一道脆弱的木桥。他们徒劳地试图说服每一个狂热派系：没有阶级与族群的妥协，再崇高的城邦神话最终也只会在封锁线的饥馑中沦为一摊死灰。' },
+    { id: 'LEG', zh: '军团', it: 'Legione del Carnaro', short: 'LEG', order: 4, color: '#C9A227',
+      camp: 'annessione', player: true, emblem: 'img/Party/Emblem_Legionaria.png',
+      leader: { zh: '加布里埃莱·邓南遮', it: 'Gabriele D\'Annunzio', portrait: 'img/Portrait/Portrait_gabriele_d_annunzio.png' },
+      blurb: '在这群从战壕烈火中挣脱出来的垂死幽灵与狂徒眼中，现实世界的条约与界碑不过是平庸官僚的遮羞布，唯有速度、暴力与诗人的狂想才配作为立国的宪章。在可卡因、民族进军与狂欢夜曲的麻醉下，以自我毁灭式的决绝姿态，将一座城市推向了政治狂热与艺术革命交错的深渊。' },
+    /* The id stays ANI: it is the internal key used by the electoral lists,
+       the relations matrix, the chamber axis and existing saves. Only the
+       displayed abbreviation and the Italian name change. */
+    { id: 'ANI', zh: '意大利国民委员会', it: 'Consiglio Nazionale Italiano di Fiume', short: 'CNI', order: 5, color: '#80580d',
+      camp: 'annessione', emblem: 'img/Party/Emblem_Consiglio nazionale italiano di Fiume.png',
+      leader: { zh: '乔瓦尼·朱里亚蒂', it: 'Giovanni Giuriati' },
+      blurb: '意大利裔资产阶级体面绅士们常自诩为守卫“文明防线”的最前沿哨兵。怀着对斯拉夫化浪潮的刻骨恐惧与对祖国怀抱的病态渴望，他们亲手把狂野诗人迎进城门。不过他们很快就会惊恐地发现他们迎来的不仅仅是一位“解放者”，还可能是只会吞噬他们的恶龙......' },
   ];
   W.PARTY_BY_ID = {};
   W.PARTIES.forEach(function (p) { W.PARTY_BY_ID[p.id] = p; });
