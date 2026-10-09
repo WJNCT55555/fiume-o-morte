@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { legacyUI } from '../legacy/ui/runtime';
 
 /** One pointer-led preview for both inline events and card decisions. The
  * source .opt__p remains in each option for touch layouts and live effect text. */
@@ -24,7 +25,7 @@ export function EffectPreviewTooltip() {
       float.replaceChildren();
       const heading = document.createElement('div');
       heading.className = 'effect-float__heading';
-      heading.textContent = '效果预览 · EFFETTI';
+      heading.textContent = legacyUI.UI.T('ui.preview') + ' · EFFETTI';
       float.appendChild(heading);
       source.querySelectorAll<HTMLElement>('.opt__pv').forEach(item => {
         const line = document.createElement('div');

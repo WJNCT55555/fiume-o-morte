@@ -19,12 +19,18 @@
     V.T = T;
 
     V.IMG = UI.IMG;
-    var ADV_AVATAR = {
-      deambris: V.IMG.deambris, keller: V.IMG.keller, carli: V.IMG.carli,
-      blasich: V.IMG.blasich, grossich: V.IMG.grossich
-    };
+    /* Advisor portraits travel with the advisor data now
+       (`src/game/advisors/*.ts` → `Advisor.portrait`), because this legacy view
+       layer and the React screens read the same roster. Those paths are
+       project-relative (`img/Portrait/...`), matching every other asset path
+       in this file. A missing portrait is not an error: `avatar` draws the
+       initial-letter plate instead of borrowing another man's face. */
+    function assetUrl(path) {
+      return path ? String(path).replace(/^\/+/, '') : '';
+    }
     var HOLDER_AVATAR = {
-      esteri: V.IMG.comandante, difesa: V.IMG.hostventuri
+      esteri: V.IMG.comandante, difesa: V.IMG.hostventuri,
+      interno: V.IMG.bacci, finanze: V.IMG.pantaleoni
     };
     var EVENT_PHOTO = [
       ['ev_1920_09_carta', V.IMG.proclama], ['ev_1920_10_blocco', V.IMG.porto],
@@ -44,10 +50,15 @@
       (children || []).forEach(function (c) { if (c) el.appendChild(c); });
       return el;
     }
+    /* A titled panel. `sub` is a SECOND, different line — a rule, a count, a
+       scope note — and it is a translated node or a plain string already in the
+       active language. It is not a translation of the title: the UI shows one
+       language at a time, so nothing is printed twice. */
     function banner(title, sub) {
+      var s = (sub && typeof sub === 'object') ? Core.L(sub) : sub;
       return h('div', { class: 'banner' }, [
         h('div', { class: 'banner__t' }, title),
-        sub ? h('div', { class: 'banner__s' }, Core.sub(sub)) : null
+        s ? h('div', { class: 'banner__s' }, s) : null
       ]);
     }
     function ptitle(txt, extra) {
@@ -101,13 +112,15 @@
       var era = Sel.eraYear(st);
       var slots = [h('div', { class: 'resbar__date' }, [
         h('div', { class: 'resbar__d1' }, Core.dateLabel(st.date)),
-        h('div', { class: 'resbar__d2' }, T('bar.era') + ' 第 ' + Core.roman(era) + ' 年')
+        h('div', { class: 'resbar__d2' }, T('bar.era') + ' ' + T('bar.anndi', { n: Core.roman(era) }))
       ])];
       [res[0], res[1], res[3]].forEach(function (r) {
-        slots.push(h('div', { class: 'resslot', title: r.it }, [
+        /* One line, in the active locale. The Italian used to be printed
+           underneath as a second line; the UI is single-language now. */
+        slots.push(h('div', { class: 'resslot', title: Core.L(r) }, [
           h('div', { class: 'medallion' }, icon(r.icon, 19)),
           h('div', { class: 'resslot__b' }, [
-            h('div', { class: 'resslot__k' }, r.zh),
+            h('div', { class: 'resslot__k' }, Core.L(r)),
             h('div', { class: 'resslot__v' }, [r.main + (r.unit ? ' ' + r.unit : ''), deltaChip(r.delta, r.invert)])
           ])
         ]));
@@ -115,13 +128,13 @@
       slots.push(h('div', { class: 'resslot resslot--crisis' }, [
         h('div', { class: 'medallion' }, icon('flame', 19)),
         h('div', { class: 'resslot__b' }, [
-          h('div', { class: 'resslot__k' }, '事态'),
+          h('div', { class: 'resslot__k' }, T('bar.crisi')),
           h('div', { class: 'resslot__v' }, Math.round(crisis.coup) + ' / 100')
         ])
       ]));
       slots.push(h('div', { class: 'resslot resslot--ap' }, [
         h('div', { class: 'resslot__b' }, [
-          h('div', { class: 'resslot__k' }, '本回合行动点'),
+          h('div', { class: 'resslot__k' }, T('bar.ap')),
           h('div', { class: 'resslot__v' }, st.ap + ' / ' + st.maxAp)
         ])
       ]));
@@ -140,8 +153,9 @@
     function mapPanel(st, ui, act) {
       var dists = Sel.districts(st);
       var units = (W.FIUME_UNITS || []).filter(function (u) { return !u.allied || st.date.y === 1919; }).map(function (u) {
+        /* `it` travels with the name: the map prints it through Core.L. */
         return {
-          id: u.id, zh: u.zh, lon: u.lon, lat: u.lat, kind: u.kind,
+          id: u.id, zh: u.zh, it: u.it, lon: u.lon, lat: u.lat, kind: u.kind,
           allied: !!u.allied, count: null
         };
       });
@@ -162,26 +176,29 @@
       canvas.appendChild(mapEl);
       canvas.appendChild(h('div', { class: 'mapcanvas__title' }, 'CARTA DI FIUME · ' + st.date.y));
       canvas.appendChild(h('div', { class: 'mapcanvas__controls' }, [
-        h('button', { class: 'mapcanvas__zoom', title: '放大地图', onclick: function () { MapView.zoomBy(1.35); } }, '+'),
-        h('button', { class: 'mapcanvas__zoom', title: '缩小地图', onclick: function () { MapView.zoomBy(1 / 1.35); } }, '−'),
-        h('button', { class: 'mapcanvas__zoom mapcanvas__zoom--reset', title: '恢复地图', onclick: function () { MapView.resetZoom(); } }, '⤢')
+        h('button', { class: 'mapcanvas__zoom', title: T('map.zoom.in'), disabled: MapView.zoom >= MapView.maxZoom, onclick: function () { MapView.zoomBy(1.35); } }, '+'),
+        h('button', { class: 'mapcanvas__zoom', title: T('map.zoom.out'), disabled: MapView.zoom <= MapView.minZoom, onclick: function () { MapView.zoomBy(1 / 1.35); } }, '−'),
+        h('button', { class: 'mapcanvas__zoom mapcanvas__zoom--reset', title: T('map.zoom.reset'), onclick: function () { MapView.resetZoom(); } }, '⤢')
       ]));
+      canvas.appendChild(h('div', { class: 'mapcanvas__hint' }, T('map.hint')));
       var chosen = dists.filter(function (d) { return d.id === ui.district; })[0];
       var detail = chosen ? frame('district-detail', [
-        banner(chosen.zh, chosen.it),
+        banner(Core.L(chosen)),
         h('div', { class: 'district-detail__body' }, [
-          field('控制', Math.round(chosen.control) + ' / 100', true),
-          field('动荡', Math.round(chosen.agitation) + ' / 100'),
-          h('div', { class: 'small dim' }, chosen.note + '。地图为地点示意，非 1919 年官方行政区划。')
+          field(T('map.control'), Math.round(chosen.control) + ' / 100', true),
+          field(T('map.agitation'), Math.round(chosen.agitation) + ' / 100'),
+          MapView.occupation(chosen.id, st.date) === 'italy'
+            ? h('div', { class: 'small dim' }, T('map.note.italian')) : null,
+          h('div', { class: 'small dim' }, Core.L(chosen.note) + T('map.note.schematic'))
         ])
       ]) : null;
       return h('div', { class: 'col' }, [
         frame('', [
           h('div', { class: 'row row--between', style: { padding: '5px 9px', borderBottom: '1px solid var(--hair-soft)' } }, [
             h('div', { class: 'row', style: { gap: '7px' } }, [
-              h('span', { class: 'chip' }, '阜姆及周边 · ' + dists.length + ' 个地点')
+              h('span', { class: 'chip' }, T('map.scope', { n: dists.length }))
             ]),
-            h('span', { class: 'tiny dim2' }, '海岸 © OpenStreetMap · 占领范围随日期变化')
+            h('span', { class: 'tiny dim2' }, T('map.base'))
           ]),
           canvas,
           MapView.legend(st.date)
@@ -204,7 +221,7 @@
           onclick: function () { act.selectDistrict(id); }
         }, [
           h('div', { class: 'row row--between' }, [
-            h('div', { class: 'pick__n', style: { fontSize: '13px' } }, d.zh),
+            h('div', { class: 'pick__n', style: { fontSize: '13px' } }, Core.L(d)),
             h('span', { class: 'swatch', style: { background: stl.color } })
           ]),
           h('div', { class: 'tiny dim2', style: { margin: '2px 0 5px', fontStyle: 'italic' } }, d.it),
@@ -275,7 +292,7 @@
         });
         body.appendChild(list);
         if (rows.length > pending.length) body.appendChild(h('div', { class: 'tiny dim2 agenda-done' },
-          '已处理 ' + (rows.length - pending.length) + ' 项 · 详见档案'));
+          T('evboard.done.count', { n: rows.length - pending.length })));
         if (cur) {
           body.appendChild(h('div', { style: { padding: '0 11px 11px' } }, [
             h('div', { class: 'tiny dim2', style: { textAlign: 'center' } }, T('ev.hint'))
@@ -289,7 +306,7 @@
         }
       }
       return frame('agenda-panel', [
-        banner(T('ev.title'), pending.length ? (pending.length + ' IN SOSPESO') : 'NESSUN ORDINE DEL GIORNO'),
+        banner(T('ev.title'), pending.length ? T('ev.pending.count', { n: pending.length }) : T('ev.pending.none')),
         body
       ]);
     }
@@ -303,12 +320,12 @@
       ]);
       av.forEach(function (a) {
         var row = h('div', { class: 'adv' }, [
-          avatar(ADV_AVATAR[a.id], a.zh.slice(0, 1)),
+          avatar(assetUrl(a.portrait), a.zh.slice(0, 1)),
           h('div', { class: 'adv__b' }, [
-            h('div', { class: 'adv__n' }, a.zh),
+            h('div', { class: 'adv__n' }, Core.L(a)),
             h('div', { class: 'adv__x' }, a.bio),
             h('div', { class: 'adv__m' }, [
-              h('span', { class: 'chip' }, [h('span', { class: 'swatch', style: { background: a.factionColor } }), a.factionZh]),
+              h('span', { class: 'chip' }, [h('span', { class: 'swatch', style: { background: a.factionColor } }), Core.L({ zh: a.factionZh, it: a.factionIt })]),
               h('span', { class: 'chip ' + (a.dissent > 60 ? 'chip--bad' : a.dissent > 40 ? 'chip--warn' : '') }, T('adv.dissent', { n: a.dissent }))
             ]),
             (function () {
@@ -362,7 +379,7 @@
         var det = h('details', { class: 'jrn' + (j.done ? ' jrn--done' : j.failed ? ' jrn--fail' : '') }, [
           h('summary', { class: 'jrn__summary' }, [
             h('div', { class: 'jrn__head' }, [
-              h('div', { class: 'jrn__title' }, j.zh),
+              h('div', { class: 'jrn__title' }, Core.L(j)),
               h('div', { class: 'jrn__desc tiny dim' }, Core.L(j.desc))
             ]),
             h('span', { class: 'chip' + (j.done ? ' chip--ok' : j.failed ? ' chip--bad' : '') },
@@ -387,7 +404,7 @@
       logs.forEach(function (l) {
         body.appendChild(h('div', { class: 'logline logline--' + l.kind }, [
           h('span', { class: 'logline__t' }, 'W' + l.turn),
-          h('span', { class: 'logline__x' }, l.zh)
+          h('span', { class: 'logline__x' }, Core.L(l))
         ]));
       });
       return frame('', [banner(T('reg.title'), T('reg.sub')), body]);
@@ -404,7 +421,9 @@
        as two side-by-side donuts. Every figure on this tab is either a chart or
        a labelled readout — no bare rows of numbers.
        ============================================================ */
-    function ecoText(zh, it) { return Core.L({ zh: zh, it: it }); }
+    /* Every player-facing string on this tab now comes from I18N.STRINGS via
+       T(). The `ecoText(zh, it)` helper that used to build inline bilingual
+       nodes is gone with the bilingual UI: one language is shown at a time. */
 
     function ecoStat(label, value, unit, note, tone) {
       var v = h('div', { class: 'eco-kpi__value num' }, String(value));
@@ -466,78 +485,86 @@
       ]);
     }
 
-    function ecoFormulaBook(st, ec) {
+    /* The model documentation used to sit inside the economy and crisis tabs as
+       two collapsible blocks. It lives in Settings → 图书馆 now: the panels keep
+       the readings a player acts on, and the arithmetic is one deliberate visit
+       away instead of a wall of text in the middle of a decision.
+       `ecoFormulaBook` therefore returns the plain group grid — the <details>
+       wrapper belongs to the library, not to the model. */
+    function ecoFormulaGroups(st, ec) {
       var e = st.economy;
-      var book = h('details', { class: 'eco-formulas' });
-      book.appendChild(h('summary', { class: 'eco-formulas__summary' }, [
-        h('span', {}, ecoText('经济模型 · 公式与结算顺序', 'Modello economico · formule e liquidazione')),
-        h('span', { class: 'eco-formulas__hint' }, ecoText('展开查看', 'Apri'))
-      ]));
-      var body = h('div', { class: 'eco-formulas__body' });
-      body.appendChild(h('p', { class: 'eco-formulas__intro' }, ecoText(
-        '每半月先按当前状态结算收支，再依次更新港口、失业、通胀、信心和人口。目标值不是即时跳变；每轮只追近一部分。clamp 表示限制在括号中的范围。',
-        'Ogni mezzo mese si salda il bilancio con lo stato attuale, poi si aggiornano porto, disoccupazione, inflazione, fiducia e popolazione. I valori convergono gradualmente; clamp limita il risultato.'
-      )));
       var grid = h('div', { class: 'eco-formulas__grid' });
       var flow = h('section', { class: 'eco-formulas__group' }, [
-        h('h4', {}, ecoText('港口 → 生产 → 就业', 'Porto → produzione → lavoro')),
-        ecoFormula(ecoText('吞吐目标', 'Obiettivo portuale'),
-          ecoText('clamp(11 + 0.32×腹地 + 5×自由港等级 + 0.17×三角洲 + 0.13×工程 + 0.12×承认 − 0.20×暴力 − 0.10×罢工, 0, 100)',
-            'clamp(11 + 0.32×entroterra + 5×livello porto franco + 0.17×delta + 0.13×opere + 0.12×riconoscimento − 0.20×violenza − 0.10×scioperi, 0, 100)'),
-          ec.trafficTarget.toFixed(1)),
-        ecoFormula(ecoText('工业活跃度', 'Attività industriale'),
-          ecoText('clamp(0.60×工程 + 0.40×(100 − 罢工), 0, 100)', 'clamp(0.60×opere + 0.40×(100 − scioperi), 0, 100)'), ec.industryActivity.toFixed(1)),
-        ecoFormula(ecoText('失业目标', 'Obiettivo disoccupazione'),
-          ecoText('clamp(46 − 0.42×当前吞吐 − 0.12×工业活跃度, 4, 45)', 'clamp(46 − 0.42×traffico attuale − 0.12×attività industriale, 4, 45)'), ec.unemploymentTarget.toFixed(1) + '%'),
-        ecoFormula(ecoText('通胀目标', 'Obiettivo inflazione'),
-          ecoText('clamp(4 + 0.25×max(失业−12, 0) + 0.12×罢工 + 0.004×max(债务−2500, 0), 1, 55)',
-            'clamp(4 + 0.25×max(disoccupazione−12, 0) + 0.12×scioperi + 0.004×max(debito−2500, 0), 1, 55)'),
-          ec.inflationTarget.toFixed(1) + '%')
+        h('h4', {}, T('lib.formulas')),
+        ecoFormula(T('lib.eco.trafficTarget'), T('lib.eco.trafficTarget.math'), ec.trafficTarget.toFixed(1)),
+        ecoFormula(T('lib.eco.industry'), T('lib.eco.industry.math'), ec.industryActivity.toFixed(1)),
+        ecoFormula(T('lib.eco.unempTarget'), T('lib.eco.unempTarget.math'), ec.unemploymentTarget.toFixed(1) + '%'),
+        ecoFormula(T('lib.eco.inflTarget'), T('lib.eco.inflTarget.math'), ec.inflationTarget.toFixed(1) + '%')
       ]);
       var confidence = h('section', { class: 'eco-formulas__group' }, [
-        h('h4', {}, ecoText('信心与人口', 'Fiducia e popolazione')),
-        ecoFormula(ecoText('资本信心目标', 'Obiettivo fiducia'),
-          ecoText('clamp(70 − 0.50×罢工 + 0.25×(吞吐−40) − 0.30×暴力 + 0.20×合法性, 0, 100)',
-            'clamp(70 − 0.50×scioperi + 0.25×(traffico−40) − 0.30×violenza + 0.20×legittimità, 0, 100)'),
-          ec.confidenceTarget.toFixed(1)),
-        ecoFormula(ecoText('迁出人口', 'Emigrazione'),
-          ecoText('clamp(20×(失业−12) + 4×(暴力−40), 0, 900)', 'clamp(20×(disoccupazione−12) + 4×(violenza−40), 0, 900)'), Core.fmt(Math.round(ec.emigration))),
-        ecoFormula(ecoText('下轮人口', 'Popolazione successiva'),
-          ecoText('max(30000, 当前人口 − 迁出人口 + 30)', 'max(30000, popolazione attuale − emigrazione + 30)'), Core.fmt(Math.max(30000, e.population - ec.emigration + 30))),
-        ecoFormula(ecoText('每轮追近幅度', 'Convergenza per turno'),
-          ecoText('新值 = 旧值 + (目标−旧值)×比例；吞吐 9%，失业 12.5%，通胀 10%，信心 7.5%',
-            'nuovo = vecchio + (obiettivo−vecchio)×quota; porto 9%, disoccupazione 12.5%, inflazione 10%, fiducia 7.5%'),
-          ecoText('每半月', 'mezzo mese'))
+        h('h4', {}, T('lib.confidence')),
+        ecoFormula(T('lib.eco.confTarget'), T('lib.eco.confTarget.math'), ec.confidenceTarget.toFixed(1)),
+        ecoFormula(T('lib.eco.emigration'), T('lib.eco.emigration.math'), Core.fmt(Math.round(ec.emigration))),
+        ecoFormula(T('lib.eco.nextPop'), T('lib.eco.nextPop.math'), Core.fmt(Math.max(30000, e.population - ec.emigration + 30))),
+        ecoFormula(T('lib.eco.convergence'), T('lib.eco.convergence.math'), T('lib.eco.each'))
       ]);
       var fiscal = h('section', { class: 'eco-formulas__group eco-formulas__group--wide' }, [
-        h('h4', {}, ecoText('每半月财政 · 单位 K£', 'Bilancio semimensile · K£')),
-        ecoFormula(T('eco.tax.porto'),
-          ecoText('吞吐×3.1×港口税率×(0.75+0.005×资本信心)×(1+港口增收修正)',
-            'traffico×3.1×aliquota portuale×(0.75+0.005×fiducia)×(1+bonus portuale)'), Core.fmt(ec.revenue.porto)),
-        ecoFormula(T('eco.tax.dogana'),
-          ecoText('吞吐×2.5×关税率×(1+0.05×关税法等级)×(1+关税增收修正)',
-            'traffico×2.5×aliquota doganale×(1+0.05×livello dazi)×(1+bonus doganale)'), Core.fmt(ec.revenue.dogana)),
-        ecoFormula(T('eco.tax.consumo'),
-          ecoText('(100−失业率)×0.45×消费税率×(1+消费税增收修正)',
-            '(100−disoccupazione)×0.45×aliquota sui consumi×(1+bonus consumi)'), Core.fmt(ec.revenue.consumo)),
-        ecoFormula(ecoText('有效所得税率', 'Aliquota effettiva sul reddito'),
-          ecoText('财政法 < 2 级为 0；2 级取 max(设定税率, 0.30)；3 级取 max(设定税率, 0.45)',
-            'Livello fiscale < 2: 0; livello 2: max(aliquota impostata, 0.30); livello 3: max(aliquota impostata, 0.45)'),
-          Math.round(ec.incomeTaxRate * 100) + '%'),
-        ecoFormula(T('eco.tax.reddito'),
-          ecoText('(100−失业率)×0.70×有效所得税率×(1+所得税增收修正)×(1+0.04×财政法等级)',
-            '(100−disoccupazione)×0.70×aliquota effettiva×(1+bonus reddito)×(1+0.04×livello fiscale)'), Core.fmt(ec.revenue.reddito)),
-        ecoFormula(T('eco.spending'),
-          ecoText('行政 42 + 市警 (6+警员/40) + 军团 (人数×0.013) + 工程 (工程/100×12) + 债务 (债务×0.0035) + 救济 (max(失业−12,0)×1.7 + 劳动保障等级×2)',
-            'amministrazione 42 + polizia (6+agenti/40) + legione (uomini×0.013) + opere (opere/100×12) + interessi (debito×0.0035) + soccorso (max(disoccupazione−12,0)×1.7 + tutele×2)'), Core.fmt(ec.spending.total)),
-        ecoFormula(T('eco.net'),
-          ecoText('四项收入合计 − 六项支出合计；盈余的最多 50% 用于偿债，赤字先用储备，再按 1.15 倍举债；债务达到 6500 后记入欠款。',
-            'Quattro entrate meno sei spese; fino al 50% dell’avanzo ripaga il debito. Il disavanzo usa le riserve, poi genera debito ×1.15; da 6500 viene registrato come arretrato.'),
-          Core.signed(ec.net, 1))
+        h('h4', {}, T('lib.fiscal')),
+        ecoFormula(T('eco.tax.porto'), T('lib.eco.tax.porto.math'), Core.fmt(ec.revenue.porto)),
+        ecoFormula(T('eco.tax.dogana'), T('lib.eco.tax.dogana.math'), Core.fmt(ec.revenue.dogana)),
+        ecoFormula(T('eco.tax.consumo'), T('lib.eco.tax.consumo.math'), Core.fmt(ec.revenue.consumo)),
+        ecoFormula(T('lib.eco.incomeTax'), T('lib.eco.incomeTax.math'), Math.round(ec.incomeTaxRate * 100) + '%'),
+        ecoFormula(T('eco.tax.reddito'), T('lib.eco.tax.reddito.math'), Core.fmt(ec.revenue.reddito)),
+        ecoFormula(T('eco.spending'), T('lib.eco.spending.math'), Core.fmt(ec.spending.total)),
+        ecoFormula(T('eco.net'), T('lib.eco.net.math'), Core.signed(ec.net, 1))
       ]);
       grid.appendChild(flow); grid.appendChild(confidence); grid.appendChild(fiscal);
-      body.appendChild(grid); book.appendChild(body);
-      return book;
+      return grid;
+    }
+
+    /* The library: the three model chapters, rendered flat (no collapsible
+       wrapper) for the settings modal. Every string here is an i18n key, so the
+       whole page follows the language setting like the rest of the UI. */
+    V.formulaLibrary = function (st) {
+      var ec = Sel.economy(st);
+      var cr = Sel.crisis(st);
+      var wrap = h('div', { class: 'library' });
+      wrap.appendChild(h('p', { class: 'library__intro' }, T('lib.intro')));
+
+      var ecoGroup = h('section', { class: 'eco-formulas__group eco-formulas__group--wide' }, [
+        h('h4', {}, T('lib.economy')),
+        h('p', { class: 'eco-formulas__intro' }, T('lib.economy.sub'))
+      ]);
+      /* The formula grid brings its own three <section>s; the chapter heading
+         above it names the whole thing. */
+      ecoGroup.appendChild(ecoFormulaGroups(st, ec));
+      wrap.appendChild(ecoGroup);
+
+      wrap.appendChild(h('section', { class: 'eco-formulas__group eco-formulas__group--wide' }, [
+        h('h4', {}, T('lib.crisis')),
+        h('p', { class: 'eco-formulas__intro' }, T('lib.crisis.sub')),
+        h('div', { class: 'small', style: { marginTop: '6px' } }, T('lib.tension')),
+        h('div', { class: 'mono small' }, T('lib.tension.math')),
+        h('div', { class: 'small', style: { marginTop: '6px' } }, T('lib.siege')),
+        h('div', { class: 'mono small' }, T('lib.siege.math')),
+        h('div', { class: 'small', style: { marginTop: '6px' } }, T('lib.plot')),
+        h('div', { class: 'mono small' }, T('lib.plot.math')),
+        h('div', { class: 'tiny dim2', style: { marginTop: '6px' } }, T('lib.axes'))
+      ]));
+
+      var law = (Sel.electoralLaw ? Sel.electoralLaw() : null);
+      var ele = h('section', { class: 'eco-formulas__group eco-formulas__group--wide' }, [
+        h('h4', {}, T('lib.election')),
+        h('p', { class: 'eco-formulas__intro' }, T('lib.election.sub'))
+      ]);
+      if (law) {
+        ele.appendChild(h('div', { class: 'mono small' },
+          T('lib.election.seats', { total: law.total, cm: law.cityMajority, cn: law.cityMinority,
+            sm: law.subMajority, sn: law.subMinority, th: law.threshold })));
+      }
+      ele.appendChild(h('div', { class: 'tiny dim2', style: { marginTop: '6px' } }, T('lib.note.election')));
+      wrap.appendChild(ele);
+      return wrap;
     }
 
     function tabEconomia(st) {
@@ -547,18 +574,18 @@
 
       body.appendChild(h('div', { class: 'eco-kpis' }, [
         ecoStat(T('eco.net'), Core.signed(ec.net, 1), ' K£',
-          ecoText('预计每半月收支', 'Saldo previsto ogni mezzo mese'), ec.net >= 0 ? 'good' : 'bad'),
+          T('eco.kpi.net'), ec.net >= 0 ? 'good' : 'bad'),
         ecoStat(T('eco.debt'), Core.fmt(ec.debt), ' K£',
-          ecoText('盈余会逐步偿债', 'Il surplus ripaga il debito'), 'bad'),
+          T('eco.kpi.net.note'), 'bad'),
         ecoStat(T('cri.unemp'), ec.unemployment.toFixed(1), '%',
-          ecoText('目标 ' + ec.unemploymentTarget.toFixed(1) + '%', 'Obiettivo ' + ec.unemploymentTarget.toFixed(1) + '%'), ec.unemployment > 25 ? 'bad' : ''),
+          T('eco.kpi.target', { n: ec.unemploymentTarget.toFixed(1) }), ec.unemployment > 25 ? 'bad' : ''),
         ecoStat(T('eco.infl'), ec.inflation.toFixed(1), '%',
-          ecoText('目标 ' + ec.inflationTarget.toFixed(1) + '%', 'Obiettivo ' + ec.inflationTarget.toFixed(1) + '%'), ec.inflation > 16 ? 'bad' : '')
+          T('eco.kpi.target', { n: ec.inflationTarget.toFixed(1) }), ec.inflation > 16 ? 'bad' : '')
       ]));
 
       body.appendChild(h('div', { class: 'eco-sectionhead' }, [
         h('span', {}, T('eco.blocks.port')),
-        h('small', {}, ecoText('指标 0—100 · 每半月结算', 'Indici 0—100 · ogni mezzo mese'))
+        h('small', {}, T('eco.scale.note'))
       ]));
       body.appendChild(h('div', { class: 'ecoport-grid' }, [(function () {
         var head = h('div', { class: 'ecometric--lead' });
@@ -567,14 +594,14 @@
           h('span', { class: 'ecometric__v num' }, ec.traffic.toFixed(1))
         ]));
         head.appendChild(h('div', { class: 'eco-target' }, [
-          h('span', {}, ecoText('当前目标', 'Obiettivo attuale')),
+          h('span', {}, T('eco.chart.current')),
           h('strong', { class: 'num' }, ec.trafficTarget.toFixed(1))
         ]));
         var tr = h('div', { class: 'bar eco-trafficbar' });
         tr.appendChild(h('div', { class: 'bar__fill', style: { width: Core.clamp(ec.traffic, 0, 100) + '%' } }));
         tr.appendChild(h('div', { class: 'eco-trafficbar__target', style: { left: Core.clamp(ec.trafficTarget, 0, 100) + '%' } }));
         head.appendChild(tr);
-        head.appendChild(h('div', { class: 'eco-leadnote' }, ecoText('金线标记目标；吞吐影响税收、就业与政治支持', 'La linea dorata indica l’obiettivo; il porto incide su entrate, lavoro e consenso')));
+        head.appendChild(h('div', { class: 'eco-leadnote' }, T('eco.chart.lead')));
         if (st.series.traffic.length > 1) head.appendChild(Charts.lines([{ values: st.series.traffic, color: '#EBD07A', fill: 'rgba(201,162,39,.14)' }], { height: 86, grid: 2, floor0: true }));
         return head;
       })(), ecoMeasureGrid([
@@ -587,8 +614,8 @@
       ])]));
 
       body.appendChild(h('div', { class: 'eco-sectionhead' }, [
-        h('span', {}, ecoText('人口与就业轨迹', 'Popolazione e lavoro')),
-        h('small', {}, ecoText('随半月结算更新', 'Aggiornamento semimensile'))
+        h('span', {}, T('eco.trend.title')),
+        h('small', {}, T('eco.trend.sub'))
       ]));
       var trendRow = h('div', { class: 'ecotrends' });
       [[T('cri.unemp'), st.series.unemployment, '%', '#A31621', 'rgba(163,22,33,.16)'],
@@ -607,13 +634,13 @@
         ]));
         if (cfg[1].length > 1) cell.appendChild(Charts.lines([{ values: cfg[1], color: cfg[3], fill: cfg[4] }],
           { height: 82, grid: 3, floor0: true }));
-        else cell.appendChild(h('div', { class: 'ecotrend__empty' }, ecoText('下次结算后形成趋势', 'La tendenza apparirà al prossimo turno')));
+        else cell.appendChild(h('div', { class: 'ecotrend__empty' }, T('eco.trend.empty')));
         trendRow.appendChild(cell);
       });
       body.appendChild(trendRow);
       body.appendChild(h('div', { class: 'eco-sectionhead' }, [
         h('span', {}, T('eco.blocks.budget')),
-        h('small', {}, ecoText('按当前状态预估', 'Stima sullo stato attuale'))
+        h('small', {}, T('eco.trend.est'))
       ]));
       body.appendChild(h('div', { class: 'ecobudgets' }, [
             ecoBudget(T('eco.revenue'), [
@@ -634,7 +661,8 @@
       if (ec.arrears > 0) body.appendChild(h('div', { class: 'eco-arrears' }, [
         h('span', {}, T('eco.arrears')), h('strong', { class: 'num' }, Core.fmt(ec.arrears) + ' K£')
       ]));
-      body.appendChild(ecoFormulaBook(st, ec));
+      /* The formula book has moved to Settings → 图书馆. This tab keeps the
+         readings and the levers; the arithmetic is one deliberate visit away. */
       col.appendChild(frame('', [banner(T('eco.title'), T('eco.sub')), body]));
 
       return col;
@@ -665,11 +693,11 @@
         var canAct = a.cdLeft <= 0;
         var card = h('div', { class: 'advslot advslot--full' });
         card.appendChild(h('div', { class: 'advslot__top' }, [
-          avatar(ADV_AVATAR[a.id], a.zh.slice(0, 1)),
+          avatar(assetUrl(a.portrait), a.zh.slice(0, 1)),
           h('div', { class: 'advslot__hd' }, [
-            h('div', { class: 'advslot__n' }, a.zh),
+            h('div', { class: 'advslot__n' }, Core.L(a)),
             h('div', { class: 'advslot__f', style: { color: a.factionColor } },
-              a.factionZh + (a.external ? '' : ' · ' + T('adv.diss') + ' ' + a.dissent.toFixed(1)))
+              Core.L({ zh: a.factionZh, it: a.factionIt }) + (a.external ? '' : ' · ' + T('adv.diss') + ' ' + a.dissent.toFixed(1)))
           ])
         ]));
         card.appendChild(h('div', { class: 'advslot__bio' }, a.bio));
@@ -702,7 +730,7 @@
       ]));
 
       return frame('', [
-        banner(T('adv.title'), 'CONSIGLIERI'),
+        banner(T('adv.title'), T('adv.sub')),
         h('div', { style: { padding: '9px 11px' } }, row)
       ]);
     }
@@ -719,14 +747,14 @@
           list.appendChild(h('button', {
             class: 'deckrow', onclick: function () { act.hireAdvisor(a.id); }
           }, [
-            avatar(ADV_AVATAR[a.id], a.zh.slice(0, 1)),
+            avatar(assetUrl(a.portrait), a.zh.slice(0, 1)),
             h('div', { class: 'deckrow__b' }, [
-              h('div', { class: 'deckrow__n' }, a.zh),
+              h('div', { class: 'deckrow__n' }, Core.L(a)),
               h('div', { class: 'deckrow__t' }, a.bio),
               h('div', { class: 'advslot__act' }, Core.L(a.action))
             ]),
             h('div', { class: 'deckrow__m' }, [
-              h('span', { style: { color: a.factionColor } }, a.factionZh),
+              h('span', { style: { color: a.factionColor } }, Core.L({ zh: a.factionZh, it: a.factionIt })),
               a.external ? null : h('span', {}, T('adv.diss') + ' ' + a.dissent.toFixed(1))
             ]),
             Orn.decoArrow()
@@ -762,7 +790,7 @@
         }, [
           h('div', { class: 'deck__ic' }, icon(d.icon, 22)),
           h('div', { class: 'deck__b' }, [
-            h('div', { class: 'deck__n', style: { color: d.drawable ? 'var(--gold-pale)' : 'rgba(233,220,188,.4)' } }, d.zh),
+            h('div', { class: 'deck__n', style: { color: d.drawable ? 'var(--gold-pale)' : 'rgba(233,220,188,.4)' } }, Core.L(d)),
             h('div', { class: 'deck__s' }, d.drawable
               ? (picks ? T('deck.pickShort') : T('deck.draw')) + ' · ' + d.available
               : (d.available ? T('deck.full') : T('deck.none')))
@@ -828,30 +856,35 @@
     function briefingPanel(st) {
       var ec = Sel.economy(st), cr = Sel.crisis(st), fac = Sel.factions(st);
       var alerts = [];
+      /* The coup thresholds differ before and after Bloody Christmas, so the two
+         periods are separate ladders. There is no line here announcing the
+         Rapallo deadline: the date is already on the calendar, and a permanent
+         "the attack comes on 24 December" chip told the player nothing they
+         could act on. */
       if (!st.flags.natale_done) {
-        if (cr.coup >= 75) alerts.push(['bad', '事态 ' + Math.round(cr.coup) + '：卡维利亚的最后通牒已到。皇家陆军随时可能攻城。']);
-        else if (cr.coup >= 40) alerts.push(['warn', '事态 ' + Math.round(cr.coup) + '：封锁与外交孤立正在累积。']);
-        alerts.push(['info', '《拉帕洛条约》已于 1920 年 11 月 12 日签署。史实线上，攻击将在 1920 年 12 月 24 日到来。']);
+        if (cr.coup >= 75) alerts.push(['bad', T('br.coup.75', { n: Math.round(cr.coup) })]);
+        else if (cr.coup >= 40) alerts.push(['warn', T('br.coup.40', { n: Math.round(cr.coup) })]);
       } else {
-        if (cr.coup >= 70) alerts.push(['bad', '事态 ' + Math.round(cr.coup) + '：法西斯的小队已经接近行动阈值。']);
-        if (cr.squadre >= 55) alerts.push(['bad', '法西斯暴力 ' + Math.round(cr.squadre) + '：他们在街上已经有了自己的秩序。']);
+        if (cr.coup >= 70) alerts.push(['bad', T('br.coup.70', { n: Math.round(cr.coup) })]);
+        if (cr.squadre >= 55) alerts.push(['bad', T('br.squadre', { n: Math.round(cr.squadre) })]);
       }
-      if (cr.violence >= 55) alerts.push(['bad', '政治暴力 ' + Math.round(cr.violence) + '：小店主与教士正在滑向法西斯。']);
-      if (ec.unemployment >= 26) alerts.push(['warn', '失业 ' + ec.unemployment.toFixed(1) + '%：工人正在同时转向社会党与共产党。']);
-      if (ec.traffic < 26) alerts.push(['warn', '港口吞吐 ' + ec.traffic.toFixed(1) + '：商人开始怀疑诗人会不会算账。']);
-      if (ec.net < 0) alerts.push(['warn', '月度赤字 ' + Core.signed(ec.net, 1) + ' K£：军团军饷是最大的一笔。']);
-      if (ec.inflation > 22) alerts.push(['warn', '通胀 ' + ec.inflation.toFixed(1) + '%：阜姆券正在失去它作为货币的礼貌。']);
-      if (fac.dissent > 35) alerts.push(['warn', '党内整体异议 ' + fac.dissent.toFixed(0) + '：统一行动效率降至 ' + fac.unity.toFixed(0) + '%。']);
-      if (cr.milizia < 500 && !st.flags.natale_done) alerts.push(['bad', '军团兵力仅 ' + Core.fmt(cr.milizia) + '：不足以守住省督府。']);
-      var active = Sel.journals(st).filter(function (j) { return j.active; });
-      if (active.length) alerts.push(['info', '进行中的日志：' + active.map(function (j) { return j.zh; }).join('、')]);
-      if (!alerts.length) alerts.push(['ok', '本回合没有紧急警报。']);
+      if (cr.violence >= 55) alerts.push(['bad', T('br.violence', { n: Math.round(cr.violence) })]);
+      if (ec.unemployment >= 26) alerts.push(['warn', T('br.unemployment', { n: ec.unemployment.toFixed(1) })]);
+      if (ec.traffic < 26) alerts.push(['warn', T('br.traffic', { n: ec.traffic.toFixed(1) })]);
+      if (ec.net < 0) alerts.push(['warn', T('br.deficit', { n: Core.signed(ec.net, 1) })]);
+      if (ec.inflation > 22) alerts.push(['warn', T('br.inflation', { n: ec.inflation.toFixed(1) })]);
+      if (fac.dissent > 35) alerts.push(['warn', T('br.dissent', { a: fac.dissent.toFixed(0), b: fac.unity.toFixed(0) })]);
+      if (cr.milizia < 500 && !st.flags.natale_done) alerts.push(['bad', T('br.milizia', { n: Core.fmt(cr.milizia) })]);
+      /* The journals line is gone too: "进行中的日志：事业的第一年" restated what the
+         diary panel already shows, and it pushed a real warning off the six-line
+         budget whenever two logs were running. */
+      if (!alerts.length) alerts.push(['ok', T('br.calm')]);
 
       var grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '8px' } });
-      [['港口吞吐', ec.traffic.toFixed(1), '目标 ' + ec.trafficTarget.toFixed(1), '#EBD07A'],
-       ['失业率', ec.unemployment.toFixed(1) + '%', '通胀 ' + ec.inflation.toFixed(1) + '%', '#E8A9A2'],
-       ['月度结余', Core.signed(ec.net, 1), '债务 ' + Core.fmt(ec.debt), ec.net >= 0 ? '#B9D69B' : '#E8A9A2'],
-       ['事态', String(Math.round(Math.min(100, cr.coup))), cr.milestoneDefs.length ? '下一里程碑 ' + (cr.milestoneDefs.filter(function (m) { return cr.milestones.indexOf(m.id) < 0; })[0] || {}).at : '', cr.coup > 60 ? '#E8A9A2' : '#B9D69B']
+      [[T('br.trafficShort'), ec.traffic.toFixed(1), T('br.target') + ' ' + ec.trafficTarget.toFixed(1), '#EBD07A'],
+       [T('br.unempShort'), ec.unemployment.toFixed(1) + '%', T('eco.infl') + ' ' + ec.inflation.toFixed(1) + '%', '#E8A9A2'],
+       [T('br.net'), Core.signed(ec.net, 1), T('eco.debt') + ' ' + Core.fmt(ec.debt), ec.net >= 0 ? '#B9D69B' : '#E8A9A2'],
+       [T('bar.crisi'), String(Math.round(Math.min(100, cr.coup))), cr.milestoneDefs.length ? T('br.next') + ' ' + (cr.milestoneDefs.filter(function (m) { return cr.milestones.indexOf(m.id) < 0; })[0] || {}).at : '', cr.coup > 60 ? '#E8A9A2' : '#B9D69B']
       ].forEach(function (c) {
         grid.appendChild(h('div', { class: 'pick', style: { marginBottom: '0' } }, [
           h('div', { class: 'pick__n', style: { fontSize: '21px', color: c[3] } }, String(c[1])),
@@ -862,20 +895,27 @@
       alerts.slice(0, 6).forEach(function (a) {
         body.appendChild(h('div', { class: 'row', style: { gap: '8px', padding: '3px 0', alignItems: 'flex-start', marginTop: '4px' } }, [
           h('span', { class: 'chip chip--' + (a[0] === 'bad' ? 'bad' : a[0] === 'warn' ? 'warn' : a[0] === 'info' ? 'info' : 'ok'), style: { flex: 'none', marginTop: '2px' } },
-            a[0] === 'bad' ? '危急' : a[0] === 'warn' ? '注意' : a[0] === 'info' ? '史实' : '正常'),
+            T(a[0] === 'bad' ? 'br.tag.bad' : a[0] === 'warn' ? 'br.tag.warn' : a[0] === 'info' ? 'br.tag.info' : 'br.tag.ok')),
           h('span', { class: 'small', style: { color: 'rgba(233,220,188,.84)' } }, a[1])
         ]));
       });
       return frame('', [banner(T('rep.title'), T('rep.sub')), body]);
     }
 
-    /* The option's second line: its subtitle in the active language, falling
-       back to the Italian of the option text when no subtitle is written.
-       Returns a plain string so callers can place it inline, the way the event
-       modal does; an empty string means there is nothing to show. */
+    /* The option's second line: its subtitle in the active language.
+       Cards always carry one; event options carry one only where the author
+       wanted to say something extra (about a quarter of them — the "this is the
+       historical choice" markers live here). When an option has no subtitle the
+       line is simply absent.
+
+       It is NOT the option text repeated. Until 2026-10 this fell back to
+       `Core.sub(o.text)`, which returned the active language's own text: fine
+       while Chinese was the only playable locale, but in Italian it printed the
+       option twice, once above the other.
+       Returns a plain string so callers can place it inline; an empty string
+       means there is nothing to show. */
     function optionLine(o) {
-      if (o.subtitle) return Core.L(o.subtitle);
-      return Core.sub(o.text);
+      return o.subtitle ? Core.L(o.subtitle) : '';
     }
 
     /* ============================================================
@@ -897,8 +937,10 @@
       var byId = {};
       sup.forEach(function (p) { byId[p.id] = p.value; });
 
+      /* Keep the whole node rather than flattening it to `zh`: the rail renders
+         it through Core.L, so a party name has to stay a {zh, it} pair. */
       var parties = rel.rows.map(function (r) {
-        return { id: r.id, zh: r.zh, short: r.short, color: r.color, camp: r.camp,
+        return { id: r.id, zh: r.zh, it: r.it, short: r.short, color: r.color, camp: r.camp,
           weight: Math.max(4, byId[r.id] || 0) };
       });
       var lookup = {};
@@ -918,7 +960,7 @@
       /* The plate's own title, set the way a printed map is headed. */
       var head = h('div', { class: 'chordhead' }, [
         h('div', { class: 'chordhead__t' }, 'FIUME · MCMXIX'),
-        h('div', { class: 'chordhead__s' }, '阜姆 · 各党派关系弦图'),
+        h('div', { class: 'chordhead__s' }, T('chord.sub')),
         h('div', { class: 'chordhead__r' }, [h('i', {}), h('b', {}), h('i', {})])
       ]);
 
@@ -928,29 +970,28 @@
          be sized to meet the rail without a ragged caption under it. */
       var caption = h('div', { class: 'chordrail__sec' }, [
         h('div', { class: 'chordrail__sh' }, [
-          h('span', { class: 'chordrail__ht' }, '各党支持度'),
-          h('span', { class: 'chordrail__hs' }, 'CONSENSO')
+          h('span', { class: 'chordrail__ht' }, T('chord.support'))
         ])
       ].concat(parties.map(function (p) {
-        return h('div', { class: 'chordrail__s', title: p.zh }, [
+        return h('div', { class: 'chordrail__s', title: Core.L(p) }, [
           h('i', { class: 'chordrail__ssw', style: { background: p.color } }),
           h('span', { class: 'chordrail__sk' }, p.short),
-          h('span', { class: 'chordrail__sn2' }, p.zh),
+          h('span', { class: 'chordrail__sn2' }, Core.L(p)),
           h('span', { class: 'chordrail__sv' }, p.weight.toFixed(1) + '%')
         ]);
       })));
 
       /* One bar, read left to right: cold to warm. */
       var scale = h('div', { class: 'chordkey' }, [
-        h('span', { class: 'chordkey__e' }, '对立'),
+        h('span', { class: 'chordkey__e' }, T('rel.opposed')),
         h('i', { class: 'chordkey__scale' }, [h('b'), h('b'), h('b')]),
-        h('span', { class: 'chordkey__e' }, '亲近'),
+        h('span', { class: 'chordkey__e' }, T('rel.close')),
         h('span', { class: 'chordkey__i' },
-          h('span', {}, '丝带越宽、越绿，关系越好；越窄、越红，关系越差'))
+          h('span', {}, T('chord.keynote')))
       ]);
 
       var note = h('div', { class: 'tiny dim2', style: { marginTop: '8px' } },
-        '各党关系的基准是写定的史实立场，不随法条投票或选举阵营变动。每回合向基准回摆；同处内阁会把它推高。');
+        T('chord.note'));
 
       /* ---- the player's own row, stood up beside the plate ----
          The old numeric grid was six rows by five, and every cell outside the
@@ -963,11 +1004,10 @@
          only, which shows the playable parties, so the two the player cannot
          pick had nowhere to appear at all. */
       var mine = rel.rows.filter(function (r) { return r.player; })[0];
-      var myName = mine ? mine.zh : '';
+      var myName = mine ? Core.L(mine) : '';
       var rail = h('div', { class: 'chordrail' }, [
         h('div', { class: 'chordrail__h' }, [
-          h('span', { class: 'chordrail__ht' }, '与' + myName + '的关系'),
-          h('span', { class: 'chordrail__hs' }, 'RAPPORTI')
+          h('span', { class: 'chordrail__ht' }, T('chord.mine.title', { a: myName }))
         ])
       ].concat(
         (mine ? mine.cells.slice() : []).sort(function (a, b) { return b.v - a.v; })
@@ -977,12 +1017,12 @@
             var badge = p.emblem
               ? h('img', { class: 'chordrail__em', src: p.emblem, alt: '' })
               : h('span', { class: 'chordrail__em chordrail__em--flat', style: { background: p.color } });
-            return h('div', { class: 'chordrail__r', title: myName + ' ↔ ' + p.zh + '：' + c.v.toFixed(1) }, [
+            return h('div', { class: 'chordrail__r', title: T('chord.tip.row', { a: myName, b: Core.L(p), v: c.v.toFixed(1) }) }, [
               h('i', { class: 'chordrail__fill',
                 style: { width: Core.round1(Charts.warmth(c.v) * 100) + '%', background: col } }),
               badge,
               h('span', { class: 'chordrail__tx' }, [
-                h('span', { class: 'chordrail__n' }, p.zh),
+                h('span', { class: 'chordrail__n' }, Core.L(p)),
                 h('span', { class: 'chordrail__k' }, p.short)
               ]),
               h('span', { class: 'chordrail__v', style: { color: col } },
@@ -994,11 +1034,11 @@
            the thing that uses both readings. */
         h('div', { class: 'chordrail__f' }, [
           h('div', { class: 'chordrail__sc' }, [
-            h('span', { class: 'chordkey__e' }, '对立'),
+            h('span', { class: 'chordkey__e' }, T('rel.opposed')),
             h('i', { class: 'chordkey__scale' }, [h('b'), h('b'), h('b')]),
-            h('span', { class: 'chordkey__e' }, '亲近')
+            h('span', { class: 'chordkey__e' }, T('rel.close'))
           ]),
-          h('div', { class: 'chordrail__sn' }, '越宽、越绿，关系越好；越窄、越红，关系越差')
+          h('div', { class: 'chordrail__sn' }, T('chord.keynote'))
         ]),
         caption
       ]));
@@ -1014,68 +1054,69 @@
       ]);
     }
 
-    function tabAssemblea(st) {
-      var vm = Sel.parliament(st), ret = Sel.rettori(st);
+    /* ---- Arengo: the Charter's two councils ----------------------------------
+       Deliberately thin. The seat arcs, the apportionment figures and the
+       chamber captions all live in src/ui/arengo.ts, which is a normal ES module
+       and can therefore import the dependency-free d3-parliament chart directly.
+       This legacy IIFE cannot import anything, so it only finds the node and
+       hands it over through the `Fiume.Arengo` global.
+       The 1921 general election (Sel.parliament / state.assembly) is untouched —
+       it simply no longer has a tab of its own. */
+    /* ---- Arengo -------------------------------------------------------------
+       Two halves. The upper half is the Regency's own machinery — the seven
+       Rectors and the party-relations panel — which used to live on this tab and
+       must not be lost with the chart. The lower half is the Charter's two
+       councils, drawn by src/ui/arengo.ts.
+       The seat arcs and the apportionment figures live in that ES module because
+       this legacy IIFE cannot import anything; it hands the node over through the
+       `Fiume.Arengo` global. The 1921 general election (state.assembly) is
+       untouched — it simply no longer has a tab of its own. */
+    function tabArengo(st) {
+      var ret = Sel.rettori(st);
       var col = h('div', { class: 'col' });
-      var body = h('div', { style: { padding: '10px 11px' } });
-      if (vm.founded) {
-        body.appendChild(h('div', { style: { display: 'flex', justifyContent: 'center' } }, Charts.parliament(vm)));
-        var labs = h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '6px 12px', justifyContent: 'center', marginTop: '6px' } });
-        vm.seats.forEach(function (s) {
-          labs.appendChild(h('div', { class: 'row', style: { gap: '6px', fontSize: '12px' } }, [
-            h('span', { class: 'swatch', style: { background: s.color } }),
-            h('span', {}, s.zh), h('b', { class: 'num' }, String(s.seats))
-          ]));
-        });
-        body.appendChild(labs);
-        body.appendChild(h('div', { class: 'divider' }, icon('fasces', 11)));
-        body.appendChild(h('div', { class: 'tiny dim' },
-          '1921 年 4 月 24 日选举法（第 1100 号）：城区 68 席（51 多数 + 17 少数），子市镇 8 席（6 多数 + 2 少数）。' +
-          '多数派席位由得票第一的名单通吃。' + (vm.alone ? '（军团兵单独参选。）' : '') + (vm.boycotted ? '（军团兵抵制了这场选举。）' : '')));
-      } else {
-        body.appendChild(h('div', { class: 'assembly-empty' }, [
-          h('strong', {}, '议会尚未选出'),
-          h('span', {}, '当前由指挥官与七位执政官治理。制宪议会选举定于 1921 年 4 月 24 日。')
-        ]));
-      }
-      if (st.electionDetail) {
-        var d = st.electionDetail;
-        body.appendChild(h('div', { class: 'divider' }, icon('star', 11)));
-        var tbl = h('table', { class: 'tbl' });
-        tbl.appendChild(h('tr', {}, [h('th', {}, '名单'), h('th', { class: 'num' }, '城区'), h('th', { class: 'num' }, '子市镇')]));
-        Object.keys(d.city).sort(function (a, b) { return d.city[b] - d.city[a]; }).forEach(function (k) {
-          var pt = W.PARTY_BY_ID[k];
-          tbl.appendChild(h('tr', {}, [
-            h('td', {}, h('span', { class: 'row' }, [h('span', { class: 'swatch', style: { background: pt ? pt.color : '#888' } }), h('span', {}, pt ? pt.zh : k)])),
-            h('td', { class: 'num' }, (d.city[k] || 0).toFixed(1) + '%'),
-            h('td', { class: 'num' }, (d.sub[k] || 0).toFixed(1) + '%')
-          ]));
-        });
-        body.appendChild(tbl);
-      }
-      col.appendChild(frame('', [banner(T('parl.title'), vm.founded ? T('parl.seats', { n: vm.total, m: vm.majority }) : T('parl.notyet')), body]));
 
+      /* ---- the seven Rectors ---- */
       var cb = h('div', { style: { padding: '9px 11px' } });
       ret.forEach(function (m) {
         cb.appendChild(h('div', { class: 'adv' }, [
           avatar(HOLDER_AVATAR[m.id], (m.holder || m.zh).slice(0, 1), 'adv__av'),
           h('div', { class: 'adv__b' }, [
-            h('div', { class: 'adv__n' }, m.zh + ' · ' + m.it),
-            h('div', { class: 'adv__x' }, m.holder ? ('现任：' + m.holder) : '席位权重 ' + (m.power * 100).toFixed(0) + '%'),
+            h('div', { class: 'adv__n' }, Core.L(m)),
+            h('div', { class: 'adv__x' }, m.holder ? (T('cab.holder') + m.holder) : T('cab.power') + ' ' + (m.power * 100).toFixed(0) + '%'),
             h('div', { class: 'adv__m' }, [
-              h('span', { class: 'chip' + (m.mine ? ' chip--gold' : '') }, [h('span', { class: 'swatch', style: { background: m.color } }), m.ownerZh]),
-              h('span', { class: 'chip' }, '权重 ' + (m.power * 100).toFixed(0) + '%')
+              h('span', { class: 'chip' + (m.mine ? ' chip--gold' : '') }, [h('span', { class: 'swatch', style: { background: m.color } }), Core.L({ zh: m.ownerZh, it: m.ownerIt })]),
+              h('span', { class: 'chip' }, T('cab.weight') + ' ' + (m.power * 100).toFixed(0) + '%')
             ])
           ])
         ]));
       });
       cb.appendChild(h('div', { class: 'tiny dim2' },
-        '摄政联盟：' + st.coalition.members.map(function (m) { return W.PARTY_BY_ID[m] ? W.PARTY_BY_ID[m].zh : m; }).join(' + ') +
-        ' · 凝聚力 ' + st.coalition.cohesion.toFixed(0)));
+        T('cab.coalition') + st.coalition.members.map(function (m) { return W.PARTY_BY_ID[m] ? Core.L(W.PARTY_BY_ID[m]) : m; }).join(' + ') +
+        ' · ' + T('cab.cohesion') + ' ' + st.coalition.cohesion.toFixed(0)));
       col.appendChild(frame('', [banner(T('gab.title'), T('gab.sub')), cb]));
+
+      /* ---- party relations ---- */
       col.appendChild(relationsPanel(st));
+
+      /* ---- the Charter's two councils ---- */
+      var api = (typeof globalThis !== 'undefined' ? globalThis : window).Fiume;
+      if (!api || !api.Arengo || typeof api.Arengo.render !== 'function') {
+        col.appendChild(frame('', [banner(T('ar.title')), h('div', { class: 'assembly-empty' }, [
+          h('strong', {}, T('ar.nomount')),
+          h('span', {}, T('ar.nomount.sub'))
+        ])]));
+        return col;
+      }
+      var mount = h('div', { class: 'arengo-mount' });
+      col.appendChild(mount);
+      /* Render after the node is in the document so the SVG can measure itself. */
+      (window.requestAnimationFrame || function (f) { f(); })(function () {
+        try { api.Arengo.render(mount, st); }
+        catch (e) { mount.appendChild(h('div', { class: 'tiny dim' }, T('ar.err.render', { m: (e && e.message) || '' }))); }
+      });
       return col;
     }
+
 
     function tabDiplomazia(st, act) {
       var d = Sel.diplo(st);
@@ -1084,43 +1125,43 @@
       var activePosture = d.postures.filter(function (p) { return p.active; })[0];
       col.appendChild(h('div', { class: 'diplo-intro' }, [
         h('div', { class: 'diplo-intro__copy' }, [
-          h('strong', {}, '对外关系档案'),
-          h('span', {}, '国家关系以 0—100 计；意大利政治力量的态度以 −40—100 计。两者独立结算。')
+          h('strong', {}, T('dip.dossier')),
+          h('span', {}, T('dip.intro'))
         ]),
         h('div', { class: 'diplo-intro__posture' }, [
-          h('small', {}, '现行外交姿态'),
-          h('strong', {}, activePosture ? activePosture.zh : '未指定')
+          h('small', {}, T('dip.posture.current')),
+          h('strong', {}, activePosture ? Core.L(activePosture) : T('dip.unspecified'))
         ])
       ]));
 
       var b = h('div', { class: 'diplo-relations' });
       var groups = [
-        { zh: '邻国', it: 'VICINI', ids: ['italy', 'yugoslavia'] },
-        { zh: '协约国与国际机构', it: 'INTESA', ids: ['uk', 'france', 'usa', 'league'] },
-        { zh: '其他外交渠道', it: 'ALTRI', ids: ['hungary', 'vatican', 'soviet'] }
+        { label: 'dip.groups.neighbours', ids: ['italy', 'yugoslavia'] },
+        { label: 'dip.groups.entente', ids: ['uk', 'france', 'usa', 'league'] },
+        { label: 'dip.groups.other', ids: ['hungary', 'vatican', 'soviet'] }
       ];
       groups.forEach(function (group) {
         b.appendChild(h('div', { class: 'diplo-relations__group' }, [
-          h('strong', {}, group.zh), h('small', {}, group.it)
+          h('strong', {}, T(group.label))
         ]));
         group.ids.forEach(function (id) {
           var a = d.list.filter(function (item) { return item.id === id; })[0];
           if (!a) return;
           var tone = a.value < 25 ? 'cold' : a.value < 60 ? 'cautious' : 'warm';
-          var reading = a.value < 25 ? '冷淡' : a.value < 60 ? '谨慎' : '友好';
+          var reading = T(a.value < 25 ? 'dip.tone.cold' : a.value < 60 ? 'dip.tone.cautious' : 'dip.tone.warm');
           b.appendChild(h('div', { class: 'relation-entry relation-entry--state relation-entry--' + tone }, [
             h('div', { class: 'relation-entry__head' }, [
               h('span', { class: 'relation-entry__identity' }, [
                 h('i', { class: 'relation-entry__sigil', style: { background: a.color }, 'aria-hidden': 'true' }),
                 h('span', { class: 'relation-entry__names' }, [
-                  h('strong', {}, a.zh), h('small', {}, a.it)
+                  h('strong', {}, Core.L(a))
                 ])
               ]),
               h('span', { class: 'relation-entry__reading' }, reading),
               h('strong', { class: 'relation-entry__value num' }, a.value.toFixed(1))
             ]),
             h('div', { class: 'relation-track relation-track--state', role: 'meter',
-              'aria-label': a.zh + '关系', 'aria-valuemin': '0', 'aria-valuemax': '100',
+              'aria-label': T('dip.aria.state', { a: Core.L(a) }), 'aria-valuemin': '0', 'aria-valuemax': '100',
               'aria-valuenow': String(a.value) }, [
               h('i', { class: 'relation-track__half', 'aria-hidden': 'true' }),
               h('span', { class: 'relation-track__fill', style: { width: Core.clamp(a.value, 0, 100) + '%' } })
@@ -1129,67 +1170,166 @@
         });
       });
       b.appendChild(h('div', { class: 'relation-scale relation-scale--state' }, [
-        h('span', {}, '0 · 疏远'), h('span', {}, '50 · 中间'), h('span', {}, '100 · 亲近')
+        h('span', {}, T('dip.scale.low')), h('span', {}, T('dip.scale.mid')), h('span', {}, T('dip.scale.high'))
       ]));
 
       var fb = h('div', { class: 'forze-relations' });
+      var frontMin = W.FORZA_FRONT_MIN == null ? 60 : W.FORZA_FRONT_MIN;
       fb.appendChild(h('div', { class: 'forze-relations__summary' }, [
-        h('strong', {}, '关系达标 ' + forces.alliedCount + ' / ' + W.FORZA_FRONT_NEEDED + ' 派'),
-        h('span', {}, '六派中至少三派关系达到 80；日志开启后，60 为维系线。')
+        h('div', { class: 'forze-relations__heading' }, [
+          h('div', {}, [h('strong', {}, T('dip.portico.title'))]),
+          h('div', { class: 'forze-relations__pledges', 'aria-label': T('dip.portico.aria', { a: forces.alliedCount, b: W.FORZA_FRONT_NEEDED }) }, [
+            icon('laurel', 34), h('strong', {}, forces.alliedCount + '/' + W.FORZA_FRONT_NEEDED)
+          ])
+        ]),
+        h('span', {}, T('dip.portico.note', { a: frontMin }))
       ]));
-      function forceEntry(f, officer) {
+      // These are decorative monograms, not historical party emblems.
+      var forceDesign = {
+        fascisti: { label: 'dip.force.fascisti', monogram: 'PNF', icon: 'fasces', color: '#C4764D' },
+        socialisti: { label: 'dip.force.socialisti', monogram: 'PSI', icon: 'star', color: '#C95863' },
+        anarchici: { label: 'dip.force.anarchici', monogram: 'A', icon: 'flame', color: '#B8B5A4' },
+        comunisti: { label: 'dip.force.comunisti', monogram: 'PCI', icon: 'industria', color: '#C54437' },
+        corradini: { label: 'dip.force.corradini', monogram: 'ANI', icon: 'eagle', color: '#CFB568' },
+        sindacalisti: { label: 'dip.force.sindacalisti', monogram: 'SR', icon: 'milizia', color: '#829C86' }
+      };
+      var selectedForce = forces.front.filter(function (f) { return f.id === UI.forzaSelectedId; })[0] || forces.front[0];
+      var dossier = h('div', { class: 'forze-dossier', id: 'forze-dossier', role: 'region',
+        'aria-label': T('dip.dossier.aria'), 'aria-live': 'polite', 'aria-atomic': 'true' });
+      var pillars = [];
+      function forceStatus(f) {
+        return T(f.atGate ? 'dip.status.gate' : f.consolidating ? 'dip.status.hold' : f.value < 0 ? 'rel.opposed' : 'dip.status.open');
+      }
+      function selectForce(f) {
+        UI.forzaSelectedId = f.id;
+        pillars.forEach(function (pillar) {
+          var selected = pillar.getAttribute('data-force') === f.id;
+          pillar.classList.toggle('is-selected', selected);
+          pillar.setAttribute('aria-pressed', String(selected));
+        });
+        var design = forceDesign[f.id];
+        dossier.style.setProperty('--force-ink', design.color);
+        dossier.replaceChildren(
+          h('div', { class: 'forze-dossier__head' }, [
+            h('span', { class: 'forze-dossier__seal', 'aria-hidden': 'true' }, icon(design.icon, 24)),
+            h('div', { class: 'forze-dossier__identity' }, [h('strong', {}, Core.L(f))]),
+            h('span', { class: 'forze-dossier__status' }, forceStatus(f))
+          ]),
+          h('p', {}, f.note),
+          h('div', { class: 'forze-dossier__distance' }, [
+            h('span', {}, f.atGate ? T('dip.dossier.allied') : T('dip.dossier.distance', { n: f.gate })),
+            h('strong', {}, f.atGate ? T('dip.dossier.gate') : T('dip.dossier.gap', { n: (f.gate - f.value).toFixed(1) }))
+          ])
+        );
+      }
+      var portico = h('div', { class: 'forze-portico', 'aria-label': T('dip.portico.chart.aria') });
+      var guides = h('div', { class: 'forze-portico__guides', 'aria-hidden': 'true' });
+      [100, 80, frontMin, 0, -40].forEach(function (value) {
+        guides.appendChild(h('div', { class: 'forze-portico__guide' +
+          (value === 80 ? ' is-gate' : value === frontMin ? ' is-floor' : value === 0 ? ' is-zero' : ''),
+          style: { bottom: ((value + 40) / 140 * 100) + '%' } }, h('span', {}, String(value).replace('-', '−'))));
+      });
+      portico.appendChild(guides);
+      var columnGrid = h('div', { class: 'forze-portico__columns' });
+      columnGrid.style.setProperty('--force-count', forces.front.length);
+      forces.front.forEach(function (f, index) {
+        var design = forceDesign[f.id];
         var zero = 40 / 140 * 100;
         var position = Core.clamp((f.value + 40) / 140 * 100, 0, 100);
-        var positive = f.value >= 0;
-        var gate = officer ? 60 : f.gate;
-        var gatePosition = (gate + 40) / 140 * 100;
-        var tone = f.value < 0 ? 'cold' : f.value >= gate ? 'warm' : f.value >= 60 ? 'cautious' : 'neutral';
-        var status = f.value >= gate ? '已达标' : f.value >= 60 ? '达到维系线' : f.value < 0 ? '对立' : '待争取';
+        var ticks = h('span', { class: 'forze-pillar__ticks', 'aria-hidden': 'true' });
+        for (var n = 1; n < 28; n++) ticks.appendChild(h('i', { style: { bottom: (n / 28 * 100) + '%' } }));
+        var pillar = h('button', {
+          class: 'forze-pillar' + (f.atGate ? ' is-at-gate' : '') + (f.value < 0 ? ' is-negative' : ''), type: 'button',
+          'data-force': f.id, 'aria-controls': 'forze-dossier', 'aria-pressed': 'false',
+          'aria-label': T('dip.pillar.aria', { a: Core.L(f), v: Core.signed(f.value, 1), s: forceStatus(f) }),
+          onclick: function () { selectForce(f); },
+          onkeydown: function (event) {
+            var target;
+            if (event.key === 'ArrowRight') target = (index + 1) % pillars.length;
+            if (event.key === 'ArrowLeft') target = (index + pillars.length - 1) % pillars.length;
+            if (event.key === 'Home') target = 0;
+            if (event.key === 'End') target = pillars.length - 1;
+            if (target == null) return;
+            event.preventDefault();
+            // React renders a copy of the legacy view, so focus the live
+            // event's column rather than the detached description node.
+            event.currentTarget.closest('.forze-portico').querySelectorAll('.forze-pillar')[target].focus();
+            selectForce(forces.front[target]);
+          }
+        }, [
+          h('span', { class: 'forze-pillar__head' }, [
+            h('small', {}, Core.roman(index + 1)), h('strong', { class: 'num' }, Core.signed(f.value, 1))
+          ]),
+          h('span', { class: 'forze-pillar__monument' }, [
+            h('span', { class: 'forze-pillar__capital', 'aria-hidden': 'true' }),
+            h('span', { class: 'forze-pillar__shaft', role: 'meter', 'aria-label': T('dip.aria.state', { a: Core.L(f) }),
+              'aria-valuemin': '-40', 'aria-valuemax': '100', 'aria-valuenow': String(f.value),
+              'aria-valuetext': T('dip.pillar.valuetext', { v: Core.signed(f.value, 1), s: forceStatus(f) }) }, [
+              h('span', { class: 'forze-pillar__fill', 'aria-hidden': 'true',
+                style: { bottom: Math.min(zero, position) + '%', height: Math.abs(position - zero) + '%' } }), ticks
+            ]),
+            h('span', { class: 'forze-pillar__base', 'aria-hidden': 'true' })
+          ]),
+          h('span', { class: 'forze-pillar__seal', 'aria-hidden': 'true' }, icon(design.icon, 20)),
+          h('strong', { class: 'forze-pillar__name' }, T(design.label)),
+          h('small', { class: 'forze-pillar__monogram' }, design.monogram),
+          h('span', { class: 'forze-pillar__status' }, forceStatus(f))
+        ]);
+        pillar.style.setProperty('--force-ink', design.color);
+        pillars.push(pillar); columnGrid.appendChild(pillar);
+      });
+      portico.appendChild(columnGrid); fb.appendChild(portico);
+      fb.appendChild(h('div', { class: 'forze-portico__legend' }, [
+        h('span', {}, T('dip.legend.zero')), h('span', { class: 'is-floor' }, T('dip.legend.floor', { n: frontMin })),
+        h('span', { class: 'is-gate' }, T('dip.legend.gate')), h('small', {}, T('dip.legend.click'))
+      ]));
+      fb.appendChild(dossier);
+      if (selectedForce) selectForce(selectedForce);
+      if (!W.forzaExists(st, 'comunisti')) fb.appendChild(h('p', { class: 'forze-relations__pending' },
+        T('dip.portico.pending')));
+
+      function officerEntry(f) {
+        var zero = 40 / 140 * 100;
+        var position = Core.clamp((f.value + 40) / 140 * 100, 0, 100);
+        var gatePosition = (f.gate + 40) / 140 * 100;
+        var tone = f.value < 0 ? 'cold' : f.atGate ? 'warm' : 'neutral';
         var entry = h('details', { class: 'relation-entry relation-entry--force relation-entry--' + tone });
         entry.appendChild(h('summary', { class: 'relation-entry__summary' }, [
           h('span', { class: 'relation-entry__head' }, [
             h('span', { class: 'relation-entry__identity' }, [
               h('i', { class: 'relation-entry__sigil', style: { background: f.color }, 'aria-hidden': 'true' }),
               h('span', { class: 'relation-entry__names' }, [
-                h('strong', {}, f.zh), h('small', {}, f.it)
+                h('strong', {}, Core.L(f))
               ])
             ]),
-            h('span', { class: 'relation-entry__reading' }, status),
+            h('span', { class: 'relation-entry__reading' }, forceStatus(f)),
             h('strong', { class: 'relation-entry__value num' },
               (f.value > 0 ? '+' : '') + f.value.toFixed(1))
           ]),
           h('span', { class: 'relation-track relation-track--force', role: 'meter',
-            'aria-label': f.zh + '关系', 'aria-valuemin': '-40', 'aria-valuemax': '100',
+            'aria-label': T('dip.aria.state', { a: Core.L(f) }), 'aria-valuemin': '-40', 'aria-valuemax': '100',
             'aria-valuenow': String(f.value) }, [
             h('i', { class: 'relation-track__zero', style: { left: zero + '%' }, 'aria-hidden': 'true' }),
             h('i', { class: 'relation-track__gate', style: { left: gatePosition + '%' }, 'aria-hidden': 'true' }),
-            h('span', { class: 'relation-track__fill' + (positive ? '' : ' is-negative'),
+            h('span', { class: 'relation-track__fill' + (f.value >= 0 ? '' : ' is-negative'),
               style: { left: Math.min(zero, position) + '%', width: Math.abs(position - zero) + '%' } })
           ])
         ]));
         entry.appendChild(h('div', { class: 'relation-entry__detail' }, [
           h('p', {}, f.note),
-          h('span', {}, officer ? '军官团需达到 60，是进军罗马的独立条件。' :
-            '日志开启后，60 为维系线；80 为进军罗马的达标线。')
+          h('span', {}, T('dip.officer.need', { n: f.gate }))
         ]));
         return entry;
       }
-      forces.front.forEach(function (f) { fb.appendChild(forceEntry(f, false)); });
-      if (!W.forzaExists(st, 'comunisti')) fb.appendChild(h('p', { class: 'forze-relations__pending' },
-        '意大利共产党尚未成立，成立后才出现在这份名单中。'));
-      fb.appendChild(h('div', { class: 'relation-scale relation-scale--force' }, [
-        h('span', {}, '−40'), h('span', {}, '0'), h('span', {}, '60 · 维系'),
-        h('span', {}, '80 · 达标'), h('span', {}, '100')
-      ]));
       if (forces.officer) fb.appendChild(h('div', { class: 'forze-relations__officer' }, [
         h('div', { class: 'forze-relations__officer-title' }, [
-          h('strong', {}, '独立条件 · 军官团'), h('span', {}, '进军罗马需达到 60')
+          h('strong', {}, T('dip.officer.title')), h('span', {}, T('dip.officer.sub', { n: forces.officer.gate }))
         ]),
-        forceEntry(forces.officer, true)
+        officerEntry(forces.officer)
       ]));
       col.appendChild(h('div', { class: 'diplo-relations-grid' }, [
-        frame('diplo-column', [banner('国家与国际机构', '外交关系 · 0—100'), b]),
-        frame('diplo-column', [banner('意大利政治力量', '进军罗马 · −40—100'), fb])
+        frame('diplo-column', [banner(T('dip.states'), T('dip.states.sub')), b]),
+        frame('diplo-column', [banner(T('dip.forces'), T('dip.forces.sub')), fb])
       ]));
 
       var pb = h('div', { class: 'diplo-postures' });
@@ -1201,20 +1341,19 @@
           onclick: function () { act.setPosture(po.id); }
         }, [
           h('div', { class: 'diplo-posture__head' }, [
-            h('strong', {}, po.zh), h('span', {}, po.active ? '现行' : '选择')
+            h('strong', {}, Core.L(po)), h('span', {}, T(po.active ? 'dip.current' : 'dip.choose'))
           ]),
           h('div', { class: 'diplo-posture__it' }, po.it),
-          h('p', {}, po.desc),
+          h('p', {}, Core.L({ zh: po.desc, it: po.descIt })),
           h('div', { class: 'diplo-posture__effects' }, po.effects.map(function (effect) {
             return h('span', { class: 'diplo-posture__effect' + (effect.value < 0 ? ' is-negative' : '') },
-              effect.zh + ' ' + (effect.value > 0 ? '+' : '−') + Math.abs(effect.value));
+              Core.L(effect) + ' ' + (effect.value > 0 ? '+' : '−') + Math.abs(effect.value));
           }))
         ]));
       });
       pb.appendChild(grid);
-      pb.appendChild(h('p', { class: 'diplo-postures__note' },
-        '数字为每半月结算时的基础关系变化；法律、事件及关系上限另行生效。切换姿态本身不消耗行动力。'));
-      col.appendChild(frame('', [banner(T('dip.posture'), '每半月基础变化 · ORIENTAMENTO'), pb]));
+      pb.appendChild(h('p', { class: 'diplo-postures__note' }, T('dip.postures.note')));
+      col.appendChild(frame('', [banner(T('dip.posture'), T('dip.posture.line')), pb]));
 
       return col;
     }
@@ -1230,11 +1369,11 @@
 
     function lawDossier(L, act, charterProgrammed) {
       var dossier = h('section', { class: 'law-dossier', id: 'law-dossier', tabindex: '-1',
-        'aria-label': L.zh + ' · ' + T('leg.allLevels') });
+        'aria-label': Core.L({ zh: L.zh, it: L.it }) + ' · ' + T('leg.allLevels') });
       dossier.appendChild(h('div', { class: 'law-dossier__head' }, [
         h('div', { class: 'law-dossier__name' }, [
           h('span', { class: 'law-dossier__eyebrow' }, T('leg.dossier')),
-          h('h2', {}, L.zh), h('span', { class: 'law-dossier__it' }, L.it)
+          h('h2', {}, Core.L(L))
         ]),
         h('div', { class: 'law-dossier__seal' }, [
           h('strong', {}, String(L.level)), h('span', {}, '/ ' + L.max)
@@ -1242,7 +1381,7 @@
       ]));
       dossier.appendChild(h('div', { class: 'law-dossier__current' }, [
         h('span', {}, T('leg.inForce')),
-        h('strong', {}, L.label)
+        h('strong', {}, Core.L({ zh: L.label, it: L.labelIt }))
       ]));
       if (charterProgrammed && L.charterTarget != null) dossier.appendChild(h('div', { class: 'law-dossier__charter' },
         T('leg.charterTarget', { n: L.charterTarget }) + ' · ' +
@@ -1252,12 +1391,12 @@
         h('p', {}, Core.L(L.effect))
       ]));
       var course = h('ol', { class: 'law-course', 'aria-label': T('leg.allLevels') });
-      L.levels.forEach(function (label, n) {
+      (L.levelList || []).forEach(function (entry, n) {
         var status = n < L.level ? 'lower' : n === L.level ? 'current' : 'future';
         course.appendChild(h('li', { class: 'law-course__item law-course__item--' + status }, [
           h('span', { class: 'law-course__number', 'aria-hidden': 'true' }, String(n).padStart(2, '0')),
           h('span', { class: 'law-course__copy' }, [
-            h('span', { class: 'law-course__label' }, label),
+            h('span', { class: 'law-course__label' }, Core.L(entry)),
             h('span', { class: 'law-course__status' },
               n === L.level ? T('leg.inForce') : n < L.level ? T('leg.lower') :
                 n === L.level + 1 ? T('leg.next') : T('leg.future'))
@@ -1329,7 +1468,7 @@
           }
         }, [
           h('span', { class: 'charter-board__check', 'aria-hidden': 'true' }, r.met ? '◆' : '◇'),
-          h('span', {}, r.zh),
+          h('span', {}, Core.L(r)),
           h('strong', {}, r.current + ' / ' + r.level)
         ]));
       });
@@ -1344,10 +1483,10 @@
           ids: ['ordine', 'portofranco', 'dogana', 'fisco'] }
       ];
       chapters.forEach(function (chapter) {
-        var folio = h('section', { class: 'law-chapter', 'aria-label': chapter.zh });
+        var folio = h('section', { class: 'law-chapter', 'aria-label': Core.L(chapter) });
         folio.appendChild(h('div', { class: 'law-chapter__heading' }, [
           h('span', { class: 'law-chapter__roman', 'aria-hidden': 'true' }, chapter.number),
-          h('div', {}, [h('span', { class: 'law-chapter__it' }, chapter.it), h('h3', {}, chapter.zh)]),
+          h('div', {}, [h('h3', {}, Core.L(chapter))]),
           h('span', { class: 'law-chapter__count' }, String(chapter.ids.length).padStart(2, '0') + ' / ' + String(laws.length).padStart(2, '0'))
         ]));
         var grid = h('div', { class: 'laws-atlas__grid', 'aria-label': T('leg.select') });
@@ -1370,8 +1509,8 @@
             h('span', { class: 'law-tile__index' }, String(index + 1).padStart(2, '0')),
             h('span', { class: 'law-tile__level' }, L.level + ' / ' + L.max)
           ]),
-          h('strong', { class: 'law-tile__name' }, L.zh),
-          h('span', { class: 'law-tile__current' }, L.label),
+          h('strong', { class: 'law-tile__name' }, Core.L(L)),
+          h('span', { class: 'law-tile__current' }, Core.L({ zh: L.label, it: L.labelIt })),
           L.charterTarget != null ? h('span', { class: 'law-tile__target' +
             (charter.programmed && L.level >= L.charterTarget ? ' is-met' : '') },
             charter.programmed ? T('leg.charterTarget', { n: L.charterTarget }) : T('leg.awaitProgram')) :
@@ -1386,62 +1525,145 @@
       return h('div', { class: 'col' }, [frame('', [banner(T('leg.title'), T('leg.sub')), b])]);
     }
 
-    /* One labelled gauge block, used twice: the two crises are the same shape but
-       different pressures, so they read identically and are told apart by title
-       and colour. */
-    function crisisGauge(parent, title, value, color, defs, passed, series, guide) {
-      parent.appendChild(h('div', { class: 'small', style: { marginBottom: '3px', letterSpacing: '.06em' } }, title));
-      parent.appendChild(Charts.barRow('', null, value, 140, color));
+    /* A curved glass vessel in a turned brass frame. Fill by chamber area so
+       the amount of sand, rather than its height, follows the 0–100 pressure. */
+    function crisisHourglass(value, color, title) {
+      var fraction = Core.clamp(value / W.CRISIS_MAX, 0, 1);
+      function curve(from, a, b, to) {
+        var points = [];
+        for (var i = 1; i <= 32; i++) {
+          var t = i / 32, u = 1 - t;
+          points.push([u*u*u*from[0] + 3*u*u*t*a[0] + 3*u*t*t*b[0] + t*t*t*to[0],
+            u*u*u*from[1] + 3*u*u*t*a[1] + 3*u*t*t*b[1] + t*t*t*to[1]]);
+        }
+        return points;
+      }
+      var right = [[134, 44]].concat(curve([134,44], [144,76], [134,100], [110,117]),
+        curve([110,117], [98,126], [94,130], [94,138]));
+      var upper = right.concat(right.slice().reverse().map(function (p) { return [180 - p[0], p[1]]; }));
+      var lower = upper.map(function (p) { return [p[0], 288 - p[1]]; }).reverse();
+      function area(points) {
+        return Math.abs(points.reduce(function (sum, p, i) {
+          var q = points[(i + 1) % points.length];
+          return sum + p[0]*q[1] - q[0]*p[1];
+        }, 0)) / 2;
+      }
+      function below(points, y) {
+        var cut = [];
+        points.forEach(function (p, i) {
+          var q = points[(i + 1) % points.length], pIn = p[1] >= y, qIn = q[1] >= y;
+          if (pIn) cut.push(p);
+          if (pIn !== qIn) cut.push([p[0] + (q[0] - p[0]) * (y - p[1]) / (q[1] - p[1]), y]);
+        });
+        return cut;
+      }
+      function sand(points, share) {
+        var lo = Math.min.apply(null, points.map(function (p) { return p[1]; }));
+        var hi = Math.max.apply(null, points.map(function (p) { return p[1]; }));
+        if (share <= 0) return { points: [], y: hi };
+        if (share >= 1) return { points: points, y: lo };
+        var target = area(points) * share;
+        for (var i = 0; i < 32; i++) {
+          var mid = (lo + hi) / 2;
+          if (area(below(points, mid)) > target) lo = mid; else hi = mid;
+        }
+        var y = (lo + hi) / 2;
+        return { points: below(points, y), y: y };
+      }
+      var upperSand = sand(upper, 1 - fraction), lowerSand = sand(lower, fraction);
+      var meter = h('div', { class: 'crisis-hourglass', role: 'meter', 'aria-label': title + '压力',
+        'aria-valuemin': '0', 'aria-valuemax': String(W.CRISIS_MAX), 'aria-valuenow': String(value),
+        'aria-valuetext': value.toFixed(1) + ' / ' + W.CRISIS_MAX + '；下层积沙表示当前压力' });
+      var drawing = Core.svg('svg', { viewBox: '0 0 180 286', 'aria-hidden': 'true', focusable: 'false' });
+      function add(tag, attrs) { drawing.appendChild(Core.svg(tag, attrs)); }
+      var glass = 'M46 44H134C144 76 134 100 110 117C98 126 94 130 94 138' +
+        'Q91 144 94 150C94 158 98 162 110 171C134 188 144 212 134 244H46' +
+        'C36 212 46 188 70 171C82 162 86 158 86 150Q89 144 86 138' +
+        'C86 130 82 126 70 117C46 100 36 76 46 44Z';
+      add('path', { d: glass, class: 'crisis-hourglass__glass' });
+      [['upper', upperSand], ['lower', lowerSand]].forEach(function (entry) {
+        add('polygon', { class: 'crisis-hourglass__sand crisis-hourglass__sand--' + entry[0], fill: color,
+          points: entry[1].points.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') });
+      });
+      if (fraction > 0 && fraction < 1) add('line', { class: 'crisis-hourglass__stream', stroke: color,
+        x1: 90, y1: 138, x2: 90, y2: lowerSand.y, 'stroke-width': 1.6, 'stroke-dasharray': '2 4' });
+      add('path', { d: glass, class: 'crisis-hourglass__outline' });
+      add('path', { d: 'M52 54C47 78 56 95 72 109M52 230C47 205 56 190 72 179', class: 'crisis-hourglass__reflection' });
+      // Turned, curved supports and stepped oval brass caps; all flat colours.
+      ['M27 39C21 60 36 86 30 116C25 148 25 199 30 249H37' +
+        'C32 199 32 150 37 117C43 86 29 62 35 39Z',
+       'M153 39C159 60 144 86 150 116C155 148 155 199 150 249H143' +
+        'C148 199 148 150 143 117C137 86 151 62 145 39Z'].forEach(function (d) {
+        add('path', { d: d, class: 'crisis-hourglass__rail' });
+      });
+      [[90,32,70,7],[90,39,60,4],[90,249,60,4],[90,256,70,7],[90,264,76,5]].forEach(function (plate) {
+        add('ellipse', { cx: plate[0], cy: plate[1], rx: plate[2], ry: plate[3], class: 'crisis-hourglass__frame' });
+      });
+      [31, 149].forEach(function (x) { [46, 117, 177, 241].forEach(function (y) {
+        add('ellipse', { cx: x, cy: y, rx: 5, ry: 2.4, class: 'crisis-hourglass__stud' });
+      }); });
+      add('path', { d: 'M78 21Q84 14 90 20Q96 14 102 21M90 12V23', class: 'crisis-hourglass__ornament' });
+      drawing.appendChild(Core.svgText(90, 10, 'TEMPVS', { class: 'crisis-hourglass__inscription', 'text-anchor': 'middle' }));
+      drawing.appendChild(Core.svgText(90, 283, 'FIVME · MCMXIX', { class: 'crisis-hourglass__caption', 'text-anchor': 'middle' }));
+      meter.appendChild(drawing);
+      return meter;
+    }
+
+    /* The two crises share a scale and a shape, with separate sand colours,
+       numerical pressure readings, and their own historical milestones. */
+    function crisisGauge(parent, title, motto, value, color, defs, passed) {
+      parent.style.setProperty('--crisis-ink', color);
+      parent.classList.toggle('is-critical', value >= 100);
+      parent.appendChild(h('div', { class: 'crisis-axis__heading' }, [
+        h('small', {}, motto),
+        h('div', { class: 'crisis-axis__title-row' }, [h('strong', {}, title),
+          h('div', { class: 'crisis-axis__value' }, [h('strong', { class: 'num' }, value.toFixed(1)),
+            h('span', {}, '/ ' + W.CRISIS_MAX)])])
+      ]));
+      var milestones = h('div', { class: 'crisis-axis__milestones' });
       defs.forEach(function (m) {
         var has = passed.indexOf(m.id) >= 0;
-        parent.appendChild(h('div', { class: 'kv' }, [
-          h('span', { class: 'kv__k' + (has ? '' : ' dim2') }, (has ? '◆ ' : '◇ ') + m.at + ' — ' + m.zh),
-          h('span', { class: 'kv__v ' + (has ? '' : 'dim2') }, has ? '已过' : '未至')
+        milestones.appendChild(h('div', { class: 'crisis-axis__milestone' + (has ? ' is-passed' : ''), 'data-milestone': m.id }, [
+          h('span', { class: 'crisis-axis__threshold' }, String(m.at)),
+          h('div', { class: 'crisis-axis__milestone-copy' }, [
+            h('span', { class: 'crisis-axis__milestone-name' }, Core.L(m)),
+            h('span', { class: 'crisis-axis__milestone-status' }, T(has ? 'cri.milestone.hit' : 'cri.milestone.miss'))
+          ])
         ]));
       });
-      if (series && series.length > 1) {
-        parent.appendChild(Charts.sparkline(series,
-          { color: color, fillColor: 'rgba(163,22,33,.18)', guide: guide || 100, min: 0, max: 120, height: 44 }));
-      }
+      parent.appendChild(h('div', { class: 'crisis-axis__instrument' }, [
+        crisisHourglass(value, color, title), milestones
+      ]));
     }
 
     function tabCrisi(st) {
       var cr = Sel.crisis(st);
       var col = h('div', { class: 'col' });
       var b = h('div', { style: { padding: '9px 11px' } });
-      [['摄政权威', cr.authority, '#3C7FA8'], ['意大利军队立场', cr.garrison, '#6B4E9E'],
-       ['民众热忱', cr.fervour, '#A31621'], ['法西斯暴力', cr.squadre, '#2B2B33'],
-       ['政治暴力', cr.violence, '#8A2A2A']].forEach(function (r) {
+      [[T('cri.authority'), cr.authority, '#3C7FA8'], [T('cri.garrison'), cr.garrison, '#6B4E9E'],
+       [T('cri.fervour'), cr.fervour, '#A31621'], [T('cri.squadre'), cr.squadre, '#2B2B33'],
+       [T('cri.violence'), cr.violence, '#8A2A2A']].forEach(function (r) {
         b.appendChild(Charts.barRow(r[0], null, r[1], 100, r[2]));
       });
-      b.appendChild(h('details', { class: 'formula-details' }, [
-        h('summary', {}, '查看两条危机的计算方式'),
-        h('div', { class: 'small', style: { marginTop: '6px' } }, '紧张度 T（四条量表 → 围攻）'),
-        h('div', { class: 'mono small' }, 'T = clamp[0,100]( 0.30×(100−权威) + 0.25×(100−驻军) + 0.20×热忱 + 0.25×法西斯暴力 )'),
-        h('div', { class: 'small', style: { marginTop: '6px' } }, '围攻 Δ事态（罗马的耐心）'),
-        h('div', { class: 'mono small' }, 'Δ = clamp[−7, 22.5]( 0.09×T + 0.06×(100−驻军) − 0.025×权威 + 15 − 三项修正 )'),
-        h('div', { class: 'small', style: { marginTop: '6px' } }, '阴谋 Δ（法西斯的占领）'),
-        h('div', { class: 'mono small' }, 'Δ = clamp[−6, 20]( −6 + 0.30×法西斯小队 + 0.35×max(0,暴力−25) + 0.50×max(0,法西斯派影响力−15) − 0.04×军团民意 )'),
-        h('div', { class: 'tiny dim2', style: { marginTop: '6px' } },
-          '两条轴互相独立：罗马的军队与墨索里尼的小队不是同一件事。')
-      ]));
+      /* The two crisis formulas have moved to Settings → 图书馆. What stays here
+         is the pair of gauges and the forces that feed them. */
 
       var crisisPair = h('div', { class: 'crisis-pair' });
       var siegePanel = h('div', { class: 'crisis-axis' });
       var plotPanel = h('div', { class: 'crisis-axis' });
-      crisisGauge(siegePanel, '围攻 · 罗马的耐心', cr.coup, '#C9A227',
-        cr.milestoneDefs, cr.milestones, st.series.coup, 100);
-      crisisGauge(plotPanel, '阴谋 · 法西斯的占领', cr.subversion, '#8A2A2A',
-        cr.subversionDefs, cr.subversionMilestones, (st.series || {}).subversion, 100);
+      crisisGauge(siegePanel, T('cri.siege.title'), 'ROMA · ASSEDIO', cr.coup, '#D2AC5E',
+        cr.milestoneDefs, cr.milestones);
+      crisisGauge(plotPanel, T('cri.plot.title'), 'FIUME · INSIDIAE', cr.subversion, '#BD6961',
+        cr.subversionDefs, cr.subversionMilestones);
       crisisPair.appendChild(siegePanel);
       crisisPair.appendChild(plotPanel);
       b.appendChild(crisisPair);
       col.appendChild(frame('', [banner(T('cri.title'), T('cri.sub')), b]));
 
       var ob = h('div', { style: { padding: '9px 11px' } });
-      [['阜姆军团', cr.milizia, '#C9A227', 6000],
-       ['市警（编制估计）', cr.police, '#3C7FA8', 400], ['皇家宪兵（意大利）', cr.carabinieri, '#8A7A5A', 400],
-       ['法西斯小队（估计）', Math.round(cr.squadre * 14), '#2B2B33', 1600]
+      [[T('cri.forze.milizia'), cr.milizia, '#C9A227', 6000],
+       [T('cri.forze.police'), cr.police, '#3C7FA8', 400], [T('cri.forze.carabinieri'), cr.carabinieri, '#8A7A5A', 400],
+       [T('cri.forze.squadre'), Math.round(cr.squadre * 14), '#2B2B33', 1600]
       ].forEach(function (r) { ob.appendChild(Charts.barRow(r[0], null, r[1], r[3], r[2])); });
       col.appendChild(frame('', [banner(T('cri.forze'), T('cri.forze.sub')), ob]));
 
@@ -1461,14 +1683,14 @@
       var grid = h('div', { class: 'cmatrix', style: { gridTemplateColumns: '132px 44px ' + mx.cols.map(function () { return 'minmax(42px,1fr)'; }).join(' ') } });
 
       /* Header row */
-      grid.appendChild(h('div', { class: 'cmatrix__h cmatrix__h--l' }, '阶层 · 权重'));
-      ['投票率'].forEach(function (t) {
+      grid.appendChild(h('div', { class: 'cmatrix__h cmatrix__h--l' }, T('ele.classWeight')));
+      [T('ele.turnout')].forEach(function (t) {
         grid.appendChild(h('div', { class: 'cmatrix__h', title: t }, t));
       });
       mx.cols.forEach(function (col) {
         grid.appendChild(h('div', {
           class: 'cmatrix__h cmatrix__h--p' + (col.player ? ' is-player' : ''),
-          style: { color: col.color }, title: col.zh + ' · ' + col.it
+          style: { color: col.color }, title: Core.L(col)
         }, [
           h('span', { class: 'cmatrix__dot', style: { background: col.color } }),
           h('span', {}, col.short)
@@ -1478,10 +1700,10 @@
       /* Class rows */
       mx.rows.forEach(function (r) {
         grid.appendChild(h('div', { class: 'cmatrix__l', title: r.note || '' }, [
-          h('span', { class: 'cmatrix__n' }, r.zh),
+          h('span', { class: 'cmatrix__n' }, Core.L(r)),
           h('span', { class: 'cmatrix__w' }, String(r.pop))
         ]));
-        grid.appendChild(h('div', { class: 'cmatrix__t', title: '投票率 ' + r.turnout + '%' }, [
+        grid.appendChild(h('div', { class: 'cmatrix__t', title: T('ele.turnoutTip', { n: r.turnout }) }, [
           bar(r.turnout, 100, 'linear-gradient(90deg,#6B4E9E,#A98BD6)'),
           h('span', { class: 'cmatrix__tv' }, r.turnout.toFixed(0))
         ]));
@@ -1490,19 +1712,19 @@
           grid.appendChild(h('div', {
             class: 'cmatrix__c' + (cell.v >= 20 ? ' is-strong' : ''),
             style: { background: 'rgba(' + hexRgb(cell.color) + ',' + (0.07 + a * 0.85).toFixed(3) + ')' },
-            title: r.zh + ' → ' + cell.id + ' ' + cell.v.toFixed(1) + '%'
+            title: Core.L(r) + ' → ' + cell.id + ' ' + cell.v.toFixed(1) + '%'
           }, cell.v >= 1 ? cell.v.toFixed(0) : '·'));
         });
       });
 
       /* National support */
-      grid.appendChild(h('div', { class: 'cmatrix__l cmatrix__l--sum' }, '全国支持'));
-      grid.appendChild(h('div', { class: 'cmatrix__t cmatrix__t--sum', title: '全市加权投票率' },
+      grid.appendChild(h('div', { class: 'cmatrix__l cmatrix__l--sum' }, T('eco.consenso')));
+      grid.appendChild(h('div', { class: 'cmatrix__t cmatrix__t--sum', title: T('ele.turnoutTotal') },
         [h('span', { class: 'cmatrix__tv' }, mx.turnout.toFixed(0) + '%')]));
       mx.totals.forEach(function (t) {
         grid.appendChild(h('div', {
           class: 'cmatrix__c cmatrix__c--sum', style: { color: t.color },
-          title: W.PARTY_BY_ID[t.id].zh
+          title: Core.L(W.PARTY_BY_ID[t.id])
         }, t.v.toFixed(1)));
       });
 
@@ -1511,19 +1733,16 @@
       mx.lists.forEach(function (L) {
         listRow.appendChild(h('div', { class: 'cmatrix__list' }, [
           h('span', { class: 'swatch', style: { background: L.color } }),
-          h('span', { class: 'cmatrix__listn' }, L.zh),
+          h('span', { class: 'cmatrix__listn' }, Core.L(L)),
           h('b', { class: 'cmatrix__listv' }, L.v.toFixed(1) + '%')
         ]));
       });
 
       var body = h('div', { style: { padding: '8px 10px 4px' } }, [grid, listRow]);
+      /* The election arithmetic itself lives in Settings → 图书馆; here it is
+         named and pointed at, rather than repeated as a second implementation. */
       body.appendChild(h('div', { class: 'tiny dim2', style: { padding: '7px 2px 5px', lineHeight: 1.6 } }, [
-        '选举结算：',
-        h('b', {}, '列表支持度 × 阶层投票率 × (1 − 该党弃权率)'),
-        ' → 名单得票 → 按 1921 年选举法（' + law.total + ' 席 = 城区 ' + law.cityMajority + '+' + law.cityMinority +
-        ' ＋ 子市镇 ' + law.subMajority + '+' + law.subMinority + '）分配；多数派席位由得票第一的名单通吃，少数派按最大余数法、门槛 ' + law.threshold + '%。',
-        h('br'),
-        '社会党的弃权传统（50%）会抬高其他名单的有效票占比——这正是 1921 年 4 月自治党拿到 66% 的原因之一。'
+        h('b', {}, T('ele.note.lead')), ' ', T('ele.note.pointer')
       ]));
       return frame('', [banner(T('cls.title'), T('cls.sub')), body]);
     }
@@ -1547,7 +1766,7 @@
       if (pending) {
         // The decision itself is pinned at the top of this same column, so this
         // panel only has to report that the month is blocked.
-        col.appendChild(frame('', [banner(T('ev.pending'), 'DECISIONE IN SOSPESO'),
+        col.appendChild(frame('', [banner(T('ev.pending'), T('ev.pending.sub')),
           h('div', { class: 'tiny dim', style: { padding: '10px 12px' } }, T('ev.hint'))
         ]));
       }
@@ -1563,8 +1782,8 @@
        ============================================================ */
     function tabPopolazione(st) {
       var col = h('div', { class: 'col archive-page' });
-      col.appendChild(frame('', [banner('人口', 'POPOLAZIONE'),
-        h('div', { class: 'archive-intro' }, '城市的构成：各阶层的人口权重、政治倾向与投票率，以及政党在社会中的支持基础。')]));
+      col.appendChild(frame('', [banner(T('eco.pop')),
+        h('div', { class: 'archive-intro' }, T('cls.intro'))]));
       col.appendChild(UI.SidePanel.archive(st));
       col.appendChild(classMatrixPanel(st));
       return col;
@@ -1576,7 +1795,7 @@
       W.TIMELINE.forEach(function (item) {
         timeline.appendChild(h('div', { class: 'tl__i' }, [h('span', { class: 'tl__d' }, item.d), h('span', {}, item.zh)]));
       });
-      return frame('', [banner('史实时间轴', 'CRONOLOGIA'), timeline]);
+      return frame('', [banner(T('set.timeline')), timeline]);
     }
 
     // Exposed so the React modal layer can mount them inside the settings menu.
@@ -1593,7 +1812,7 @@
       { id: 'mappa', zh: '地图', it: 'Carta' },
       { id: 'crisi', zh: '危机', it: 'Crisi' },
       { id: 'economia', zh: '经济', it: 'Economia' },
-      { id: 'assemblea', zh: '议会', it: 'Assemblea' },
+      { id: 'arengo', zh: '政治', it: 'Politica' },
       { id: 'diplomazia', zh: '外交', it: 'Diplomazia' },
       { id: 'leggi', zh: '法律', it: 'Leggi' },
       { id: 'popolazione', zh: '人口', it: 'Popolazione' }
@@ -1614,8 +1833,7 @@
           title: shut ? T('nav.locked') : null,
           onclick: function () { act.setTab(n.id); }
         }, [
-          h('div', { class: 'navbtn__l' }, n.zh),
-          Core.sub(n) ? h('div', { class: 'navbtn__s' }, Core.sub(n)) : null
+          h('div', { class: 'navbtn__l' }, Core.L(n))
         ]));
       });
       return row;
@@ -1624,11 +1842,11 @@
     function ticker(st) {
       var logs = st.log.slice(-9).reverse();
       var rail = h('div', { class: 'ticker__rail' });
-      if (!logs.length) logs = [{ turn: st.turn, zh: '1920 年 9 月 12 日：进军一周年。阳台上宣读了《卡尔纳罗宪章》。' }];
+      if (!logs.length) logs = [{ turn: st.turn, zh: T('tick.fallback') }];
       logs.forEach(function (l) {
         rail.appendChild(h('div', { class: 'ticker__i' }, [
           h('span', { class: 'ticker__d' }, 'W' + l.turn),
-          h('span', {}, l.zh)
+          h('span', {}, Core.L(l))
         ]));
       });
       return h('div', { class: 'ticker' }, [
@@ -1659,7 +1877,7 @@
       else if (ui.tab === 'mappa') center.appendChild(mapPanel(st, ui, act));
       else if (ui.tab === 'economia') center.appendChild(tabEconomia(st));
       else if (ui.tab === 'azioni') center.appendChild(tabAzioni(st, act));
-      else if (ui.tab === 'assemblea') center.appendChild(tabAssemblea(st));
+      else if (ui.tab === 'arengo') center.appendChild(tabArengo(st));
       else if (ui.tab === 'diplomazia') center.appendChild(tabDiplomazia(st, act));
       else if (ui.tab === 'leggi') center.appendChild(tabLeggi(st, ui, act));
       else if (ui.tab === 'crisi') center.appendChild(tabCrisi(st));
@@ -1714,25 +1932,26 @@
          buttons would turn the choice into a wall of grey. */
       W.PARTIES.filter(function (party) { return !!party.player || !!party.lockedNote; }).forEach(function (party) {
         var open = !!party.player;
-        var label = open ? party.zh
-          : party.zh + (party.lockedNote ? ' · ' + Core.L(party.lockedNote) : '');
+        var label = open ? Core.L(party)
+          : Core.L(party) + (party.lockedNote ? ' · ' + Core.L(party.lockedNote) : '');
         forceChoices.appendChild(h('button', {
           class: 'start-force__pick' + (ui.force === party.id ? ' is-on' : '')
             + (open ? '' : ' is-locked'),
           type: 'button',
           disabled: !open,
-          title: open ? null : Core.L(party.lockedNote || { zh: '尚未开放' }),
+          title: open ? null : (Core.L(party.lockedNote) || T('ui.notready')),
           'aria-pressed': ui.force === party.id ? 'true' : 'false',
           onclick: function () { act.setForce(party.id); }
         }, [
-          h('span', { class: 'start-force__emblem-slot' },
-            h('img', { class: 'start-force__emblem', src: party.emblem, alt: '' })),
+          h('span', { class: 'start-force__art', 'aria-hidden': 'true' },
+            h('span', { class: 'start-force__emblem-slot' },
+              h('img', { class: 'start-force__emblem', src: party.emblem, alt: '' }))),
           h('span', { class: 'start-force__name' }, label),
           h('span', { class: 'start-force__short' }, party.short)
         ]));
       });
       force.appendChild(frame('', [
-        banner(T('start.force'), 'FORZE POLITICHE'),
+        banner(T('start.force')),
         forceChoices
       ]));
       setup.appendChild(force);
@@ -1740,8 +1959,9 @@
       var selectedParty = W.PARTY_BY_ID[ui.force] || W.PARTY_BY_ID.LEG;
       var leader = selectedParty.leader;
       var leaderPortrait = h('div', { class: 'start-leader__portrait' }, [
-        leader.portrait ? h('img', { src: leader.portrait, alt: Core.L(leader) }) :
-          h('img', { class: 'start-leader__emblem', src: selectedParty.emblem, alt: selectedParty.zh + '党徽' }),
+        h('div', { class: 'leader-portrait__window' },
+          leader.portrait ? h('img', { src: leader.portrait, alt: Core.L(leader) }) :
+            h('img', { class: 'start-leader__emblem', src: selectedParty.emblem, alt: T('start.emblem.alt', { a: Core.L(selectedParty) }) })),
         h('div', { class: 'start-leader__frame', 'aria-hidden': 'true' }),
         !leader.portrait ? h('div', { class: 'start-leader__photo-note' }, T('start.portraitPending')) : null,
         h('div', { class: 'start-leader__plaque' }, Core.L(leader))
@@ -1751,7 +1971,7 @@
         h('div', { class: 'start-leader__body' }, [
           leaderPortrait,
           h('div', { class: 'start-leader__details' }, [
-            h('div', { class: 'start-leader__party' }, selectedParty.zh),
+            h('div', { class: 'start-leader__party' }, Core.L(selectedParty)),
             h('div', { class: 'start-leader__party-it' }, selectedParty.it),
             h('p', { class: 'start-leader__blurb' }, selectedParty.blurb)
           ])
@@ -1761,20 +1981,20 @@
 
       var difficulty = h('div', { class: 'start-difficulty' });
       var db = h('div', { class: 'start-difficulty__choices' });
-      W.DIFFICULTIES.filter(function (d) { return d.id !== 'historical'; }).forEach(function (d) {
+      W.DIFFICULTIES.forEach(function (d) {
         // Only the name is shown. The description is a hover tooltip so the
         // panel stays compact; see .start-difficulty .pick[data-tip] in the CSS.
         db.appendChild(h('button', {
           class: 'pick' + (d.id === ui.difficulty ? ' is-on' : ''),
           type: 'button',
           'aria-pressed': d.id === ui.difficulty ? 'true' : 'false',
-          'data-tip': ui.force !== 'LEG' && d.id === 'open' ? T('start.normal.party') : d.note,
+          'data-tip': ui.force !== 'LEG' && d.id === 'open' ? T('start.normal.party') : Core.L({ zh: d.note, it: d.noteIt }),
           onclick: function () { act.setDifficulty(d.id); }
         }, [
-          h('div', { class: 'pick__n' }, d.zh)
+          h('div', { class: 'pick__n' }, Core.L(d))
         ]));
       });
-      difficulty.appendChild(frame('', [banner(T('start.difficulty'), 'MODALITÀ'), db]));
+      difficulty.appendChild(frame('', [banner(T('start.difficulty'), T('start.difficulty.sub')), db]));
       setup.appendChild(difficulty);
       inner.appendChild(setup);
       wrap.appendChild(inner);
@@ -1799,36 +2019,36 @@
           h('span', { class: 'chip' }, vm.date),
           h('span', { class: 'chip' }, T('end.turn', { n: vm.turn }))
         ]),
-        h('h1', { class: 'ending__t' }, vm.zh),
+        h('h1', { class: 'ending__t' }, Core.L(vm)),
         h('div', { class: 'ending__it' }, vm.it),
         h('div', { class: 'tricolore', style: { width: '130px', marginTop: '12px' } }),
-        h('div', { class: 'ending__b' }, vm.body.zh)
+        h('div', { class: 'ending__b' }, Core.L(vm.body))
       ]);
       inner.appendChild(head);
 
       var g = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '8px', padding: '11px' } });
       [[T('eco.traffic').split(' ·')[0], vm.stats.traffic.toFixed(1)], [T('eco.pop'), Core.fmt(vm.stats.population)],
        [T('cri.coup'), Math.round(vm.stats.coup)], [T('cmd.legittimita'), Math.round(vm.stats.legitimacy)],
-       [(W.PARTY_BY_ID[st.playerForce] || W.PARTY_BY_ID.LEG).zh + '席位', vm.stats.seats], [T('end.journals'), Sel.journals(st).filter(function (j) { return j.done; }).length + ' / ' + Meta.JOURNALS.length]
+       [T('end.seats', { a: Core.L(W.PARTY_BY_ID[st.playerForce] || W.PARTY_BY_ID.LEG) }), vm.stats.seats], [T('end.journals'), Sel.journals(st).filter(function (j) { return j.done; }).length + ' / ' + Meta.JOURNALS.length]
       ].forEach(function (x) {
         g.appendChild(h('div', { class: 'pick', style: { marginBottom: '0' } }, [
           h('div', { class: 'pick__n', style: { fontSize: '21px' } }, String(x[1])),
           h('div', { class: 'pick__d' }, x[0])
         ]));
       });
-      inner.appendChild(frame('', [banner(T('end.stats'), 'BILANCIO'), g]));
+      inner.appendChild(frame('', [banner(T('end.stats')), g]));
 
       if (vm.achievements.length) {
         var ag = h('div', { class: 'achgrid', style: { padding: '11px' } });
         vm.achievements.forEach(function (a) {
           ag.appendChild(h('div', { class: 'ach' }, [
-            h('div', { class: 'ach__n' }, '★ ' + a.zh),
+            h('div', { class: 'ach__n' }, '★ ' + Core.L(a)),
             h('div', { class: 'ach__d' }, Core.L(a.desc))
           ]));
         });
-        inner.appendChild(frame('', [banner(T('end.ach'), 'RAGGIUNTI'), ag]));
+        inner.appendChild(frame('', [banner(T('end.ach'), T('end.ach.got')), ag]));
       } else {
-        inner.appendChild(frame('', [banner(T('end.ach'), 'NESSUNO'), h('div', { class: 'empty' }, T('end.noach'))]));
+        inner.appendChild(frame('', [banner(T('end.ach'), T('end.ach.none')), h('div', { class: 'empty' }, T('end.noach'))]));
       }
 
       inner.appendChild(h('div', { class: 'row', style: { marginTop: '16px', gap: '10px', paddingBottom: '30px' } }, [
@@ -1865,7 +2085,7 @@
            full list below. */
         bd.appendChild(h('div', { class: 'deckdraw' }, [
           h('div', { class: 'deckdraw__n' },
-            d.zh + ' · ' + T('deck.available', { n: d.available })),
+            Core.L(d) + ' · ' + T('deck.available', { n: d.available })),
           h('div', { class: 'deckdraw__t' }, T('deck.randomNote')),
           h('button', {
             class: 'btn btn--gold', style: { marginTop: '10px' },
@@ -1892,7 +2112,7 @@
         });
         bd.appendChild(list);
       }
-      return V.modal(Core.L(d.zh), d, [bd], [
+      return V.modal(Core.L(d), d, [bd], [
         h('div', { class: 'tiny', style: { color: 'rgba(42,30,16,.55)', marginRight: 'auto', alignSelf: 'center' } },
           T('deck.slots', { a: st.hand.length, b: st.handLimit })),
         h('button', { class: 'btn btn--ghost', onclick: act.closeDeck }, T('btn.back'))
@@ -1924,7 +2144,7 @@
           ]),
           (o.preview && o.preview.length)
             ? h('div', { class: 'opt__p' }, o.preview.map(function (pv) {
-                var lbl = typeof pv === 'string' ? pv : (pv.zh || pv.label || '');
+                var lbl = typeof pv === 'string' ? pv : Core.L(pv);
                 return h('span', { class: 'opt__pv' + (/−|-/.test(lbl) ? ' dn' : (/\+/.test(lbl) ? ' up' : '')) }, lbl);
               }))
             : null,
@@ -1948,11 +2168,10 @@
       opts = opts || {};
       var scrim = h('div', { class: 'scrim show' });
       var modal = h('div', { class: 'modal' + (opts.cls ? ' ' + opts.cls : ''),
-        role: 'dialog', 'aria-modal': 'true', 'aria-label': title || sub || '对话框' });
+        role: 'dialog', 'aria-modal': 'true', 'aria-label': title || sub || T('ui.dialog') });
       modal.appendChild(h('div', { class: 'modal__hd' }, [
         opts.kicker ? h('div', { class: 'modal__kicker' }, opts.kicker) : null,
-        h('div', { class: 'modal__ttl' }, title),
-        Core.sub(sub) ? h('div', { class: 'modal__it' }, Core.sub(sub)) : null
+        h('div', { class: 'modal__ttl' }, title)
       ]));
       var bd = h('div', { class: 'modal__bd' });
       (contentEls || []).forEach(function (c) { if (c) bd.appendChild(c); });
@@ -1966,38 +2185,60 @@
       return scrim;
     };
 
+    /* An event's counted result: heading, prose, then the chamber it seats (if
+       the count seats one) and the tally in rows. The hemicycle comes from
+       src/ui/parliament.ts, which the legacy IIFE reaches through
+       `Fiume.Parliament` — the same route the Arengo uses. A missing renderer
+       is not an error: the rows still say everything a column of figures can. */
+    function resultBlock(res) {
+      if (!res) return null;
+      var rz = h('div', { class: 'evres' });
+      if (res.title) rz.appendChild(h('div', { class: 'evres__t' }, Core.L(res.title)));
+      if (res.body) rz.appendChild(h('div', { class: 'evres__b' }, Core.L(res.body)));
+      if (res.seats && res.seats.length) {
+        var api = (typeof globalThis !== 'undefined' ? globalThis : window).Fiume;
+        if (api && api.Parliament && typeof api.Parliament.render === 'function') {
+          rz.appendChild(api.Parliament.render({
+            seats: res.seats.map(function (b) {
+              return { id: b.id, name: Core.L(b.name), seats: b.seats, color: b.color };
+            }),
+            caption: res.seatsCaption ? Core.L(res.seatsCaption) : ''
+          }));
+        }
+      }
+      if (res.rows && res.rows.length) {
+        var tb = h('div', { class: 'evres__rows' });
+        res.rows.forEach(function (r) {
+          tb.appendChild(h('div', { class: 'evres__r' + (r.tone ? ' is-' + r.tone : '') }, [
+            h('span', { class: 'evres__k' }, Core.L(r.label)),
+            h('span', { class: 'evres__v' }, r.value)
+          ]));
+        });
+        rz.appendChild(tb);
+      }
+      if (res.note) rz.appendChild(h('div', { class: 'evres__n' }, Core.L(res.note)));
+      return rz;
+    }
+
     V.eventModal = function (st, act) {
       var vm = Sel.eventView(st);
       if (!vm) return null;
       var bd = h('div', { class: 'event-sheet' });
       var narrative = h('div', { class: 'event-sheet__narrative' });
       var body = h('div', { class: 'modal__body' });
-      body.innerHTML = vm.body.zh.replace(/\*\*(.+?)\*\*/g, '<em>$1</em>');
+      body.innerHTML = Core.L(vm.body).replace(/\*\*(.+?)\*\*/g, '<em>$1</em>');
       narrative.appendChild(body);
       /* A counted result, when the event carries one: a heading, a line, then
-         the tally itself in rows, so a column of figures can be read down. */
-      if (vm.result) {
-        var rz = h('div', { class: 'evres' });
-        if (vm.result.title) rz.appendChild(h('div', { class: 'evres__t' }, Core.L(vm.result.title)));
-        if (vm.result.body) rz.appendChild(h('div', { class: 'evres__b' }, Core.L(vm.result.body)));
-        if (vm.result.rows && vm.result.rows.length) {
-          var tb = h('div', { class: 'evres__rows' });
-          vm.result.rows.forEach(function (r) {
-            tb.appendChild(h('div', { class: 'evres__r' + (r.tone ? ' is-' + r.tone : '') }, [
-              h('span', { class: 'evres__k' }, Core.L(r.label)),
-              h('span', { class: 'evres__v' }, r.value)
-            ]));
-          });
-          rz.appendChild(tb);
-        }
-        if (vm.result.note) rz.appendChild(h('div', { class: 'evres__n' }, Core.L(vm.result.note)));
-        narrative.appendChild(rz);
-      }
+         the chamber (when the count seats one) and the tally in rows, so a
+         column of figures can be read down. */
+      var resultEl = resultBlock(vm.result);
+      if (resultEl) narrative.appendChild(resultEl);
       bd.appendChild(narrative);
       var choices = h('div', { class: 'event-sheet__choices' });
       choices.appendChild(h('div', { class: 'event-sheet__choicehead' }, [
-        h('span', { class: 'event-sheet__choice-title' }, '作出抉择'),
-        h('span', { class: 'event-sheet__choice-count' }, Core.fmt(vm.options.length) + ' 项选择 · SCELTE')
+        h('span', { class: 'event-sheet__choice-title' }, T('evboard.choice')),
+        h('span', { class: 'event-sheet__choice-count' },
+          Core.fmt(vm.options.length) + ' ' + T('evboard.choice.count'))
       ]));
       vm.options.forEach(function (o, index) {
         choices.appendChild(h('button', {
@@ -2006,11 +2247,11 @@
         }, [
           h('div', { class: 'opt__h' }, [
             h('span', { class: 'event-sheet__number', 'aria-hidden': 'true' }, Core.roman(index + 1)),
-            h('span', { class: 'opt__n' }, o.text.zh),
+            h('span', { class: 'opt__n' }, Core.L(o.text)),
             optionLine(o) ? h('span', { class: 'opt__i' }, optionLine(o)) : null
           ]),
           o.preview && o.preview.length ? h('div', { class: 'opt__p' }, o.preview.map(function (p) {
-            var lbl = typeof p === 'string' ? p : (p.zh || p.label || '');
+            var lbl = typeof p === 'string' ? p : Core.L(p);
             return h('span', { class: 'opt__pv' + (/−/.test(lbl) ? ' dn' : (/\+/.test(lbl) ? ' up' : '')) }, lbl);
           })) : null,
           (!o.enabled && o.reason) ? h('div', { class: 'opt__lock' }, '✕ ' + Core.L(o.reason)) : null
@@ -2020,7 +2261,7 @@
       return V.modal(Core.L(vm.title), vm.title, [bd], [
         h('div', { class: 'tiny', style: { color: 'rgba(42,30,16,.55)', marginRight: 'auto' } },
           vm.superEvent ? T('ev.supreme') : T('ev.nofree'))
-      ], { cls: 'modal--event' + (vm.superEvent ? ' modal--wide' : ''), kicker: vm.superEvent ? '重大事件 · EVENTO STRAORDINARIO' : '时局纪事 · CRONACA' });
+      ], { cls: 'modal--event' + (vm.superEvent ? ' modal--wide' : ''), kicker: T(vm.superEvent ? 'ui.kicker.major' : 'ui.kicker.chronicle') });
     };
 
     return V;

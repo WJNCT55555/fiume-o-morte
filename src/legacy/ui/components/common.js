@@ -102,17 +102,18 @@
     };
 
     UI.IMG = {
-      comandante: 'img/Portrait/Portrait_Dannunzio.png',
+      comandante: 'img/Portrait/Portrait_gabriele_d_annunzio.png',
       proclama: 'img/History/reggenza_proc.jpg',
-      keller: 'img/Portrait/Portrait_Guido_Keller.png',
-      carli: 'img/Portrait/Portrait_Mario_Carli.jpg',
-      caviglia: 'img/Portrait/Portrait_Enrico_Caviglia.jpg',
-      giolitti: 'img/Portrait/Portrait_Giovanni_Giolitti.jpg',
-      hostventuri: 'img/Portrait/Portrait_Giovanni_Host_Venturi.jpg',
-      deambris: 'img/Portrait/Portrait_Alceste_De_Ambris.jpg',
-      grossich: 'img/Portrait/Portrait_Antonio_Grossich.jpg',
-      blasich: 'img/Portrait/Portrait_Riccardo_Zanella_Mario_Blasich.png',
-      legionari: 'img/History/foto_fiume.jpg',
+      /* Advisor portraits are data now (see `Advisor.portrait` in
+         src/game/advisors/*.ts and the roster in src/game/engine/selectors.js),
+         because this catalogue and the local map in views.js had drifted apart
+         and handed four advisors another man's face. Only the portraits that
+         non-advisor screens ask for by name live here. */
+      caviglia: 'img/Portrait/Portrait_enrico_caviglia.png',
+      giolitti: 'img/Portrait/Portrait_giovanni_giolitti.png',
+      hostventuri: 'img/Portrait/Portrait_giovanni_host_venturi.png',
+      bacci: 'img/Portrait/Portrait_icilio_bacci.png',
+      pantaleoni: 'img/Portrait/Portrait_maffeo_pantaleoni.png',
       foto_fiume: 'img/History/foto_fiume.jpg',
       scudetto: 'img/History/dannunzio_scudetto.jpg',
       popolo: 'img/History/impresa_fiume.jpg',
@@ -125,13 +126,10 @@
       leaderFrame: 'img/UI/leader_frame.png',
       diploDetailsHeader: 'img/UI/diplo_details_header.png'
     };
-    UI.ADV_AVATAR = {
-      deambris: UI.IMG.deambris, keller: UI.IMG.keller, carli: UI.IMG.carli,
-      blasich: UI.IMG.blasich, grossich: UI.IMG.grossich,
-      micheletti: UI.IMG.legionari, miani: UI.IMG.legionari, baccara: UI.IMG.keller,
-      giuriati: UI.IMG.hostventuri, gigante: UI.IMG.proclama
+    UI.HOLDER_AVATAR = {
+      esteri: UI.IMG.comandante, difesa: UI.IMG.hostventuri,
+      interno: UI.IMG.bacci, finanze: UI.IMG.pantaleoni
     };
-    UI.HOLDER_AVATAR = { esteri: UI.IMG.comandante, difesa: UI.IMG.hostventuri };
 
     return UI;
   });

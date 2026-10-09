@@ -20,8 +20,13 @@ export const ev192009Carta: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '正式颁布宪章，把选举原则写进法令', it: 'Promulgare la Carta e tradurre il voto in legge' },
-        preview: [{ zh: '宪章颁布', label: 'Carta promulgata' }, { zh: '选举法 +1', label: 'legge elettorale +1' }, { zh: '工人、码头支持军团 +', label: 'operai/portuali + LEG' }, { zh: '摄政领袖权威 +', label: 'autorità +' }],
-        effect: function () { return { laws: { elettorale: 1 }, order: { authority: 6, fervour: 4 }, support: [['operai', 'LEG', 3], ['portuali', 'LEG', 2]], factions: { fascisti: { dis: 12 } }, flags: { charter_promulgated: true } }; }
+        preview: [{ zh: '宪章颁布', label: 'Carta promulgata' }, { zh: '两院成立（最优者 / 临时者）', label: 'due consigli' }, { zh: '选举法 +1', label: 'legge elettorale +1' }, { zh: '工人、码头支持军团 +', label: 'operai/portuali + LEG' }, { zh: '摄政领袖权威 +', label: 'autorità +' }],
+        /* Promulgation IS the seating of the two councils: the Chamber's art. 3
+           puts them in the text, so a charter in force without them is not a
+           charter. `conveneChambers` is a routing key, not a state patch — without
+           it the flag was set and `state.arengo` stayed null until the next
+           ADVANCE happened to tick it. */
+        effect: function () { return { laws: { elettorale: 1 }, order: { authority: 6, fervour: 4 }, support: [['operai', 'LEG', 3], ['portuali', 'LEG', 2]], factions: { fascisti: { dis: 12 } }, flags: { charter_promulgated: true }, conveneChambers: true }; }
       },
       {
         id: 'b', text: { zh: '宣读，但明确保留军团兵的最终领袖权威', it: 'Leggerla, ma riservando l\'autorità suprema ai legionari' },

@@ -1,5 +1,6 @@
 import { createContext, useContext, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { game } from './runtime';
+import { acknowledgeSuperEvent, syncSuperEvents } from './superEvents';
 
 export interface ViewState {
   screen: 'start' | 'game' | 'ending';
@@ -30,13 +31,13 @@ interface GameStore {
 
 const GameContext = createContext<GameStore | null>(null);
 
-function createGameStore(): GameStore {
+export function createGameStore(): GameStore {
   const { Engine, Sel, Core, I18N, World } = game;
   const auto = Sel.Save.load('auto');
   let snapshot: Snapshot = {
     state: null,
     ui: { screen: 'start', tab: 'azioni', lawFocus: 'elettorale', mapMode: 'adriatic', district: 'centro',
-      modal: null, deck: null, scenario: '1919-09', difficulty: 'open', force: 'LEG' },
+      modal: null, deck: null, scenario: '1919-09', difficulty: 'historical', force: 'LEG' },
     notice: null,
     resume: auto && auto.date && !auto.ending ? auto : null,
   };
@@ -50,7 +51,7 @@ function createGameStore(): GameStore {
     if (!snapshot.state) return null;
     const result = Engine.dispatch(snapshot.state, action);
     if (!result) { refresh(); return null; }
-    const state = result.state;
+    const state = syncSuperEvents(result.state);
     Sel.Save.save(state, 'auto');
     const uiPatch: Partial<ViewState> = state.ending ? { screen: 'ending', modal: null } : {};
     if (!state.ending && state.currentEvent && snapshot.ui.modal == null) uiPatch.modal = 'event';
@@ -75,10 +76,18 @@ function createGameStore(): GameStore {
     setMapMode: (mapMode: string) => change({}, { mapMode }),
     selectDistrict: (district: string) => change({}, { district, mapMode: 'fiume' }),
     start: () => {
-      const state = Engine.createState(snapshot.ui.scenario, snapshot.ui.difficulty, Date.now() % 100000 + 1, snapshot.ui.force);
+      const state = syncSuperEvents(Engine.createState(snapshot.ui.scenario, snapshot.ui.difficulty, Date.now() % 100000 + 1, snapshot.ui.force));
+      Sel.Save.save(state, 'auto');
       change({ state, resume: null, notice: null }, { screen: 'game', tab: 'azioni', modal: state.currentEvent ? 'event' : null });
     },
     restart: () => change({ state: null }, { screen: 'start', modal: null }),
+    acknowledgeSuperEvent: () => {
+      if (!snapshot.state) return;
+      const state = acknowledgeSuperEvent(snapshot.state);
+      if (state === snapshot.state) return;
+      Sel.Save.save(state, 'auto');
+      change({ state });
+    },
     openDeck: (deck: string) => change({}, { deck, modal: 'deck' }),
     closeDeck: () => change({}, { deck: null, modal: null }),
     drawCard: (cardId: string) => { dispatch({ type: 'DRAW_CARD', cardId }); change({}, { deck: null, modal: null }); },
@@ -103,7 +112,7 @@ function createGameStore(): GameStore {
     openSettings: () => change({}, { modal: 'settings' }),
     openAchievements: () => change({}, { modal: 'ach' }),
     openSaves: () => change({}, { modal: 'save' }),
-    setLanguage: (id: string) => { if (I18N.setLang(id)) refresh(); else notice('warn', '该语言尚未开放'); },
+    setLanguage: (id: string) => { if (I18N.setLang(id)) refresh(); else notice('warn', I18N.t('set.lang.locked')); },
     openEventBoard: () => change({}, { modal: 'evboard' }),
     closeEventBoard: () => change({}, { modal: snapshot.state?.currentEvent ? 'event' : null }),
     selectEvent: (id: string) => {
@@ -111,7 +120,8 @@ function createGameStore(): GameStore {
       if (!state) return;
       if (state.currentEvent === id) { change({}, { modal: 'event' }); return; }
       if (state.eventQueue?.includes(id) && !state.currentEvent) {
-        const next = { ...state, eventQueue: state.eventQueue.filter((item: string) => item !== id), currentEvent: id };
+        const next = syncSuperEvents({ ...state, eventQueue: state.eventQueue.filter((item: string) => item !== id), currentEvent: id });
+        Sel.Save.save(next, 'auto');
         change({ state: next }, { modal: 'event' });
       }
     },
@@ -139,16 +149,18 @@ function createGameStore(): GameStore {
       notice('ok', slot === 'auto' ? I18N.t('toast.autosaved') : I18N.t('toast.saved', { n: slot + 1 }));
     },
     loadFrom: (slot: number | 'auto') => {
-      const state = Sel.Save.load(slot);
-      if (!state) { notice('warn', I18N.t('toast.emptyslot')); return; }
-      Engine.postProcess(state);
+      const loaded = Sel.Save.load(slot);
+      if (!loaded) { notice('warn', I18N.t('toast.emptyslot')); return; }
+      Engine.postProcess(loaded);
+      const state = syncSuperEvents(loaded);
       change({ state, resume: null }, { screen: state.ending ? 'ending' : 'game', modal: null, tab: 'azioni' });
       notice('ok', I18N.t('toast.loaded', { d: Core.dateLabel(state.date) }));
     },
     resumeSaved: () => {
-      const state = snapshot.resume;
-      if (!state) return;
-      Engine.postProcess(state);
+      const loaded = snapshot.resume;
+      if (!loaded) return;
+      Engine.postProcess(loaded);
+      const state = syncSuperEvents(loaded);
       change({ state, resume: null }, { screen: 'game', modal: state.currentEvent ? 'event' : null });
     },
     dismissResume: () => change({ resume: null }),

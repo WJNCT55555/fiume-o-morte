@@ -2,7 +2,8 @@
 // Volosca corridor, traced from a historical border map and georeferenced
 // with six named places. At game start (September 1919) this line must NOT
 // be used: Italian troops occupied Kastav until 26 May 1921. The physical
-// coast lives in coast.js, and the 1919 eastern seam follows the Rjecina.
+// coast lives in coast.js. The eastern field denotes the S.H.S. hinterland;
+// Sušak's Italian occupation is displayed separately until 3 March 1923.
 // Sources:
 // https://fiumetrieste.blogspot.com/2018/05/i-confini-del-novecento-lo-stato-libero.html
 // https://granice.ppmhp.hr/en/kastavstina-between-wars/
@@ -24,8 +25,8 @@ window.FIUME_GEO_CONTEXT = {
     [14.331493, 45.350010]
   ],
   labels: [
-    { id: 'italy', lon: 14.313, lat: 45.391, text: 'ITALIA' },
-    { id: 'shs', lon: 14.485, lat: 45.399, text: 'REGNO S.H.S.' },
-    { id: 'adriatic', lon: 14.415, lat: 45.291, text: 'MARE ADRIATICO' }
+    { id: 'italy', lon: 14.364, lat: 45.380, text: 'ITALIA' },
+    { id: 'shs', lon: 14.465, lat: 45.379, text: 'REGNO S.H.S.' },
+    { id: 'adriatic', lon: 14.415, lat: 45.307, text: 'MARE ADRIATICO' }
   ]
 };

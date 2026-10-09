@@ -61,8 +61,23 @@
 
         economy: {
           traffic: 34, hinterland: 20, delta: 14, works: 32, recognition: 26,
-          strike: 8, unemployment: 24, inflation: 8, population: 52000,
-          treasury: 0, debt: 1800, arrears: 0, capitalConfidence: 38,
+          /* 35, not 8: `ev_strike` ("the ultimatum of the Sedi Riunite") fires in the
+             20..40 band, and labour unrest has no upward monthly drift — the only
+             term in R.lawMonthly is `-(orario*0.5) - lavoro*1.1`. Starting below the
+             band therefore meant the ultimatum could never open: the strike falls to
+             0 as soon as labour law passes and never comes back. Starting inside it
+             makes the ultimatum a live threat from September 1919, which is the
+             historical situation — the port was already organised and already
+             pressing. The cost is real and deliberate: capital confidence opens at
+             51 instead of 65. */
+          strike: 35, unemployment: 24, inflation: 8, population: 52000,
+          /* 48, not 38, to offset the strike change above: `strike` enters
+             R.confidenceTarget as `-0.5 * strike`, so opening at 35 instead of 8
+             costs 13.5 points of target. Raising the opening figure keeps the
+             ACTUAL starting confidence near where it was (38 against a target of
+             64.6 before, 48 against 51.1 now — still short, but not a collapse),
+             which is what the charter route needs to survive to 1921. */
+          treasury: 0, debt: 1800, arrears: 0, capitalConfidence: 48,
           lastRevenue: 0
         },
 
@@ -73,6 +88,11 @@
 
         assembly: {},
         electionDetail: null,
+        /* The Arengo — the Charter's two councils (Consiglio degli Ottimi and
+           Consiglio dei Provvisori). Null until the Charter is promulgated; see
+           R.conveneArengo. `assembly` above is the 1921 general election and is
+           deliberately kept apart from both. */
+        arengo: null,
         cabinet: {}, coalition: { members: ['LEG'], cohesion: 66, formed: Core.dateKey(start) },
         relations: {},   // symmetric party-to-party regard, -100..+100
 
@@ -202,7 +222,21 @@
       var eff = null;
       if (src.effect) {
         eff = typeof src.effect === 'function' ? src.effect(state) : src.effect;
-        if (eff) R.applyEffect(state, eff);
+        /* Routing keys are actions, not state patches: R.applyEffect silently
+           ignores a key it does not know, so anything handled here has to be
+           pulled out before the patch is applied. `conveneChambers` was the one
+           that mattered — the Charter card set it, nothing consumed it, and the
+           Arengo stayed unmounted until the next ADVANCE happened to tick it. */
+        if (eff) {
+          var patch = Object.assign({}, eff);
+          var doArengo = patch.conveneChambers; delete patch.conveneChambers;
+          var doElection = patch.runElection; delete patch.runElection;
+          var doMunicipal = patch.runMunicipal; delete patch.runMunicipal;
+          R.applyEffect(state, patch);
+          if (doArengo) R.conveneArengo(state);
+          if (doElection) Eng.runElection(state, Core.makeRng(state.seed + 17));
+          if (doMunicipal) Eng.runMunicipal(state);
+        }
       }
       R.normalizeFactions(state);
       if (option) {
@@ -532,6 +566,7 @@
           var forced = patch.forceEnding; delete patch.forceEnding;
           var doElection = patch.runElection; delete patch.runElection;
           var doMunicipal = patch.runMunicipal; delete patch.runMunicipal;
+          var doArengo = patch.conveneChambers; delete patch.conveneChambers;
           var forcedCheck = patch.forceEndingCheck; delete patch.forceEndingCheck;
           var phaseSet = patch.phase; delete patch.phase;
 
@@ -543,6 +578,7 @@
 
           if (doElection) Eng.runElection(next, rng);
           if (doMunicipal) Eng.runMunicipal(next);
+          if (doArengo) R.conveneArengo(next);
           queued.forEach(function (q) { Eng.pushEvent(next, q); });
           if (phaseSet) next.phase = phaseSet;
           if (forced) { next.currentEvent = null; next.ending = forced; next.phase = 'ended'; break; }
@@ -627,7 +663,11 @@
         }
 
         /* ---------- Load a save ---------- */
-        case 'LOAD_STATE': { return { state: action.state, toast: { kind: 'ok', text: Core.L({ zh: '存档已载入', it: 'Partita caricata' }) } }; }
+        case 'LOAD_STATE': {
+          var loaded = Core.deepClone(action.state);
+          Eng.postProcess(loaded);
+          return { state: loaded, toast: { kind: 'ok', text: Core.L({ zh: '存档已载入', it: 'Partita caricata' }) } };
+        }
 
         default: break;
       }
@@ -643,9 +683,31 @@
     Eng.postProcess = function (s) {
       var o = s.order;
       ['authority', 'garrison', 'fervour', 'squadre', 'violence'].forEach(function (k) { o[k] = clamp(o[k], 0, 100); });
-      o.coup = clamp(o.coup, 0, 140);
-      o.subversion = clamp(o.subversion || 0, 0, 140);
+      o.coup = clamp(o.coup || 0, 0, W.CRISIS_MAX);
+      o.subversion = clamp(o.subversion || 0, 0, W.CRISIS_MAX);
       o.milizia = Math.max(0, o.milizia);
+      /* The two crisis axes are read from four places, and all four have to share
+         the 0–CRISIS_MAX range or the gauge and its own trend line disagree:
+         `order` is the live value, `prev` the turn-start snapshot, `series` the
+         history the chart plots, and `*Milestones` the markers. A save written
+         before the range was unified carries 0–140 in all of them, so clamp each
+         in place rather than only the live one. */
+      ['coup', 'subversion'].forEach(function (axis) {
+        if (s.prev && isFinite(s.prev[axis])) s.prev[axis] = clamp(s.prev[axis], 0, W.CRISIS_MAX);
+        if (s.series && Array.isArray(s.series[axis])) {
+          s.series[axis] = s.series[axis].map(function (v) {
+            return isFinite(v) ? clamp(v, 0, W.CRISIS_MAX) : v;
+          });
+        }
+        /* The milestone list can name a threshold above the ceiling, which would
+           leave a step the gauge can never reach. */
+        if (Array.isArray(o[axis + 'Milestones'])) {
+          o[axis + 'Milestones'] = o[axis + 'Milestones'].filter(function (id) {
+            var n = parseInt(String(id).replace(/[^0-9]/g, ''), 10);
+            return !isFinite(n) || n <= W.CRISIS_MAX;
+          });
+        }
+      });
       // Old saves carried two extra headcounts. The armed Legion is now the
       // single canonical value used by the UI, elections and effects.
       delete s.militants;
@@ -654,6 +716,24 @@
       delete s.laws.statuto;
       if (s.journals) delete s.journals.guardia;
       if (s.monotonic) { delete s.monotonic.guardCreated; delete s.monotonic.guardDissolved; }
+      /* Seats are keyed by advisor id, and the roster is data that can lose an
+         entry between builds. A save holding a retired id would show two
+         advisors while the counter claims three, with no way to free the seat:
+         the panel only renders advisors that still exist, and DISMISS_ADVISOR
+         looks the id up in the same list. Drop ids that are no longer real. */
+      if (s.advisors && Array.isArray(s.advisors.active)) {
+        s.advisors.active = s.advisors.active.filter(function (id) {
+          return W.ADVISORS.some(function (a) { return a.id === id; });
+        });
+      }
+      /* A charter in force with no councils is not a charter: art. 3 puts the
+         Ottimi and the Provvisori in the text itself. Promulgation arrives by
+         more than one route (the September 1920 event, the Arengo card, and any
+         that come later), so rather than trust each of them to seat the chambers,
+         the invariant is enforced here — the one place every entry point runs
+         through, old saves included. Idempotent: `arengoTick` seats them once and
+         afterwards only reseats the Ottimi when their three-year term lapses. */
+      if (s.flags.charter_promulgated) R.arengoTick(s);
       // Legion public opinion is derived here and nowhere else. It replaced the
       // old stored legitimacy: the same number now has a definition the player
       // can read off the class matrix.
@@ -836,6 +916,11 @@
       // 5. Monthly law effects
       R.applyEffect(s, R.lawMonthly(s));
 
+      /* 5b. The Arengo. Once the Charter is promulgated the two councils exist;
+         the Ottimi's three-year term is checked here so a Regency long enough to
+         outlast its first council reseats it rather than freezing it. */
+      if (s.flags.charter_promulgated) R.arengoTick(s);
+
       // 6. Economic-to-political feedback (zero-sum)
       var e = s.economy;
       if (e.unemployment > 25) {
@@ -865,7 +950,10 @@
       }
 
       // 6b. Legionary support erosion: blockade, unpaid wages, and "the poet cannot do sums"
-      //     This is the mechanism behind the annexationists sliding from a 1919 landslide to 34% in April 1921.
+      //     This is the mechanism behind the annexationists' slide from the 1919 landslide.
+      //     The two transfer rates below are the single lever on how steep that slide is:
+      //     at 0.62/0.20 the Legion reached its support floor inside about a year, which
+      //     left the historical April 1921 line unreachable.
       var defectors = ['portuali', 'operai', 'artigiani', 'impiegati', 'borghesia'];
       var ero = 4.0
         + 0.6 * Math.max(0, (25 - e.traffic) / 25)
@@ -878,8 +966,8 @@
       if (s.flags.accept_rapallo) ero *= 0.5;
       ero = clamp(ero, -0.25, 4.0);
       defectors.forEach(function (cid) {
-        R.defectSupport(s, cid, 'LEG', 'AUT', ero * 0.62);
-        R.defectSupport(s, cid, 'LEG', 'ANI', ero * 0.20);
+        R.defectSupport(s, cid, 'LEG', 'AUT', ero * 0.31);
+        R.defectSupport(s, cid, 'LEG', 'ANI', ero * 0.10);
       });
       R.shiftClassSupport(s, 'contadini', 'AUT', 0.35);
 
@@ -916,7 +1004,7 @@
 
       // 11. Crisis
       var d = R.coupDelta(s, dif.coupMul);
-      s.order.coup = clamp(s.order.coup + d, 0, 140);
+      s.order.coup = clamp(s.order.coup + d, 0, W.CRISIS_MAX);
       R.siegeMilestones(s).forEach(function (m) {
         if (s.order.coup >= m.at && s.order.coupMilestones.indexOf(m.id) < 0) {
           s.order.coupMilestones.push(m.id);
@@ -925,7 +1013,7 @@
       });
       /* The second crisis, tracked separately: see R.subversionDelta. */
       var sd = R.subversionDelta(s, dif.coupMul);
-      s.order.subversion = clamp(s.order.subversion + sd, 0, 140);
+      s.order.subversion = clamp(s.order.subversion + sd, 0, W.CRISIS_MAX);
       R.subversionMilestones().forEach(function (m) {
         if (s.order.subversion >= m.at && s.order.subversionMilestones.indexOf(m.id) < 0) {
           s.order.subversionMilestones.push(m.id);

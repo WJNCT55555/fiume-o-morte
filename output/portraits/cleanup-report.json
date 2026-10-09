@@ -1,0 +1,177 @@
+{
+  "activeCount": 15,
+  "discoCount": 8,
+  "activeFiles": [
+    {
+      "key": "comandante",
+      "file": "Portrait_gabriele_d_annunzio.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "dd90cfd8baa7773a0153d97d4ff91e1c67fd06e1baf95d51d3ab5d6aa2cab909"
+    },
+    {
+      "key": "keller",
+      "file": "Portrait_guido_keller.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "0f41a5192720b57115988b377c63dfd0251bca6604a2f2e9179848735ca702fb"
+    },
+    {
+      "key": "giulietti",
+      "file": "Portrait_giuseppe_giulietti.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "282d607d42196a5055715907e220fdccb67509d06aec5371dbc15d3ea356bb9b"
+    },
+    {
+      "key": "carli",
+      "file": "Portrait_mario_carli.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "1b62d3cc6f1c58770d1dc15f8921008c0911d5652495a3ca9614354bbab60a80"
+    },
+    {
+      "key": "grossich",
+      "file": "Portrait_antonio_grossich.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "a736abba225c417e5e854acc7ac03f631ecbb0d1654e73b27899edad06c69cc6"
+    },
+    {
+      "key": "de_ambris",
+      "file": "Portrait_alceste_de_ambris.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "8e0700b1e355469d10767cc6a2add164a74b15a086ae65e0f9fd73f7e7380b0a"
+    },
+    {
+      "key": "giuriati",
+      "file": "Portrait_giovanni_giuriati.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "bbcee6f7b4e7529582798c1563663d4315da5cb1dfcfff4d95669e109295a0bb"
+    },
+    {
+      "key": "hostventuri",
+      "file": "Portrait_giovanni_host_venturi.png",
+      "style": "disco",
+      "size": [
+        1086,
+        1448
+      ],
+      "sha256": "c67626b0e039f639879cf7c1cfb5d1b351ac2d820b8495860aa58fa6510d867d"
+    },
+    {
+      "key": "gigante",
+      "file": "Portrait_riccardo_gigante.png",
+      "style": "photograph",
+      "size": [
+        155,
+        209
+      ],
+      "sha256": "632d4b1f12c7dced155a72c98f39675390ed0d42b98c46ef58b245340701c375"
+    },
+    {
+      "key": "zanella_blasich",
+      "file": "Portrait_riccardo_zanella_mario_blasich.png",
+      "style": "photograph",
+      "size": [
+        200,
+        302
+      ],
+      "sha256": "52c65ec7f150d1f1598dbcdbf0e962d309ca469abd4a42d6f12fe0a89567ee35"
+    },
+    {
+      "key": "zanella",
+      "file": "Portrait_riccardo_zanella.png",
+      "style": "photograph",
+      "size": [
+        1089,
+        1359
+      ],
+      "sha256": "97aee3c6998fb004f0addc8802f9bcfacf0938599cddc389ffe1f98b9bbcd04c"
+    },
+    {
+      "key": "bacci",
+      "file": "Portrait_icilio_bacci.png",
+      "style": "photograph",
+      "size": [
+        155,
+        200
+      ],
+      "sha256": "c99b11de9c404065c044d9b4875708b4f24e7cc27479651aa3d48af967b516fe"
+    },
+    {
+      "key": "pantaleoni",
+      "file": "Portrait_maffeo_pantaleoni.png",
+      "style": "photograph",
+      "size": [
+        234,
+        314
+      ],
+      "sha256": "545b520ea165eec60ac0a5bb8cde47701978c90ec9119e10863d8954a5ace5e3"
+    },
+    {
+      "key": "caviglia",
+      "file": "Portrait_enrico_caviglia.png",
+      "style": "photograph",
+      "size": [
+        582,
+        800
+      ],
+      "sha256": "83ea125d816f039416f8c501fc8be427574613e5b94f4644c71c68bf024ce3a5"
+    },
+    {
+      "key": "giolitti",
+      "file": "Portrait_giovanni_giolitti.png",
+      "style": "photograph",
+      "size": [
+        1274,
+        1676
+      ],
+      "sha256": "a4cd29750fff279a31e6e3b415443463cd1d570507a676baac340eb93f951f68"
+    }
+  ],
+  "generatedBatch": [
+    "output/portraits/current/Portrait_leon_kochnitzky.png",
+    "output/portraits/current/Portrait_mario_carli.png",
+    "output/portraits/current/Portrait_antonio_grossich.png",
+    "output/portraits/current/Portrait_filippo_tommaso_marinetti.png",
+    "output/portraits/current/Portrait_giovanni_giuriati.png",
+    "output/portraits/current/Portrait_alceste_de_ambris.png",
+    "output/portraits/current/Portrait_giovanni_host_venturi.png"
+  ],
+  "sourceDirectoryCountBefore": 31,
+  "finalDirectoryCount": 15,
+  "removedObsoleteFilenames": 23,
+  "canonicalCaseRenames": 8,
+  "checks": {
+    "allReferenced": true,
+    "allPNG": true,
+    "allDecoded": true,
+    "filenamesValid": true,
+    "catalogComplete": true,
+    "selectedHashesMatch": true
+  }
+}

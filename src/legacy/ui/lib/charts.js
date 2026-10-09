@@ -4,123 +4,22 @@
    - 环形图 / 堆叠条 / 折线 / 仪表
    ========================================================================== */
 (function (root, factory) {
-  var mod = factory(root.Fiume.Core);
+  var mod = factory(root.Fiume.Core, root.Fiume.I18N);
   if (typeof module === 'object' && module.exports) module.exports = mod;
   root.Fiume = root.Fiume || {};
   root.Fiume.Charts = mod;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Core) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Core, I18N) {
   'use strict';
   var C = {}, svg = Core.svg;
+  /* One language at a time: chart captions read the shared catalogue. */
+  var T = function (key, vars) { return I18N ? I18N.t(key, vars) : key; };
+  var L = function (node) { return Core.L(node); };
 
-  /* ---------------- Parliament seat arc ---------------- */
-  /* Layout: k concentric arcs spanning 180 degrees; seat count scales with radius. */
-  C.parliamentLayout = function (total, innerR, outerR, seatR) {
-    if (total <= 0) return [];
-    var span = outerR - innerR;
-    var k = Math.max(2, Math.round(Math.sqrt(total) * 0.72));
-    var step = k > 1 ? span / (k - 1) : 0;
-    var radii = [], i, j;
-    for (i = 0; i < k; i++) radii.push(innerR + step * i);
-    var sumR = radii.reduce(function (a, b) { return a + b; }, 0);
-    var counts = radii.map(function (r) { return Math.max(1, Math.round(total * r / sumR)); });
-    // Largest-remainder correction
-    var diff = total - counts.reduce(function (a, b) { return a + b; }, 0);
-    while (diff !== 0) {
-      var idx = diff > 0 ? counts.indexOf(Math.max.apply(null, counts)) : counts.indexOf(Math.max.apply(null, counts));
-      if (diff > 0) { counts[idx]++; diff--; }
-      else {
-        var mi = -1; counts.forEach(function (c, n) { if (c > 1 && (mi < 0 || c > counts[mi])) mi = n; });
-        if (mi < 0) break;
-        counts[mi]--; diff++;
-      }
-    }
-    var pts = [];
-    counts.forEach(function (n, row) {
-      var r = radii[row];
-      for (j = 0; j < n; j++) {
-        var a = Math.PI + (j + 0.5) / n * Math.PI;
-        pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, a: a, r: r, row: row, i: pts.length });
-      }
-    });
-    return pts.map(function (p) { return { x: p.x, y: p.y, r: p.r, a: p.a, row: p.row }; });
-  };
+  /* The parliament seat arc (parliamentLayout + C.parliament) was removed from
+     here. It hand-rolled the d3-parliament layout in plain SVG; both chambers
+     are now drawn by src/lib/d3-parliament.ts via src/ui/arengo.ts, so the
+     duplicate is gone rather than kept in step. */
 
-  var AXIS = ['PSI', 'PCR', 'PAD', 'AUT', 'ANI', 'LEG'];
-
-  C.parliament = function (vm, opts) {
-    opts = opts || {};
-    var W = 620, H = 340, cx = W / 2, cy = H - 26;
-    var innerR = 96, outerR = 232, seatR = opts.seatR || 7.6;
-    var total = vm.total || 0;
-    if (total <= 0) {
-      var empty = svg('svg', { viewBox: '0 0 ' + W + ' ' + H });
-      var t = svg('text', { x: cx, y: cy - 60, 'text-anchor': 'middle', fill: 'rgba(233,220,188,.42)', 'font-size': '15', 'font-family': 'var(--font-display)' });
-      t.textContent = '摄政由指挥官与七位执政官治理';
-      empty.appendChild(t);
-      var t2 = svg('text', { x: cx, y: cy - 36, 'text-anchor': 'middle', fill: 'rgba(201,162,39,.6)', 'font-size': '11', 'letter-spacing': '.2em' });
-      t2.textContent = 'NESSUNA ASSEMBLEA ELETTA';
-      empty.appendChild(t2);
-      return empty;
-    }
-    var pts = C.parliamentLayout(total, innerR, outerR, seatR);
-    var root = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img' });
-
-    // Background arc
-    root.appendChild(svg('path', {
-      d: 'M ' + (cx - outerR - 12) + ' ' + cy + ' A ' + (outerR + 12) + ' ' + (outerR + 12) + ' 0 0 1 ' + (cx + outerR + 12) + ' ' + cy,
-      fill: 'none', stroke: 'rgba(201,162,39,.34)', 'stroke-width': '1'
-    }));
-    root.appendChild(svg('path', {
-      d: 'M ' + (cx - innerR + 38) + ' ' + cy + ' A ' + (innerR - 38) + ' ' + (innerR - 38) + ' 0 0 1 ' + (cx + innerR - 38) + ' ' + cy,
-      fill: 'none', stroke: 'rgba(201,162,39,.22)', 'stroke-width': '1'
-    }));
-
-    // Seat order along the political axis, filled from the left
-    var ordered = [];
-    AXIS.forEach(function (pid) {
-      var s = vm.seats.filter(function (x) { return x.id === pid; })[0];
-      if (s) for (var n = 0; n < s.seats; n++) ordered.push(s);
-    });
-    vm.seats.forEach(function (s) { if (AXIS.indexOf(s.id) < 0) { for (var n = 0; n < s.seats; n++) ordered.push(s); } });
-
-    ordered.forEach(function (s, i) {
-      var p = pts[i]; if (!p) return;
-      var g = svg('g', { 'class': 'parl__seat' });
-      var title = svg('title');
-      title.textContent = s.zh + (Core.sub(s) ? ' / ' + Core.sub(s) : '') + ' — ' + s.seats + ' 席';
-      g.appendChild(title);
-      g.appendChild(svg('circle', {
-        cx: Core.round2(cx + p.x), cy: Core.round2(cy + p.y), r: seatR,
-        fill: s.color, stroke: 'rgba(8,6,4,.9)', 'stroke-width': '1.1'
-      }));
-      root.appendChild(g);
-    });
-
-    // Majority line
-    var majA = Math.PI + 0.5 * Math.PI;
-    root.appendChild(svg('line', {
-      x1: cx, y1: cy - innerR + 44, x2: cx, y2: cy - outerR - 16,
-      stroke: 'rgba(201,162,39,.55)', 'stroke-width': '1', 'stroke-dasharray': '3 4'
-    }));
-
-    // Centre readout
-    var big = svg('text', {
-      x: cx, y: cy - 42, 'text-anchor': 'middle', fill: '#F3E4B0',
-      'font-family': 'var(--font-mono)', 'font-size': '34', 'font-weight': '600'
-    });
-    big.textContent = vm.playerSeats;
-    root.appendChild(big);
-    var sub = svg('text', {
-      x: cx, y: cy - 22, 'text-anchor': 'middle', fill: 'rgba(233,220,188,.52)',
-      'font-size': '11', 'letter-spacing': '.14em'
-    });
-    sub.textContent = 'SEGGI / 76   多数 ' + vm.majority;
-    root.appendChild(sub);
-
-    return root;
-  };
-
-  /* ---------------- Donut ---------------- */
   C.donut = function (items, opts) {
     opts = opts || {};
     var size = opts.size || 132, stroke = opts.stroke || 17;
@@ -533,8 +432,8 @@
         var g = svg('g', { 'class': 'chord__cord', 'data-a': p.id, 'data-b': q.id,
           'data-v': Core.round1(v) });
         var ttl = svg('title');
-        ttl.textContent = p.zh + ' ↔ ' + q.zh + '：' + (v > 0 ? '+' : '') + Core.round1(v) +
-          '（' + (v >= 30 ? '亲近' : v <= -30 ? '对立' : '疏淡') + '）';
+        ttl.textContent = L(p) + ' ↔ ' + L(q) + ': ' + (v > 0 ? '+' : '') + Core.round1(v) +
+          ' (' + (v >= 30 ? T('rel.close') : v <= -30 ? T('rel.opposed') : T('rel.distant')) + ')';
         g.appendChild(ttl);
 
         /* Every relation is a ribbon. One scale drives both its width and its
@@ -567,7 +466,7 @@
               ' A ' + R_BAND + ' ' + R_BAND + ' 0 ' + largeArc(a0, a1) + ' 0 ' + i1[0] + ' ' + i1[1] + ' Z';
       var g = svg('g', { 'class': 'chord__band', 'data-id': p.id });
       var ttl = svg('title');
-      ttl.textContent = p.zh + ' — 全国支持 ' + Core.round1(p.weight) + '%';
+      ttl.textContent = L(p) + ' — ' + T('rel.national', { n: Core.round1(p.weight) });
       g.appendChild(ttl);
       g.appendChild(svg('path', { d: d, fill: p.color, 'fill-opacity': '0.88',
         stroke: 'rgba(8,6,4,.85)', 'stroke-width': '1' }));
@@ -592,7 +491,7 @@
       var nm = svg('text', { 'font-size': '12.5', 'font-family': 'var(--font-display)',
         'font-weight': '700', 'letter-spacing': '.12em', fill: p.color });
       var tp = svg('textPath', { href: '#' + pathId, startOffset: '50%', 'text-anchor': 'middle' });
-      tp.textContent = p.zh;
+      tp.textContent = L(p);
       nm.appendChild(tp);
       lg.appendChild(nm);
       labelLayer.appendChild(lg);

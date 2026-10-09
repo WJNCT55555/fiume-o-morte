@@ -31,6 +31,7 @@ import { evNataleWin } from './ev_natale_win';
 import { evNataleStalemate } from './ev_natale_stalemate';
 import { evNataleLose } from './ev_natale_lose';
 import { ev192104Elezioni } from './ev_1921_04_elezioni';
+import { ev192104ElezioniEsito } from './ev_1921_04_elezioni_esito';
 import { evCartaDibattito } from './ev_carta_dibattito';
 import { evBlasichContatto } from './ev_blasich_contatto';
 import { evBarossTalks } from './ev_baross_talks';
@@ -88,6 +89,7 @@ export const ALL_EVENTS = [
   evNataleStalemate,
   evNataleLose,
   ev192104Elezioni,
+  ev192104ElezioniEsito,
   evCartaDibattito,
   evBlasichContatto,
   evBarossTalks,

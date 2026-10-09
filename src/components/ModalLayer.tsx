@@ -5,18 +5,18 @@ import { legacyToReact } from '../lib/legacyReact';
 import { assetUrl } from '../lib/assetUrl';
 
 /** UI string lookup. The catalogue lives in the legacy i18n module. */
-const T = (key: string): string => legacyUI.UI.T(key);
+const T = (key: string, vars?: Record<string, string | number>): string => legacyUI.UI.T(key, vars);
 
-function Dialog({ title, subtitle, children, footer, close, wide = false, variant }: {
-  title: string; subtitle?: string; children: ReactNode; footer?: ReactNode;
+function Dialog({ title, children, footer, close, wide = false, variant }: {
+  title: string; children: ReactNode; footer?: ReactNode;
   close: () => void; wide?: boolean; variant?: string;
 }) {
   return <div className="scrim show" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}
     onKeyDown={event => { if (event.key === 'Escape') close(); }}>
     <div className={'modal' + (wide ? ' modal--wide' : '') + (variant ? ' modal--' + variant : '')} role="dialog" aria-modal="true" aria-label={title}>
-      <div className="modal__hd"><div className="modal__ttl">{title}</div>{subtitle && <div className="modal__it">{subtitle}</div>}</div>
+      <div className="modal__hd"><div className="modal__ttl">{title}</div></div>
       <div className="modal__bd">{children}</div>
-      <div className="modal__ft">{footer || <button className="btn btn--primary" onClick={close}>关闭</button>}</div>
+      <div className="modal__ft">{footer || <button className="btn btn--primary" onClick={close}>{T('ui.close')}</button>}</div>
     </div>
   </div>;
 }
@@ -31,16 +31,16 @@ export function ModalLayer() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [modal, resume]);
-  if (resume) return <Dialog title="继续上次对局？" subtitle="Salvataggio" close={actions.dismissResume}
-    footer={<><button className="btn btn--primary" onClick={actions.resumeSaved}>继续</button>
-      <button className="btn btn--ghost" onClick={actions.dismissResume}>开始新游戏</button></>}>
-    <p className="modal__body">上次存档：{legacyUI.Core.dateLabel(resume.date)}，第 {resume.turn} 回合。</p>
+  if (resume) return <Dialog title={T('ui.resume.title')} close={actions.dismissResume}
+    footer={<><button className="btn btn--primary" onClick={actions.resumeSaved}>{T('ui.resume.yes')}</button>
+      <button className="btn btn--ghost" onClick={actions.dismissResume}>{T('ui.resume.no')}</button></>}>
+    <p className="modal__body">{T('ui.resume.body', { d: legacyUI.Core.dateLabel(resume.date), n: resume.turn })}</p>
   </Dialog>;
   if (!modal) return null;
 
   // Events are rendered inline in the centre column (see GameScreen), matching
-  // the reference project: only a super event takes over the screen. What is
-  // left here are genuinely modal pickers — the card option menu and the deck.
+  // the reference project. SuperEventLayer owns the independent major-moment
+  // presentation. This layer contains the card picker, deck and settings.
   if (state && ['card', 'deck', 'advdeck'].includes(modal)) {
     let node: Node | null = null;
     if (modal === 'card') node = legacyUI.Views.cardModal(state, actions);
@@ -51,12 +51,17 @@ export function ModalLayer() {
       { cls: 'modal--wide evboard', onScrim: actions.closeEventBoard });
     return <>{legacyToReact(node, refresh, modal)}</>;
   }
-  if (modal === 'settings') return <Dialog title="游戏设置" subtitle="Impostazioni" close={actions.closeModal} wide>
+  if (modal === 'settings') return <Dialog title={T('ui.settings')} close={actions.closeModal} variant="set">
     <div className="setcol">
       {/* Music and language are shown so the shape of the menu is honest, but
           neither is wired to anything yet: there is no audio at all, and the
           it/en locales are registered without translations. Both say so rather
           than pretending to be clickable. */}
+      {/* Music is shown so the shape of the menu is honest, but it is not wired
+          to anything: there is no audio at all. Language IS wired — the active
+          locale is read straight from the i18n module, which the store bumps
+          through `refresh()` when `setLanguage` changes it. `en` remains a
+          registered placeholder. */}
       <button className="setbtn" disabled>
         {legacyToReact(legacyUI.Orn.icon('note', 16), refresh, 'set-music-ic')}
         <span className="setbtn__n">{T('set.music')}</span>
@@ -68,12 +73,18 @@ export function ModalLayer() {
           <span>{T('set.lang')}</span>
         </div>
         <div className="setlang__row">
-          {legacyUI.I18N.LANGS.map((L: { id: string; native: string; enabled: boolean }) =>
-            <button key={L.id} className={'langbtn ' + (L.enabled ? 'is-on' : 'is-off')}
-              disabled={!L.enabled} title={L.enabled ? '' : T('set.lang.soon')}>
+          {legacyUI.I18N.LANGS.map((L: { id: string; native: string; enabled: boolean }) => {
+            const active = legacyUI.I18N.lang === L.id;
+            return <button key={L.id}
+              className={'langbtn ' + (active ? 'is-on' : L.enabled ? '' : 'is-off')}
+              disabled={!L.enabled}
+              aria-current={active ? 'true' : undefined}
+              title={L.enabled ? T('set.lang.current') : T('set.lang.soon')}
+              onClick={() => { if (!active) actions.setLanguage(L.id); }}>
               <span>{L.native}</span>
               {!L.enabled && <span className="langbtn__s">{T('set.lang.soon')}</span>}
-            </button>)}
+            </button>;
+          })}
         </div>
       </div>
       <button className="setbtn" onClick={actions.openAchievements}>
@@ -86,36 +97,44 @@ export function ModalLayer() {
       </button>
       <button className="setbtn" onClick={actions.about}>
         {legacyToReact(legacyUI.Orn.icon('laurel', 16), refresh, 'set-about-ic')}
-        <span className="setbtn__n">关于与史料</span>
+        <span className="setbtn__n">{T('set.about')}</span>
       </button>
     </div>
+    {/* The library: the model documentation, moved out of the economy and crisis
+        panels so those tabs keep only the readings a player acts on. */}
+    <details className="setfold" open>
+      <summary>{T('lib.open')} · {T('lib.sub')}</summary>
+      <div className="setfold__bd">
+        {state && legacyToReact(legacyUI.Views.formulaLibrary(state), refresh, 'library')}
+      </div>
+    </details>
     {/* Reference material, folded away so it does not compete with the menu. */}
     <details className="setfold">
-      <summary>史实时间轴</summary>
+      <summary>{T('set.timeline')}</summary>
       <div className="setfold__bd">{legacyToReact(legacyUI.Views.timelinePanel(), refresh, 'timeline')}</div>
     </details>
     <details className="setfold">
-      <summary>行政记录</summary>
+      <summary>{T('set.registro')}</summary>
       <div className="setfold__bd">{legacyToReact(legacyUI.Views.registroPanel(state), refresh, 'registro')}</div>
     </details>
   </Dialog>;
   if (modal === 'save') {
     const slots = legacyUI.Sel.Save.list();
-    return <Dialog title="存档管理" subtitle="Salvataggi" close={actions.closeModal} wide>
+    return <Dialog title={T('ui.saves')} close={actions.closeModal} variant="save">
       <div className="save-list">
         {(['auto', 0, 1, 2, 3, 4] as const).map(slot => {
           const data = slot === 'auto' ? slots.auto : slots.slots[slot];
           return <div className="opt" key={slot} style={{ cursor: 'default' }}>
-            <div className="opt__h"><span className="opt__n">{slot === 'auto' ? '自动存档' : `存档 ${slot + 1}`}</span>
-              <span className="opt__i">{data ? `${data.label} · ${new Date(data.at).toLocaleString()}` : '空'}</span></div>
+            <div className="opt__h"><span className="opt__n">{slot === 'auto' ? T('ui.autosave') : T('ui.slot', { n: slot + 1 })}</span>
+              <span className="opt__i">{data ? `${data.label} · ${new Date(data.at).toLocaleString()}` : T('ui.empty')}</span></div>
             <div className="row" style={{ gap: 7, marginTop: 6 }}>
-              <button className="btn btn--sm" onClick={() => actions.saveTo(slot)}>写入</button>
-              <button className="btn btn--sm btn--ghost" disabled={!data} onClick={() => actions.loadFrom(slot)}>读取</button>
+              <button className="btn btn--sm" onClick={() => actions.saveTo(slot)}>{T('save.write')}</button>
+              <button className="btn btn--sm btn--ghost" disabled={!data} onClick={() => actions.loadFrom(slot)}>{T('save.read')}</button>
             </div>
           </div>;
         })}
       </div>
-      <p className="tiny">存档保存在浏览器 localStorage。</p>
+      <p className="tiny">{T('ui.saves.note')}</p>
     </Dialog>;
   }
   if (modal === 'ach') {
@@ -127,10 +146,10 @@ export function ModalLayer() {
        project: medallion, text, tick. A grid made every entry a different
        width, which made the set hard to scan; a column of rows reads
        down the names in one sweep. */
-    return <Dialog title="成就" subtitle="Obiettivi" close={actions.closeModal} variant="ach">
+    return <Dialog title={T('ui.ach')} close={actions.closeModal} variant="ach">
       <div className="achbar">
         <div className="achbar__r">
-          <span>完成进度</span>
+          <span>{T('ach.progress')}</span>
           <span>{unlocked.length} / {all.length}（{pct}%）</span>
         </div>
         <div className="achbar__t"><i style={{ width: pct + '%' }} /></div>
@@ -155,10 +174,12 @@ export function ModalLayer() {
       })}</div>
     </Dialog>;
   }
-  if (modal === 'about') return <Dialog title="关于游戏" subtitle="FIUME O MORTE!" close={actions.closeModal} wide>
+  if (modal === 'about') return <Dialog title={T('ui.about')} close={actions.closeModal} wide>
     <div className="modal__body">
-      <p>《FIUME O MORTE!》以 1919–1924 年的阜姆为背景。你将以邓南遮的身份处理事件、使用卡牌、调整财政与外交政策，并面对制宪议会及城市的危机。</p>
-      <p>人物肖像与历史照片来自 Wikimedia Commons；逐张许可见 <a href={assetUrl('img/manifest.json')} target="_blank" rel="noreferrer">素材清单</a>。地图几何来自 OpenStreetMap 与 Natural Earth。</p>
+      <p>{T('ui.about.body')}</p>
+      <p>{T('ui.credits')}{' '}
+        <a href={assetUrl('img/manifest.json')} target="_blank" rel="noreferrer">{T('ui.credits.link')}</a>
+        {T('ui.credits.tail')}</p>
     </div>
   </Dialog>;
   return null;

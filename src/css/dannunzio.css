@@ -713,7 +713,13 @@
    set in the pale greys used elsewhere in this file comes out invisible. Every
    value below is ink on paper.
    --------------------------------------------------------------------------- */
-.modal--ach { max-width: 780px; }
+/* The three stacked-panel dialogs — settings, save management, achievements —
+   share one width. They are the same kind of screen (a scrolling list of rows),
+   and the settings dialog used to open wider than the achievements list it sits
+   next to, which made the pair look misaligned for no reason. */
+.modal--ach,
+.modal--set,
+.modal--save { max-width: 780px; }
 
 .achbar {
   padding: 11px 15px 12px;
@@ -892,6 +898,133 @@
   font-size: 12.5px;
   line-height: 1.6;
   color: rgba(40, 31, 24, .62);
+}
+
+/* ---------------------------------------------------------------------------
+   The Arengo — the Charter's two councils (src/ui/arengo.ts).
+   These styles did not exist until now: the panel was built and wired but never
+   dressed, so it rendered as unstyled text on the page background. The hemicycle
+   is painted by d3-parliament in each party's own colour.
+   --------------------------------------------------------------------------- */
+.arengo { display: flex; flex-direction: column; gap: 16px; padding: 12px 13px 14px; }
+
+.arengo-chamber {
+  border: 1px solid rgba(201, 162, 39, .34);
+  background: linear-gradient(180deg, rgba(34, 26, 18, .55), rgba(20, 16, 11, .35));
+}
+.arengo-chamber__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px 12px;
+  padding: 8px 12px 7px;
+  border-bottom: 1px solid rgba(201, 162, 39, .26);
+}
+.arengo-chamber__head strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: .06em;
+  color: var(--gold-lit);
+}
+.arengo-chamber__head .tiny { font-size: 12px; letter-spacing: .03em; }
+
+.arengo-chamber__chart { display: flex; justify-content: center; padding: 10px 12px 2px; }
+/* width/height are on the element as attributes (d3-parliament draws in absolute
+   units and needs the root to actually be that big); this keeps it responsive. */
+.arengo-chamber__svg { width: 100%; max-width: 460px; height: auto; display: block; }
+.arengo-chamber__svg circle.seat { stroke: rgba(8, 6, 4, .5); stroke-width: .6; }
+
+.arengo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 8px 12px 10px;
+}
+.arengo-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: rgba(240, 229, 202, .82);
+}
+.arengo-legend__item .swatch { width: 9px; height: 9px; border: 1px solid rgba(8, 6, 4, .5); }
+.arengo-legend__item .num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-pale);
+}
+
+/* The Corporations, each with the blocs inside it — 60 seats across 7 bodies. */
+.arengo-corps { border-top: 1px solid rgba(201, 162, 39, .22); }
+.arengo-corps__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(201, 162, 39, .12);
+}
+.arengo-corps__row:last-child { border-bottom: 0; }
+.arengo-corps__name { flex: none; min-width: 190px; font-size: 13px; color: rgba(240, 229, 202, .86); }
+.arengo-corps__row .num {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-pale);
+}
+.arengo-corps__row .tiny { flex: 1; min-width: 0; font-size: 12px; color: rgba(240, 229, 202, .62); }
+
+/* ---------------------------------------------------------------------------
+   A chamber seated by an event's counted result (src/ui/parliament.ts).
+   Sits inside .evres, so it inherits the paper panel; the hemicycle itself is
+   painted by d3-parliament with each party's own colour.
+   --------------------------------------------------------------------------- */
+.parliament-tally { padding: 10px 13px 4px; }
+.parliament-tally__chart { display: flex; justify-content: center; }
+.parliament-tally__svg { width: 100%; max-width: 480px; height: auto; display: block; }
+/* Seats are hairline-separated so a bloc reads as a bloc at this size. */
+.parliament-tally__svg circle.seat { stroke: rgba(40, 31, 24, .35); stroke-width: .6; }
+.parliament-tally__legend {
+  margin: 8px auto 0;
+  max-width: 480px;
+  border-top: 1px solid rgba(93, 69, 36, .22);
+}
+.parliament-tally__row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(93, 69, 36, .12);
+}
+.parliament-tally__row:last-child { border-bottom: 0; }
+.parliament-tally__sw {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  align-self: center;
+  border: 1px solid rgba(40, 31, 24, .3);
+}
+.parliament-tally__n {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  letter-spacing: .03em;
+  color: rgba(40, 31, 24, .82);
+}
+.parliament-tally__v,
+.parliament-tally__p {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: #2A2118;
+}
+.parliament-tally__p { width: 42px; text-align: right; color: rgba(40, 31, 24, .62); }
+.parliament-tally__cap {
+  max-width: 480px;
+  margin: 7px auto 6px;
+  line-height: 1.6;
 }
 
 /* ---------------------------------------------------------------------------

@@ -3,7 +3,17 @@ import type { GameEvent } from '../content/types';
 
 export const evStrike: GameEvent = {
     id: 'ev_strike', repeatable: true, cooldown: 8,
-    condition: function (s) { return s.economy.strike < 42 && s.monthIndex >= 2; },
+    /* Fires only while the labour situation is live but not yet out of hand.
+       `strike` has NO upward monthly drift — the only term in R.lawMonthly is
+       `-(orario * 0.5) - lavoro * 1.1` — so it falls to zero as soon as labour
+       law is passed and stays there, and it only climbs when the player chooses
+       repression (ev_strike:c +18, ev_1920_04_sciopero:a +16, gv_tutele:sospensione
+       +9, gv_orario:deroga +8). The band therefore reads as: below 20 the unions
+       have nothing to threaten with, above 40 the strike is already on the street
+       and this is no longer an ultimatum. Note `counters.strikes` starts ticking at
+       > 40, so the top of the band is the last point at which negotiating still
+       works. */
+    condition: function (s) { return s.economy.strike >= 20 && s.economy.strike <= 40 && s.monthIndex >= 2; },
     title: { zh: '联合工位的最后通牒', it: 'L\'ultimatum delle Sedi Riunite' },
     body: { zh: '码头工人委员会派人来：如果摄政不在一个月内承认八小时工作制与港口劳动局，联合工位就发动总罢工。\n\n' +
         '"我们知道您的宪法里写了什么，"来的人说，"劳动不是商品。我们只是想知道它是不是也包括我们。"',

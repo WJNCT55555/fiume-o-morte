@@ -1,0 +1,151 @@
+{
+  "districts": [
+    {
+      "id": "centro",
+      "patches": [
+        "centro:0"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "porto",
+      "patches": [
+        "porto:0",
+        "porto:1"
+      ],
+      "components": 2,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "brajda",
+      "patches": [
+        "brajda:0",
+        "belvedere:2"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "belvedere",
+      "patches": [
+        "belvedere:0"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "kozala",
+      "patches": [
+        "kozala:0",
+        "pecine:3"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "plase",
+      "patches": [
+        "plase:0",
+        "plase:1",
+        "plase:2",
+        "drenova:1",
+        "kozala:1",
+        "belvedere:1",
+        "centro:1"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "drenova",
+      "patches": [
+        "drenova:0"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "zamet",
+      "patches": [
+        "zamet:0",
+        "zamet:1",
+        "zamet:3",
+        "tersatto:3"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "pecine",
+      "patches": [
+        "pecine:0",
+        "tersatto:1"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "srdoci",
+      "patches": [
+        "srdoci:0"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "susak",
+      "patches": [
+        "susak:0",
+        "susak:1",
+        "susak:2"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "tersatto",
+      "patches": [
+        "tersatto:0",
+        "belvedere:3",
+        "tersatto:2"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    },
+    {
+      "id": "valle",
+      "patches": [
+        "valle:0",
+        "valle:1",
+        "pecine:2"
+      ],
+      "components": 1,
+      "valid": true,
+      "labelInside": true
+    }
+  ],
+  "contextualPatches": [
+    "pecine:1",
+    "srdoci:1",
+    "srdoci:2",
+    "srdoci:3",
+    "srdoci:4",
+    "srdoci:5",
+    "valle:2",
+    "zamet:2"
+  ],
+  "harbourException": "Shore and detached breakwater; no artificial land bridge"
+}

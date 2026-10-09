@@ -42,6 +42,12 @@ export interface Advisor {
   bio: string;
   action: LocalizedText;
   effect: EffectPatch;
+  /** Path under `public/`, e.g. `img/Portrait/Portrait_mario_carli.png`. The
+      data holds a plain project-relative path; each UI layer turns it into a
+      served URL, because the Vite base is only known to the bundler.
+      Left out when no likeness of the person is on file — the row then shows
+      the initial-letter plate instead of borrowing another man's face. */
+  portrait?: string;
   require?: (state: SimulationState) => boolean;
 }
 
@@ -66,6 +72,21 @@ export interface EventResult {
   rows?: { label: LocalizedText; value: string; tone?: 'good' | 'bad' }[];
   /** A closing line, set apart. */
   note?: LocalizedText;
+  /** A chamber this result seats, drawn as a hemicycle above the rows. Use it
+      wherever the point of the count is the shape of the chamber rather than a
+      list of figures — an election above all, where "who can outvote whom" is
+      not visible in a column of numbers. The view renders whatever is here; the
+      engine stores no chart. */
+  seats?: {
+    id: string;
+    /** Party name. A `{zh, it}` node, because the event's `result` hook has no
+        access to the active locale — the view resolves it. */
+    name: LocalizedText;
+    seats: number;
+    color: string;
+  }[];
+  /** Caption under the chamber, e.g. the size and the majority it implies. */
+  seatsCaption?: LocalizedText;
 }
 
 export interface GameEvent {
@@ -78,6 +99,7 @@ export interface GameEvent {
   repeatable?: boolean;
   cooldown?: number;
   chain?: boolean;
+  /** Legacy simulation priority flag; independent of the super-event UI layer. */
   superEvent?: boolean;
   condition?: (state: SimulationState) => boolean;
   /** A tally shown under the body, worked out when the event opens. `body` is

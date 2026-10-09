@@ -13,27 +13,6 @@
     "title": "File:Coat of arms of the Free State of Fiume.svg",
     "source": "https://commons.wikimedia.org/wiki/File%3ACoat_of_arms_of_the_Free_State_of_Fiume.svg"
   },
-  "zanella_blasich": {
-    "file": "Portrait/Portrait_Riccardo_Zanella_Mario_Blasich.png",
-    "license": "CC BY 4.0",
-    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
-    "title": "File:Riccardo Zanella and Mario Blasich.png",
-    "source": "https://commons.wikimedia.org/wiki/File%3ARiccardo_Zanella_and_Mario_Blasich.png"
-  },
-  "grossich": {
-    "file": "Portrait/Portrait_Antonio_Grossich.jpg",
-    "license": "Public domain",
-    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
-    "title": "File:Antonio Grossich 2.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AAntonio_Grossich_2.jpg"
-  },
-  "de_ambris": {
-    "file": "Portrait/Portrait_Alceste_De_Ambris.jpg",
-    "license": "Public domain",
-    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
-    "title": "File:Alceste de Ambris 1930.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AAlceste_de_Ambris_1930.jpg"
-  },
   "impresa_fiume": {
     "file": "History/impresa_fiume.jpg",
     "license": "Public domain",
@@ -76,61 +55,12 @@
     "title": "File:Free State of Fiume 1920-1924.png",
     "source": "https://commons.wikimedia.org/wiki/File%3AFree_State_of_Fiume_1920-1924.png"
   },
-  "comandante": {
-    "file": "Portrait/Portrait_Dannunzio.png",
-    "license": "Public domain",
-    "artist": "<div class=\"fn value\">\nAgence Rol. Agence photographique (commanditaire)</div>",
-    "title": "File:D'Annunzio (Gabriele) - btv1b53030581s.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AD%27Annunzio_%28Gabriele%29_-_btv1b53030581s.jpg"
-  },
   "reggenza_proc": {
     "file": "History/reggenza_proc.jpg",
     "license": "Public domain",
     "artist": "<span lang=\"en\">Anonymous</span><span style=\"display:none\">Unknown author</span>",
     "title": "File:Proclamazione della Reggenza italiana del Carnaro.jpg",
     "source": "https://commons.wikimedia.org/wiki/File%3AProclamazione_della_Reggenza_italiana_del_Carnaro.jpg"
-  },
-  "keller": {
-    "file": "Portrait/Portrait_Guido_Keller.png",
-    "license": "CC BY-SA 4.0",
-    "artist": "<a rel=\"nofollow\" class=\"external free\" href=\"https://traditio.wiki/\">https://traditio.wiki/</a>",
-    "title": "File:Guido Keller.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AGuido_Keller.jpg"
-  },
-  "carli": {
-    "file": "Portrait/Portrait_Mario_Carli.jpg",
-    "license": "CC0",
-    "artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Pagina_arditi&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Pagina arditi (page does not exist)\">Pagina arditi</a>",
-    "title": "File:Mario Carli, Capitano degli Arditi.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AMario_Carli%2C_Capitano_degli_Arditi.jpg"
-  },
-  "caviglia": {
-    "file": "Portrait/Portrait_Enrico_Caviglia.jpg",
-    "license": "Public domain",
-    "artist": "<bdi><a href=\"https://www.wikidata.org/wiki/Q522005\" class=\"extiw\" title=\"d:Q522005\"><span title=\"Italian photographer (1856–1932)\">Mario Nunes Vais</span></a></bdi>",
-    "title": "File:Enrico Caviglia 02.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AEnrico_Caviglia_02.jpg"
-  },
-  "giolitti": {
-    "file": "Portrait/Portrait_Giovanni_Giolitti.jpg",
-    "license": "Public domain",
-    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
-    "title": "File:Giovanni Giolitti crop.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AGiovanni_Giolitti_crop.jpg"
-  },
-  "hostventuri": {
-    "file": "Portrait/Portrait_Giovanni_Host_Venturi.jpg",
-    "license": "Public domain",
-    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
-    "title": "File:Giovanni Host Venturi.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AGiovanni_Host_Venturi.jpg"
-  },
-  "corridoni": {
-    "file": "Portrait/Portrait_Filippo_Corridoni.jpg",
-    "license": "Public domain",
-    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
-    "title": "File:Filippo Corridoni portrait.jpg",
-    "source": "https://commons.wikimedia.org/wiki/File%3AFilippo_Corridoni_portrait.jpg"
   },
   "dannunzio_scudetto": {
     "file": "History/dannunzio_scudetto.jpg",
@@ -152,5 +82,161 @@
     "artist": "MacMoreno",
     "title": "File:Emblema della Reggenza Italiana del Carnaro.svg",
     "source": "https://commons.wikimedia.org/wiki/File%3AEmblema_della_Reggenza_Italiana_del_Carnaro.svg"
+  },
+  "comandante": {
+    "file": "Portrait/Portrait_gabriele_d_annunzio.png",
+    "license": "Derivative of the public-domain photograph recorded under `comandante`",
+    "artist": "Generated from the source portrait; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Gabriele D'Annunzio",
+    "source": "Derived from https://commons.wikimedia.org/wiki/File%3AD%27Annunzio_%28Gabriele%29_-_btv1b53030581s.jpg",
+    "sourceAttribution": {
+      "license": "Public domain",
+      "artist": "<div class=\"fn value\">\nAgence Rol. Agence photographique (commanditaire)</div>",
+      "title": "File:D'Annunzio (Gabriele) - btv1b53030581s.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File%3AD%27Annunzio_%28Gabriele%29_-_btv1b53030581s.jpg"
+    },
+    "style": "disco"
+  },
+  "keller": {
+    "file": "Portrait/Portrait_guido_keller.png",
+    "license": "UNVERIFIED — derived from the CC BY-SA 4.0 photograph recorded under `keller`; whether this derivative must carry the same licence has not been settled",
+    "artist": "Generated from the source portrait; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Guido Keller",
+    "source": "Derived from https://commons.wikimedia.org/wiki/File%3AGuido_Keller.jpg",
+    "sourceAttribution": {
+      "license": "CC BY-SA 4.0",
+      "artist": "<a rel=\"nofollow\" class=\"external free\" href=\"https://traditio.wiki/\">https://traditio.wiki/</a>",
+      "title": "File:Guido Keller.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File%3AGuido_Keller.jpg"
+    },
+    "style": "disco"
+  },
+  "giulietti": {
+    "file": "Portrait/Portrait_giuseppe_giulietti.png",
+    "license": "UNVERIFIED — derived from the source portrait; the source photograph's licence is not recorded in this manifest",
+    "artist": "Generated from the source portrait; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Giuseppe Giulietti",
+    "source": "Derived from output/portraits/archive-before-cleanup/Portrait_Giuseppe_Giulietti.png",
+    "style": "disco"
+  },
+  "carli": {
+    "license": "Derivative of the source image; source attribution preserved below",
+    "artist": "Generated with built-in imagegen; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Mario Carli",
+    "source": "https://commons.wikimedia.org/wiki/File%3AMario_Carli%2C_Capitano_degli_Arditi.jpg",
+    "sourceAttribution": {
+      "license": "CC0",
+      "artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Pagina_arditi&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Pagina arditi (page does not exist)\">Pagina arditi</a>",
+      "title": "File:Mario Carli, Capitano degli Arditi.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File%3AMario_Carli%2C_Capitano_degli_Arditi.jpg"
+    },
+    "file": "Portrait/Portrait_mario_carli.png",
+    "style": "disco"
+  },
+  "grossich": {
+    "license": "Derivative of the source image; source attribution preserved below",
+    "artist": "Generated with built-in imagegen; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Antonio Grossich",
+    "source": "https://commons.wikimedia.org/wiki/File%3AAntonio_Grossich_2.jpg",
+    "sourceAttribution": {
+      "license": "Public domain",
+      "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+      "title": "File:Antonio Grossich 2.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File%3AAntonio_Grossich_2.jpg"
+    },
+    "file": "Portrait/Portrait_antonio_grossich.png",
+    "style": "disco"
+  },
+  "de_ambris": {
+    "license": "Derivative of the source image; source attribution preserved below",
+    "artist": "Generated with built-in imagegen; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Alceste De Ambris",
+    "source": "https://commons.wikimedia.org/wiki/File%3AAlceste_de_Ambris_1930.jpg",
+    "sourceAttribution": {
+      "license": "Public domain",
+      "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+      "title": "File:Alceste de Ambris 1930.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File%3AAlceste_de_Ambris_1930.jpg"
+    },
+    "file": "Portrait/Portrait_alceste_de_ambris.png",
+    "style": "disco"
+  },
+  "giuriati": {
+    "license": "Source-image licence not recorded",
+    "artist": "Generated with built-in imagegen; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Giovanni Giuriati",
+    "source": "https://commons.wikimedia.org/wiki/File:GiovanniGiurati.jpg",
+    "file": "Portrait/Portrait_giovanni_giuriati.png",
+    "style": "disco"
+  },
+  "hostventuri": {
+    "license": "Derivative of the source image; source attribution preserved below",
+    "artist": "Generated with built-in imagegen; see PORTRAIT_ART_DIRECTION.md",
+    "title": "Painted portrait of Giovanni Host Venturi",
+    "source": "https://commons.wikimedia.org/wiki/File%3AGiovanni_Host_Venturi.jpg",
+    "sourceAttribution": {
+      "license": "Public domain",
+      "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+      "title": "File:Giovanni Host Venturi.jpg",
+      "source": "https://commons.wikimedia.org/wiki/File%3AGiovanni_Host_Venturi.jpg"
+    },
+    "file": "Portrait/Portrait_giovanni_host_venturi.png",
+    "style": "disco"
+  },
+  "gigante": {
+    "license": "Source attribution not recorded",
+    "artist": "",
+    "title": "Portrait of Riccardo Gigante",
+    "source": "Original preserved in output/portraits/archive-before-cleanup/Portrait_Riccardo_Gigante.png",
+    "file": "Portrait/Portrait_riccardo_gigante.png",
+    "style": "photograph"
+  },
+  "zanella_blasich": {
+    "file": "Portrait/Portrait_riccardo_zanella_mario_blasich.png",
+    "license": "CC BY 4.0",
+    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+    "title": "File:Riccardo Zanella and Mario Blasich.png",
+    "source": "https://commons.wikimedia.org/wiki/File%3ARiccardo_Zanella_and_Mario_Blasich.png",
+    "style": "photograph"
+  },
+  "zanella": {
+    "license": "Source attribution not recorded",
+    "artist": "",
+    "title": "Portrait of Riccardo Zanella",
+    "source": "Original preserved in output/portraits/archive-before-cleanup/Portrait_Riccardo_Zanella.jpg",
+    "file": "Portrait/Portrait_riccardo_zanella.png",
+    "style": "photograph"
+  },
+  "bacci": {
+    "license": "Source attribution not recorded",
+    "artist": "",
+    "title": "Portrait of Icilio Bacci",
+    "source": "Original preserved in output/portraits/archive-before-cleanup/Portrait_Icilio_Bacci.png",
+    "file": "Portrait/Portrait_icilio_bacci.png",
+    "style": "photograph"
+  },
+  "pantaleoni": {
+    "license": "Source attribution not recorded",
+    "artist": "",
+    "title": "Portrait of Maffeo Pantaleoni",
+    "source": "Original preserved in output/portraits/archive-before-cleanup/Portrait_Maffeo_Pantaleoni.png",
+    "file": "Portrait/Portrait_maffeo_pantaleoni.png",
+    "style": "photograph"
+  },
+  "caviglia": {
+    "file": "Portrait/Portrait_enrico_caviglia.png",
+    "license": "Public domain",
+    "artist": "<bdi><a href=\"https://www.wikidata.org/wiki/Q522005\" class=\"extiw\" title=\"d:Q522005\"><span title=\"Italian photographer (1856–1932)\">Mario Nunes Vais</span></a></bdi>",
+    "title": "File:Enrico Caviglia 02.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File%3AEnrico_Caviglia_02.jpg",
+    "style": "photograph"
+  },
+  "giolitti": {
+    "file": "Portrait/Portrait_giovanni_giolitti.png",
+    "license": "Public domain",
+    "artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+    "title": "File:Giovanni Giolitti crop.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File%3AGiovanni_Giolitti_crop.jpg",
+    "style": "photograph"
   }
 }

@@ -23,6 +23,7 @@
     cry: 'QVIS CONTRA NOS?'
   };
   W.START = { y: 1919, m: 9 };
+  W.CRISIS_MAX = 100;
   /* The game ends in December 1924 on every difficulty. This is the hard stop
      `Eng.checkEnd` falls back on; the narrative endgames (the Rome treaty in
      1924-01, a fascist takeover, an exile that runs out) still settle earlier
@@ -49,10 +50,7 @@
                   naval artillery, and pricing it made the historical default line
                   win the siege it historically lost.
        attacker — the Royal Army and the fleet, i.e. the garrison reinforced by how
-                  far the siege has run (`coup`, 0..140), plus Mussolini's squads.
-     Tuned against the real default line (1920-12: milizia 6 706, garrison 22,
-     coup 140, squadre 55), which must LOSE — that is the historical outcome.
-     See .analysis/_battle_tune.js. */
+                  far the siege has run (`coup`, 0..100), plus Mussolini's squads. */
   W.BATTLE = {
     defender: { milizia: 1.0, police: 2.0, carabinieri: 1.5, garrison: 2.0, fervour: 0, dissentDiv: 200 },
     attacker: { garrison: 50.0, coup: 72.0, squadre: 8.0 },
@@ -77,13 +75,20 @@
 
   /* ======================= 1. Social classes ======================= */
   W.CLASSES = [
-    { id: 'portuali', pop: 16, zh: '码头劳工', it: 'Operai del porto',        city: 0.94, note: '装卸、码头、驳船；联合工位（Sedi Riunite）的核心，对军团兵冷淡'  },
-    { id: 'operai', pop: 23, zh: '产业工人', it: 'Operai industriali',      city: 0.60, note: 'Whitehead 鱼雷厂、造船厂、炼油厂、烟草厂'  },
-    { id: 'artigiani', pop: 13, zh: '手工业者与小店主', it: 'Artigiani e bottegai',    city: 0.88, note: '城区小市民层：被军团兵的排场吸引，也被他们的暴力吓到'  },
-    { id: 'borghesia', pop: 14, zh: '有产精英', it: 'Ceto possidente', city: 0.92, note: '航运、保险、律师、医生；多数是自治党的人'  },
-    { id: 'impiegati', pop: 10, zh: '知识分子', it: 'Intellettuali', city: 0.90, note: '港务局、银行、学校、报馆'  },
-    { id: 'contadini', pop: 15, zh: '斯拉夫农民', it: 'Contadini croati', city: 0.15, note: 'Plasse / Cosala / Drenova 等近郊与西部乡村，自治党的票仓' },
-    { id: 'regnicoli', pop: 9, zh: '意大利侨民', it: 'Regnicoli', city: 0.95, note: '1918 年后自意大利本土迁入；军团兵的社会基础' }
+    { id: 'portuali', pop: 16, zh: '码头劳工', it: 'Operai del porto',        city: 0.94, note: '装卸、码头、驳船；联合工位（Sedi Riunite）的核心，对军团兵冷淡',
+      noteIt: 'Scarico, banchine, chiatte; nucleo delle Sedi Riunite, freddi verso i legionari.'  },
+    { id: 'operai', pop: 23, zh: '产业工人', it: 'Operai industriali',      city: 0.60, note: 'Whitehead 鱼雷厂、造船厂、炼油厂、烟草厂',
+      noteIt: 'Whitehead, cantiere navale, raffineria, tabacchificio.'  },
+    { id: 'artigiani', pop: 13, zh: '手工业者与小店主', it: 'Artigiani e bottegai',    city: 0.88, note: '城区小市民层：被军团兵的排场吸引，也被他们的暴力吓到',
+      noteIt: 'Piccola borghesia urbana: attratta dal fasto dei legionari, spaventata dalla loro violenza.'  },
+    { id: 'borghesia', pop: 14, zh: '有产精英', it: 'Ceto possidente', city: 0.92, note: '航运、保险、律师、医生；多数是自治党的人',
+      noteIt: 'Armatori, assicurazioni, avvocati, medici; in maggioranza gente del partito autonomo.'  },
+    { id: 'impiegati', pop: 10, zh: '知识分子', it: 'Intellettuali', city: 0.90, note: '港务局、银行、学校、报馆',
+      noteIt: 'Capitaneria di porto, banche, scuole, giornali.'  },
+    { id: 'contadini', pop: 15, zh: '斯拉夫农民', it: 'Contadini croati', city: 0.15, note: 'Plasse / Cosala / Drenova 等近郊与西部乡村，自治党的票仓',
+      noteIt: 'Sotto-comuni e campagne occidentali (Plasse, Cosala, Drenova); serbatoio di voti autonomista.' },
+    { id: 'regnicoli', pop: 9, zh: '意大利侨民', it: 'Regnicoli', city: 0.95, note: '1918 年后自意大利本土迁入；军团兵的社会基础',
+      noteIt: 'Arrivati dall\'Italia dopo il 1918; base sociale dei legionari.' }
   ];
 
     /* ======================= 16. Card decks ======================= */
@@ -107,30 +112,99 @@
     { id: 'milizia',     zh: '军团兵力', it: 'Milizia',               icon: 'milizia' }
   ];
 
+  /* ================= 6b. The Corporations of the Provvisori ================= */
+  /* The Consiglio dei Provvisori is elected by the Corporations, not by geography.
+     Each Corporation is a fixed bloc of seats (60 in total) and draws its members
+     from the social classes: `members` maps a class id to the share of that class
+     which belongs to this Corporation. A class may appear in several Corporations
+     (impiegati sit in three of them), which is the point — the Charter's chambers
+     cut across the class structure rather than replacing it.
+
+     SEVEN, not the ten of the Charter's art. 3. De Ambris listed ten corporazioni
+     (operai, cittadini, agricoltori, industriali, professionisti, dirigenti,
+     insegnanti, giuristi, sanitari, volontari); this table is a gameplay
+     compression of them, not the same list, and the seat figures are the design's
+     own. Do not "correct" the count to ten or to the nine that secondary Italian
+     sources often report: the UI prints the length of this array, so the number
+     and the table can only move together. See docs/史实校验报告.md §5. */
+  W.CORPORATIONS = [
+    { id: 'industria',       zh: '工业工人与农业劳动者', it: 'Lavoratori dell\'industria e dell\'agricoltura', seats: 10,
+      members: { operai: 0.5, contadini: 0.5 } },
+    { id: 'marittimi',       zh: '海员（海上人员）',      it: 'Gente di mare',                              seats: 10,
+      members: { portuali: 1.0 } },
+    { id: 'datori',          zh: '雇主',                it: 'Datori di lavoro',                          seats: 10,
+      members: { borghesia: 1.0 } },
+    { id: 'tecnici',         zh: '农业与工业技术人员',    it: 'Tecnici agrari e industriali',               seats: 5,
+      members: { impiegati: 0.6, operai: 0.4 } },
+    { id: 'amministrazione', zh: '私营企业行政人员',      it: 'Personale amministrativo delle aziende private', seats: 5,
+      members: { impiegati: 0.5, borghesia: 0.5 } },
+    { id: 'intellettuali',   zh: '知识分子人员',          it: 'Intellettuali',                             seats: 5,
+      members: { impiegati: 1.0 } },
+    { id: 'cooperative',     zh: '生产、劳动与消费合作社', it: 'Cooperative di produzione, lavoro e consumo',  seats: 15,
+      members: { artigiani: 0.6, operai: 0.4 } }
+  ];
+  W.CORPORATION_SEATS = W.CORPORATIONS.reduce(function (a, c) { return a + c.seats; }, 0);
+  W.CORPORATION_BY_ID = {};
+  W.CORPORATIONS.forEach(function (c) { W.CORPORATION_BY_ID[c.id] = c; });
+  /* `regnicoli` — the Italians who arrived after 1918 — belong to no Corporation on
+     purpose. The Corporations are producers' bodies (art. 3 of the Charter), and
+     recent arrivals are not a trade. They therefore enter the Consiglio degli
+     Ottimi (once `laws.cittadinanza` reaches level 3) but never the Consiglio dei
+     Provvisori. That asymmetry is the design, not an omission. */
+
+  /* The Consiglio degli Ottimi is one councillor per thousand CITIZENS, so its size
+     follows the franchise rather than the population: `laws.cittadinanza` is the
+     gate. Level 0 is the opening franchise — the Legion plus anyone resident before
+     1918 — and each level admits another group, `regnicoli` (Italians who arrived
+     after 1918) being the last. `CITY` marks the classes whose weight is the
+     built-up city rather than the sub-municipalities. */
+  W.CITIZENSHIP_FRANCHISE = [
+    ['borghesia', 'impiegati', 'artigiani'],            /* 0: Legion + pre-1918 residents */
+    ['operai'],                                         /* 1: naturalisation by language and culture */
+    ['portuali', 'contadini'],                          /* 2: three years' residence */
+    ['regnicoli']                                       /* 3: dual nationality */
+  ];
+  W.OTTIMI_PER_CITIZENS = 1000;
+  W.OTTIMI_TERM_TURNS = 72;    /* three years, two half-month turns per month */
+
+  /* ======================= 7. (reserved) ======================= */
   /* ======================= 7. Laws ======================= */
+  /* Each law carries its level names in both languages (`levelIt`), because the
+     dossier prints the name of the level currently in force. */
   W.LAWS = [
-    { id: 'elettorale', zh: '选举法', it: 'Legge elettorale', max: 3, levels: [
-      '无选举（1919 年市政议会延续）', '混合多数制（51+17 / 6+2）', '比例代表制', '普选与女性候选权'] },
-    { id: 'lingua', zh: '官方语言', it: 'Lingua ufficiale', max: 3, levels: [
-      '仅意大利语', '意大利语与克罗地亚语并行', '意/克/匈三语', '三语 + 官方文书三语并行'] },
-    { id: 'portofranco', zh: '自由港', it: 'Porto franco', max: 3, levels: [
-      '无特权', '关税暂缓区', '自由港', '自由港 + 转口贸易特权'] },
-    { id: 'cittadinanza', zh: '公民身份', it: 'Cittadinanza', max: 3, levels: [
-      '军团兵与 1918 年前居民', '按语言与文化放宽入籍', '居住三年入籍', '允许双国籍'] },
-    { id: 'ordine', zh: '公共秩序', it: 'Ordine pubblico', max: 3, levels: [
-      '军团兵与市政警察并行', '市警扩编', '市警接受市政监督', '市警受公开程序与司法审查约束'] },
-    { id: 'stampa', zh: '新闻', it: 'Stampa', max: 2, levels: [
-      '军团兵检查', '有限自由（须登记）', '完全自由'] },
-    { id: 'scuola', zh: '教育语言', it: 'Lingua scolastica', max: 2, levels: [
-      '仅意大利语', '增设克罗地亚语班', '公立双语学校'] },
-    { id: 'dogana', zh: '关税', it: 'Regime doganale', max: 3, levels: [
-      '被封锁的孤立港', '与意大利关税协定', '与南斯拉夫关税协定', '双协定与转口'] },
-    { id: 'orario', zh: '劳动时间', it: 'Orario di lavoro', max: 3, levels: [
-      '无统一工时', '八小时工作制', '加班限制与每周休息', '带薪休假与工时监察'] },
-    { id: 'lavoro', zh: '劳动保障', it: 'Tutele del lavoro', max: 3, levels: [
-      '无保障制度', '最低工资与劳动争议调解', '疾病、失业与养老救助', '工团承认与集体合同'] },
-    { id: 'fisco', zh: '财政', it: 'Ordinamento fiscale', max: 3, levels: [
-      '印钞与捐献', '开征港口费', '累进所得税', '直接税 + 关税组合'] },
+    { id: 'elettorale', zh: '选举法', it: 'Legge elettorale', max: 3,
+      levels: ['无选举（1919 年市政议会延续）', '混合多数制（51+17 / 6+2）', '比例代表制', '普选与女性候选权'],
+      levelsIt: ['Nessuna elezione (si continua il consiglio del 1919)', 'Misto maggioritario (51+17 / 6+2)', 'Rappresentanza proporzionale', 'Suffragio universale e candidabilità delle donne'] },
+    { id: 'lingua', zh: '官方语言', it: 'Lingua ufficiale', max: 3,
+      levels: ['仅意大利语', '意大利语与克罗地亚语并行', '意/克/匈三语', '三语 + 官方文书三语并行'],
+      levelsIt: ['Solo italiano', 'Italiano e croato', 'Italiano, croato e ungherese', 'Tre lingue, anche negli atti ufficiali'] },
+    { id: 'portofranco', zh: '自由港', it: 'Porto franco', max: 3,
+      levels: ['无特权', '关税暂缓区', '自由港', '自由港 + 转口贸易特权'],
+      levelsIt: ['Nessun privilegio', 'Zona a dazio sospeso', 'Porto franco', 'Porto franco e transito privilegiato'] },
+    { id: 'cittadinanza', zh: '公民身份', it: 'Cittadinanza', max: 3,
+      levels: ['军团兵与 1918 年前居民', '按语言与文化放宽入籍', '居住三年入籍', '允许双国籍'],
+      levelsIt: ['Legionari e residenti prima del 1918', 'Naturalizzazione per lingua e cultura', 'Naturalizzazione dopo tre anni di residenza', 'Doppia cittadinanza ammessa'] },
+    { id: 'ordine', zh: '公共秩序', it: 'Ordine pubblico', max: 3,
+      levels: ['军团兵与市政警察并行', '市警扩编', '市警接受市政监督', '市警受公开程序与司法审查约束'],
+      levelsIt: ['Legionari e polizia municipale affiancati', 'Polizia municipale rafforzata', 'Polizia municipale sotto vigilanza civica', 'Polizia soggetta a procedure pubbliche e controllo giudiziario'] },
+    { id: 'stampa', zh: '新闻', it: 'Stampa', max: 2,
+      levels: ['军团兵检查', '有限自由（须登记）', '完全自由'],
+      levelsIt: ['Censura dei legionari', 'Libertà limitata (registrazione)', 'Piena libertà'] },
+    { id: 'scuola', zh: '教育语言', it: 'Lingua scolastica', max: 2,
+      levels: ['仅意大利语', '增设克罗地亚语班', '公立双语学校'],
+      levelsIt: ['Solo italiano', 'Classi in croato', 'Scuole pubbliche bilingui'] },
+    { id: 'dogana', zh: '关税', it: 'Regime doganale', max: 3,
+      levels: ['被封锁的孤立港', '与意大利关税协定', '与南斯拉夫关税协定', '双协定与转口'],
+      levelsIt: ['Porto isolato dal blocco', 'Accordo doganale con l\'Italia', 'Accordo doganale con la Jugoslavia', 'Entrambi gli accordi e transito'] },
+    { id: 'orario', zh: '劳动时间', it: 'Orario di lavoro', max: 3,
+      levels: ['无统一工时', '八小时工作制', '加班限制与每周休息', '带薪休假与工时监察'],
+      levelsIt: ['Nessun orario uniforme', 'Giornata di otto ore', 'Limiti agli straordinari e riposo settimanale', 'Ferie retribuite e ispezione del lavoro'] },
+    { id: 'lavoro', zh: '劳动保障', it: 'Tutele del lavoro', max: 3,
+      levels: ['无保障制度', '最低工资与劳动争议调解', '疾病、失业与养老救助', '工团承认与集体合同'],
+      levelsIt: ['Nessuna tutela', 'Salario minimo e conciliazione delle controversie', 'Assistenza per malattia, disoccupazione e vecchiaia', 'Riconoscimento sindacale e contratti collettivi'] },
+    { id: 'fisco', zh: '财政', it: 'Ordinamento fiscale', max: 3,
+      levels: ['印钞与捐献', '开征港口费', '累进所得税', '直接税 + 关税组合'],
+      levelsIt: ['Stampa di moneta e offerte', 'Imposta portuale', 'Imposta sul reddito progressiva', 'Imposte dirette più dazi'] },
     ];
 
   /* Short, rule-backed effects for the law dossier. The full numeric formulas
@@ -177,19 +251,29 @@
 
   /* ======================= 9. Districts ======================= */
   W.DISTRICTS = [
-    { id: 'centro',    zh: '老城·钟楼区', it: 'Città Vecchia',   status: 'fiume', control: 78, agitation: 26, unemployment: 22, ethnicIt: 88, ethnicSl: 8,  strategic: 10, industry: 2, port: 3, note: '市政厅、Torre Civica、上诉法院、报馆；军团兵的讲台' },
-    { id: 'porto',     zh: '自由港与大港', it: 'Punto Franco · Porto di Fiume', status: 'fiume', control: 70, agitation: 48, unemployment: 31, ethnicIt: 78, ethnicSl: 18, strategic: 10, industry: 9, port: 10, note: '自由港与主港的游戏合并分区；“Punto Franco”见 1919 年协约国警备分区' },
-    { id: 'brajda',    zh: '布拉伊达－多拉茨', it: 'Braida-Dolaz', status: 'fiume', control: 72, agitation: 20, unemployment: 14, ethnicIt: 94, ethnicSl: 4, strategic: 6, industry: 3, port: 2, note: '布拉伊达与多拉茨的游戏合并分区' },
-    { id: 'belvedere', zh: '贝尔维德雷',   it: 'Belvedere-Turni', status: 'fiume', control: 74, agitation: 22, unemployment: 20, ethnicIt: 90, ethnicSl: 7,  strategic: 5,  industry: 2, port: 1, note: 'suburbio，新兴居住区' },
-    { id: 'kozala',    zh: '科萨拉',       it: 'Cosala',          status: 'fiume', control: 62, agitation: 32, unemployment: 26, ethnicIt: 82, ethnicSl: 15, strategic: 4,  industry: 4, port: 0, note: '历史地名 Cosala；地图范围取自现代社区边界，非当年行政区' },
+    { id: 'centro',    zh: '老城·钟楼区', it: 'Città Vecchia',   status: 'fiume', control: 78, agitation: 26, unemployment: 22, ethnicIt: 88, ethnicSl: 8,  strategic: 10, industry: 2, port: 3, note: '市政厅、Torre Civica、上诉法院、报馆；军团兵的讲台',
+      noteIt: 'Municipio, Torre Civica, Corte d\'appello, giornali; il palco dei legionari.' },
+    { id: 'porto',     zh: '自由港与大港', it: 'Punto Franco · Porto di Fiume', status: 'fiume', control: 70, agitation: 48, unemployment: 31, ethnicIt: 78, ethnicSl: 18, strategic: 10, industry: 9, port: 10, note: '自由港与主港的游戏合并分区；“Punto Franco”见 1919 年协约国警备分区',
+      noteIt: 'Il punto franco e il porto grande, fusi in una sola circoscrizione; «Punto Franco» è la zona interalleata del 1919.' },
+    { id: 'brajda',    zh: '布拉伊达－多拉茨', it: 'Braida-Dolaz', status: 'fiume', control: 72, agitation: 20, unemployment: 14, ethnicIt: 94, ethnicSl: 4, strategic: 6, industry: 3, port: 2, note: 'Brajda–Dolac 与相邻 Potok 的游戏合并分区' },
+    { id: 'belvedere', zh: '贝尔维德雷',   it: 'Belvedere', status: 'fiume', control: 74, agitation: 22, unemployment: 20, ethnicIt: 90, ethnicSl: 7,  strategic: 5,  industry: 2, port: 1, note: '历史居住地 Belvedere；已移除不相邻的 Turnić 与河东 Vojak 地块',
+      noteIt: 'Sede storica del Belvedere; sono stati tolti i blocchi non contigui di Turnić e Vojak.' },
+    { id: 'kozala',    zh: '科萨拉',       it: 'Cosala',          status: 'fiume', control: 62, agitation: 32, unemployment: 26, ethnicIt: 82, ethnicSl: 15, strategic: 4,  industry: 4, port: 0, note: '历史地名 Cosala；地图范围取自现代社区边界，非当年行政区',
+      noteIt: 'Toponimo storico Cosala; i confini sulla mappa sono quelli delle circoscrizioni moderne, non delle ripartizioni del 1919.' },
     { id: 'plase',     zh: '普拉塞', it: 'Plasse', status: 'fiume', control: 54, agitation: 50, unemployment: 29, ethnicIt: 66, ethnicSl: 30, strategic: 6, industry: 10, port: 4, note: '历史地名 Plasse；工业设施数量与工人态度为游戏设定' },
-    { id: 'drenova',   zh: '德雷诺瓦',     it: 'Drenova',         status: 'fiume', control: 48, agitation: 30, unemployment: 24, ethnicIt: 30, ethnicSl: 66, strategic: 3,  industry: 1, port: 0, note: '子市镇之一，克罗地亚农村；对摄政最疏远' },
-    { id: 'zamet',     zh: '扎梅特',       it: 'Zamet',           status: 'fiume', control: 66, agitation: 24, unemployment: 23, ethnicIt: 62, ethnicSl: 34, strategic: 4,  industry: 2, port: 0, note: '西部地点；“拉帕洛走廊”是 1920 年条约概念，不适用于 1919 开局' },
-    { id: 'pecine',    zh: '佩奇内',       it: 'Pecine',    status: 'yugo', control: 0, agitation: 14, unemployment: 18, ethnicIt: 20, ethnicSl: 76, strategic: 5, industry: 3, port: 3, note: '苏沙克东南侧海滨居住区，1919 年不属于邓南遮控制的阜姆城区' },
-    { id: 'srdoci',    zh: '瑟尔多齐',     it: 'Serdozi', status: 'yugo', control: 0, agitation: 32, unemployment: 27, ethnicIt: 22, ethnicSl: 74, strategic: 7, industry: 1, port: 0, note: '卡斯塔夫辖区一带于 1919 年仍在意大利占领下，1921 年 5 月结束占领；地图随日期改变色块。游戏控制值仍代表邓南遮势力而非主权' },
-    { id: 'susak',     zh: '苏沙克',       it: 'Sussak',          status: 'yugo',  control: 0,  agitation: 22, unemployment: 19, ethnicIt: 16, ethnicSl: 80, strategic: 8,  industry: 6, port: 6, note: '南斯拉夫领土；封锁线上的缺口与走私通道' },
-    { id: 'tersatto',  zh: '特尔萨特',     it: 'Tersatto',        status: 'yugo',  control: 0,  agitation: 10, unemployment: 21, ethnicIt: 20, ethnicSl: 76, strategic: 7,  industry: 1, port: 1, note: '俯瞰阜姆的山丘与修道院；炮兵观察点' },
-    { id: 'valle',     zh: '埃内奥河谷',   it: "Valle dell'Eneo", status: 'yugo',  control: 0,  agitation: 8,  unemployment: 24, ethnicIt: 10, ethnicSl: 86, strategic: 6,  industry: 2, port: 1, note: '河流上游：全城的水源与水电' }
+    { id: 'drenova',   zh: '德雷诺瓦',     it: 'Drenova',         status: 'fiume', control: 48, agitation: 30, unemployment: 24, ethnicIt: 30, ethnicSl: 66, strategic: 3,  industry: 1, port: 0, note: '子市镇之一，克罗地亚农村；对摄政最疏远',
+      noteIt: 'Uno dei sotto-comuni, villaggio croato; il più lontano dal governo militare.' },
+    { id: 'zamet',     zh: '扎梅特－坎特里达', it: 'Zamet–Cantrida',           status: 'fiume', control: 66, agitation: 24, unemployment: 23, ethnicIt: 62, ethnicSl: 34, strategic: 4,  industry: 2, port: 0, note: 'Zamet、Cantrida 一带的相邻地点合并；现代范围不代表 1919 年军团精确占领线',
+      noteIt: 'Fusione dei luoghi contigui di Zamet e Cantrida; i confini moderni non riproducono la linea di occupazione legionaria del 1919.' },
+    { id: 'pecine',    zh: '佩奇内',       it: 'Pecine',    status: 'yugo', control: 0, agitation: 14, unemployment: 18, ethnicIt: 20, ethnicSl: 76, strategic: 5, industry: 3, port: 3, note: 'Pećine 与相邻 Podvežica 的游戏合并范围，属于苏沙克一带；意大利占领军至 1923 年撤离' },
+    { id: 'srdoci',    zh: '瑟尔多齐',     it: 'Serdozi', status: 'yugo', control: 0, agitation: 32, unemployment: 27, ethnicIt: 22, ethnicSl: 74, strategic: 7, industry: 1, port: 0, note: '卡斯塔夫辖区一带于 1919 年仍在意大利占领下，1921 年 5 月结束占领；地图随日期改变色块。游戏控制值仍代表邓南遮势力而非主权',
+      noteIt: 'La zona di Castua era ancora sotto occupazione italiana nel 1919, che cessò nel maggio 1921; la mappa cambia colore con la data. Il valore di controllo indica la presenza di D\'Annunzio, non la sovranità.' },
+    { id: 'susak',     zh: '苏沙克',       it: 'Sussak',          status: 'yugo',  control: 0,  agitation: 22, unemployment: 19, ethnicIt: 16, ethnicSl: 80, strategic: 8,  industry: 6, port: 6, note: 'S.H.S. 领土；意大利正规军于 1923 年 3 月 3 日撤离，主权不等同于实际占领',
+      noteIt: 'Territorio del Regno S.H.S.; l\'esercito italiano si ritirò il 3 marzo 1923. Sovranità e occupazione effettiva non coincidono.' },
+    { id: 'tersatto',  zh: '特尔萨特',     it: 'Tersatto',        status: 'yugo',  control: 0,  agitation: 10, unemployment: 21, ethnicIt: 20, ethnicSl: 76, strategic: 7,  industry: 1, port: 1, note: 'Trsat 与相邻 Vojak、Gornja Vežica 的游戏合并范围；已移除西侧 Grbci',
+      noteIt: 'Fusione di Trsat con i contigui Vojak e Gornja Vežica; il lato ovest di Grbci è stato tolto.' },
+    { id: 'valle',     zh: '埃内奥河谷',   it: "Valle dell'Eneo", status: 'yugo',  control: 0,  agitation: 8,  unemployment: 24, ethnicIt: 10, ethnicSl: 86, strategic: 6,  industry: 2, port: 1, note: 'Pašac、Svilno、Orehovica 一带的上游河谷；已移除东南侧不相邻的 Sveti Kuzam',
+      noteIt: 'La valle a monte di Pašac, Svilno e Orehovica; il lato sud-orientale non contiguo di Sveti Kuzam è stato tolto.' }
   ];
 
   /* Map markers (real coordinates) */
@@ -217,10 +301,18 @@
   ];
 
   W.POSTURES = [
-    { id: 'roma',        zh: '与罗马周旋',   it: 'Trattare con Roma',        desc: '改善与意大利王国的关系，同时疏远南斯拉夫。' },
-    { id: 'equidistant', zh: '等距',         it: 'Equidistanza',             desc: '不押注任何邻国；两边关系缓慢下滑，英法略有改善。' },
-    { id: 'belgrade',    zh: '与贝尔格莱德', it: 'Aprire a Belgrado',        desc: '改善与南斯拉夫的关系，代价是罗马的信任。' },
-    { id: 'internation', zh: '争取国际支持', it: 'Internazionalizzare Fiume', desc: '向协约国与国际联盟靠拢，两邻国的关系转冷。' }
+    { id: 'roma',        zh: '与罗马周旋',   it: 'Trattare con Roma',
+      desc: '改善与意大利王国的关系，同时疏远南斯拉夫。',
+      descIt: 'Migliora i rapporti con il Regno d\'Italia e raffredda quelli con la Jugoslavia.' },
+    { id: 'equidistant', zh: '等距',         it: 'Equidistanza',
+      desc: '不押注任何邻国；两边关系缓慢下滑，英法略有改善。',
+      descIt: 'Nessuna scommessa su un vicino: entrambi i rapporti scendono lentamente, Regno Unito e Francia migliorano un poco.' },
+    { id: 'belgrade',    zh: '与贝尔格莱德', it: 'Aprire a Belgrado',
+      desc: '改善与南斯拉夫的关系，代价是罗马的信任。',
+      descIt: 'Migliora i rapporti con la Jugoslavia al prezzo della fiducia di Roma.' },
+    { id: 'internation', zh: '争取国际支持', it: 'Internazionalizzare Fiume',
+      desc: '向协约国与国际联盟靠拢，两邻国的关系转冷。',
+      descIt: 'Si guarda all\'Intesa e alla Società delle Nazioni; i due vicini si raffreddano.' }
   ];
 
   /* Base change on each half-month turn. Both settlement and the diplomacy
@@ -279,14 +371,17 @@
      `dated` is gone: it could only express the first two of these. */
   W.DIFFICULTIES = [
     { id: 'historical', zh: '史实', it: 'Storico', ap: 2, hand: 4, dateRule: 'forced', coupMul: 1.00,
-      note: '带日期的事件一律按历史年月推入（同时有日期与条件时，日期优先）。默认线：1920 年 12 月血腥圣诞，1921 年 4 月失去议会多数。' },
+      note: '带日期的事件一律按历史年月推入（同时有日期与条件时，日期优先）。默认线：1920 年 12 月血腥圣诞，1921 年 4 月失去议会多数。',
+      noteIt: 'Gli eventi con data entrano all\'anno e al mese storici (la data ha la precedenza sulla condizione). Linea predefinita: Natale di sangue nel dicembre 1920, perdita della maggioranza nell\'aprile 1921.' },
     { id: 'open',       zh: '普通', it: 'Normale', ap: 2, hand: 4, dateRule: 'conditionFirst', coupMul: 0.85,
-      note: '同时有日期与条件的事件改按条件触发；只有日期、没有条件的事件仍按历史年月推入。摄政有可能活下来。' },
+      note: '同时有日期与条件的事件改按条件触发；只有日期、没有条件的事件仍按历史年月推入。摄政有可能活下来。',
+      noteIt: 'Gli eventi che hanno data e condizione passano alla condizione; quelli con la sola data entrano comunque all\'anno storico. La Reggenza può sopravvivere.' },
     /* Sandbox triggers events exactly like `open` (`dateRule` is identical): what
        sandbox changes is the CARD side — hand 5 and the pick-a-card draw instead
        of the random draw — plus coupMul and the debug panel. */
     { id: 'sandbox',    zh: '沙盒', it: 'Sandbox', ap: 2, hand: 5, dateRule: 'conditionFirst', coupMul: 0.50,
-      note: '事件触发同普通难度；可指定抽牌，解锁调试面板，不授予成就。' }
+      note: '事件触发同普通难度；可指定抽牌，解锁调试面板，不授予成就。',
+      noteIt: 'Gli eventi scattano come in Normale; si sceglie la carta da pescare, si sblocca il pannello di debug e non si ottengono obiettivi.' }
   ];
 
   /* ======================= 14b. The forces outside Fiume ======================= */
@@ -305,19 +400,26 @@
      each approach is still a meeting with a person. */
   W.FORZE = [
     { id: 'fascisti',   zh: '意大利法西斯党', it: 'Partito Nazionale Fascista', init: 38, color: '#8F4124', allied: true, gate: 80,
-      note: '法西斯战斗团。已经在向右转，把阜姆当成障碍而不是跳板。' },
+      note: '法西斯战斗团。已经在向右转，把阜姆当成障碍而不是跳板。',
+      noteIt: 'I Fasci di combattimento. Girano già a destra: Fiume è per loro un ostacolo, non un trampolino.' },
     { id: 'socialisti', zh: '意大利社会党',   it: 'Partito Socialista',   init: 32, color: '#B0202F', allied: true, gate: 80,
-      note: '最高纲领派主流。1921 年 1 月里窝那分裂之前，这是意大利最大的党。' },
+      note: '最高纲领派主流。1921 年 1 月里窝那分裂之前，这是意大利最大的党。',
+      noteIt: 'La corrente massimalista. Prima della scissione di Livorno, nel gennaio 1921, è il primo partito d\'Italia.' },
     { id: 'anarchici',  zh: '意大利无政府主义者', it: 'Anarchici italiani', init: 30, color: '#070000', allied: true, gate: 80,
-      note: '马拉泰斯塔的《新人类》网络。1920 年一度接近阜姆，看到「最坏的敌人倾向」占上风就走。' },
+      note: '马拉泰斯塔的《新人类》网络。1920 年一度接近阜姆，看到「最坏的敌人倾向」占上风就走。',
+      noteIt: 'La rete di «Umanità Nova» attorno a Malatesta. Nel 1920 si avvicina a Fiume, poi se ne allontana quando vede prevalere «le peggiori tendenze nemiche».' },
     { id: 'comunisti',  zh: '意大利共产党',   it: 'Partito Comunista',    init: 24, color: '#A31621', allied: true, gate: 80,
-      note: '《新秩序报》一翼。1921 年 1 月自社会党分裂而出，把阜姆斥为小资产阶级的煽情民族主义。' },
+      note: '《新秩序报》一翼。1921 年 1 月自社会党分裂而出，把阜姆斥为小资产阶级的煽情民族主义。',
+      noteIt: 'L\'ala dell\'«Ordine Nuovo». Nasce dalla scissione del gennaio 1921 e bolla Fiume come nazionalismo piccolo-borghese e melodrammatico.' },
     { id: 'corradini',  zh: '意大利民族主义协会', it: 'Associazione Nazionalista Italiana', init: 34, color: '#b58e0d', allied: true, gate: 80,
-      note: '科拉迪尼的协会。要的是一个由「最优秀者」统治的意大利——而阜姆正在演那一幕。' },
+      note: '科拉迪尼的协会。要的是一个由「最优秀者」统治的意大利——而阜姆正在演那一幕。',
+      noteIt: 'L\'associazione di Corradini. Vuole un\'Italia governata dai «migliori», e a Fiume quella scena è già in corso.' },
     { id: 'sindacalisti', zh: '意大利革命工团主义者', it: 'Sindacalisti rivoluzionari italiani', init: 30, color: '#a02c06', allied: true, gate: 80,
-      note: '德·安布里斯在意大利的工会与革命工团主义网络。' },
+      note: '德·安布里斯在意大利的工会与革命工团主义网络。',
+      noteIt: 'La rete di sindacati e di sindacalismo rivoluzionario di De Ambris in Italia.' },
     { id: 'forzearmate', zh: '意大利军官团', it: 'Corpo ufficiale italiano', init: 22, color: '#6B4E9E', allied: false, gate: 60,
-      note: 'Ronchi 的先例：1919 年 9 月，掷弹兵请邓南遮带头，正规军没能拦住他。' }
+      note: 'Ronchi 的先例：1919 年 9 月，掷弹兵请邓南遮带头，正规军没能拦住他。',
+      noteIt: 'Il precedente di Ronchi: nel settembre 1919 i granatieri chiesero a D\'Annunzio di guidarli e l\'esercito non riuscì a fermarlo.' }
   ];
   W.FORZA_BY_ID = {};
   W.FORZE.forEach(function (f) { W.FORZA_BY_ID[f.id] = f; });

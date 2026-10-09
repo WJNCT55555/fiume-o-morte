@@ -31,13 +31,14 @@
       var mine = Sel.support(st).national.filter(function (p) { return p.id === party.id; })[0];
       return frame('comandante', [
         h('div', { class: 'comandante__ph' }, [
-          h('img', { class: leader.portrait ? '' : 'comandante__emblem', src: leader.portrait || party.emblem, alt: Core.L(leader) }),
+          h('div', { class: 'leader-portrait__window' },
+            h('img', { class: leader.portrait ? '' : 'comandante__emblem', src: leader.portrait || party.emblem, alt: Core.L(leader) })),
           h('div', { class: 'comandante__frame', 'aria-hidden': 'true' }),
           // The name and the office sit inside the frame, on the band the
           // photograph leaves clear at its foot, rather than in a strip below.
           h('div', { class: 'comandante__name' }, [
-            h('div', { class: 'comandante__n' }, leader.zh || Core.L(leader)),
-            h('div', { class: 'comandante__r' }, party.id === 'LEG' ? T('cmd.sub') : (party.zh || ''))
+            h('div', { class: 'comandante__n' }, Core.L(leader)),
+            h('div', { class: 'comandante__r' }, party.id === 'LEG' ? T('cmd.sub') : Core.L(party))
           ]),
           !leader.portrait ? h('div', { class: 'comandante__photo-note' }, T('start.portraitPending')) : null,
         ])
@@ -54,18 +55,15 @@
    own condition rather than the city's. */
 function gauges(st) {
   var rows = [
-    { zh: '军团民意', v: st.legitimacy,
-      hint: '各阶层支持按人口加权，加上短期党派声望修正，再归一化；不计投票率。事件通过改变支持或声望间接影响民意。' },
-    { zh: '领袖权威', v: st.order.authority,
-      hint: '命令被执行的程度。财政欠款会削弱它，公共秩序法会加强它。' },
-    { zh: '民众热忱', v: st.order.fervour,
-      hint: '街头的亢奋。它推高紧张度，既是本钱也是危险。' }
+    { key: 'sp.legittimita', hintKey: 'sp.legittimita.h', v: st.legitimacy },
+    { key: 'sp.authority',   hintKey: 'sp.authority.h',   v: st.order.authority },
+    { key: 'sp.fervour',     hintKey: 'sp.fervour.h',     v: st.order.fervour }
   ];
   var body = h('div', { class: 'cmdr-gauge' });
   rows.forEach(function (r) {
-    body.appendChild(h('div', { class: 'field', title: r.hint }, [
+    body.appendChild(h('div', { class: 'field', title: T(r.hintKey) }, [
       h('div', { class: 'cmdr-gauge__h' }, [
-        h('span', { class: 'cmdr-gauge__k' }, r.zh),
+        h('span', { class: 'cmdr-gauge__k' }, T(r.key)),
         h('span', { class: 'cmdr-gauge__v' }, r.v.toFixed(1))
       ]),
       bar(r.v, 100, 'var(--gold)')
@@ -98,7 +96,7 @@ function gauges(st) {
         g.members.forEach(function (p) {
           body.push(h('div', { class: 'psup' + (p.player ? ' is-player' : '') }, [
             h('span', { class: 'psup__sw', style: { background: p.color } }),
-            h('span', { class: 'psup__n', title: p.it }, p.zh),
+            h('span', { class: 'psup__n', title: Core.L(p) }, Core.L(p)),
             h('span', { class: 'psup__k' }, p.short),
             h('span', { class: 'psup__v', style: { color: p.player ? 'var(--gold-lit)' : 'rgba(233,220,188,.86)' } },
               p.value.toFixed(1))
@@ -108,8 +106,8 @@ function gauges(st) {
         });
       });
       body.push(h('div', { class: 'tiny dim2', style: { marginTop: '7px', lineHeight: 1.55 } },
-        '按阶层人口加权，未折算投票率与弃权。选举结算见「经济 → 阶层支持度」。'));
-      return section('consenso', T('side.consenso'), 'CONSENSO', body, { icon: 'column' });
+        T('sp.classes.note')));
+      return section('consenso', T('side.consenso'), null, body, { icon: 'column' });
     }
 
     /* Social classes */
@@ -122,7 +120,7 @@ function gauges(st) {
         body.push(h('div', { class: 'cls', title: c.note || '' }, [
           h('div', { class: 'cls__top' }, [
             h('span', { class: 'cls__sw', style: { background: top.color } }),
-            h('span', { class: 'cls__n' }, c.zh),
+            h('span', { class: 'cls__n' }, Core.L(c)),
             h('span', { class: 'cls__pop' }, String(c.pop)),
             h('span', { class: 'cls__v', style: { color: mine > 0 ? 'var(--gold-lit)' : 'rgba(233,220,188,.4)' } },
               mine.toFixed(0) + '%')
@@ -130,8 +128,8 @@ function gauges(st) {
         ]));
       });
       body.push(h('div', { class: 'tiny dim2', style: { marginTop: '6px' } },
-        '金色数字 = 该阶层里' + (W.PARTY_BY_ID[st.playerForce] || W.PARTY_BY_ID.LEG).zh + '的支持份额。右侧三条为该阶层的投票率 / 组织渗透 / 战斗性。'));
-      return section('classi', T('side.classi'), 'CLASSI', body, { icon: 'industria', defaultOpen: false });
+        T('sp.classes.legend', { p: Core.L(W.PARTY_BY_ID[st.playerForce] || W.PARTY_BY_ID.LEG) })));
+      return section('classi', T('side.classi'), null, body, { icon: 'industria', defaultOpen: false });
     }
 
     /* Factions */
@@ -145,10 +143,10 @@ function gauges(st) {
         ])
       ];
       f.list.forEach(function (x) {
-        body.push(h('div', { class: 'fac', title: x.blurb }, [
+        body.push(h('div', { class: 'fac', title: x.blurb || '' }, [
           h('div', { class: 'fac__top' }, [
             h('span', { class: 'swatch', style: { background: x.color } }),
-            h('span', { class: 'fac__n' }, x.zh),
+            h('span', { class: 'fac__n' }, Core.L(x)),
             h('span', { class: 'fac__i' }, x.inf.toFixed(0) + ' · ' + x.dis.toFixed(0))
           ]),
           h('div', { class: 'fac__bars' }, [
@@ -160,7 +158,7 @@ function gauges(st) {
           ])
         ]));
       });
-      return section('correnti', T('ideologia.title'), 'CORRENTI', body, { icon: 'fasces' });
+      return section('correnti', T('ideologia.title'), null, body, { icon: 'fasces' });
     }
 
     /* Consiglio dei Rettori */
@@ -168,19 +166,19 @@ function gauges(st) {
       var ret = Sel.rettori(st);
       var grid = h('div', { class: 'cabinet' });
       ret.forEach(function (m) {
-        grid.appendChild(h('div', { class: 'cab', title: m.it + (m.holder ? ' — ' + m.holder : '') }, [
-          UI.avatar(UI.HOLDER_AVATAR[m.id], (m.holder || m.zh).slice(0, 1), 'cab__f'),
-          h('div', { class: 'cab__n' }, m.zh)
+        grid.appendChild(h('div', { class: 'cab', title: Core.L(m) + (m.holder ? ' — ' + m.holder : '') }, [
+          UI.avatar(UI.HOLDER_AVATAR[m.id], (m.holder || Core.L(m)).slice(0, 1), 'cab__f'),
+          h('div', { class: 'cab__n' }, Core.L(m))
         ]));
       });
       var body = [grid, h('div', { class: 'divider' }, icon('fasces', 11))];
       ret.forEach(function (m) {
-        body.push(h('div', { class: 'field', title: m.it + (m.holder ? ' · ' + m.holder : '') }, [
-          h('span', { class: 'field__k' }, m.zh),
+        body.push(h('div', { class: 'field', title: Core.L(m) + (m.holder ? ' · ' + m.holder : '') }, [
+          h('span', { class: 'field__k' }, Core.L(m)),
           h('span', {
             class: 'field__v',
             style: { color: m.mine ? 'var(--gold-lit)' : 'rgba(233,220,188,.55)' }
-          }, m.holder ? m.holder : m.ownerZh)
+          }, m.holder ? m.holder : Core.L({ zh: m.ownerZh, it: m.ownerIt }))
         ]));
       });
       return section('gabinetto', T('gab.title'), T('gab.sub'), body, { icon: 'column', defaultOpen: false });
@@ -191,28 +189,27 @@ function gauges(st) {
       var sp = Sel.spirits(st);
       var markers = Sel.spiritMarkers(st);
       var body = [];
-      if (!sp.length) body.push(h('div', { class: 'empty' }, '当前没有持续数值修正'));
-      else body.push(h('p', { class: 'spirit__notice' },
-        '显示基础修正；实际结算受其他效果和数值上限影响。除目标值外，均按每半月计算。'));
+      if (!sp.length) body.push(h('div', { class: 'empty' }, T('sp.noeffects')));
+      else body.push(h('p', { class: 'spirit__notice' }, T('sp.effects.note')));
       sp.forEach(function (x) {
         body.push(h('div', { class: 'spirit' }, [
           h('div', { class: 'spirit__head' }, [
-            icon(x.icon, 15), h('strong', { class: 'spirit__n' }, x.zh),
+            icon(x.icon, 15), h('strong', { class: 'spirit__n' }, Core.L(x)),
             x.meta ? h('span', { class: 'spirit__meta' }, x.meta) : null
           ]),
           h('div', { class: 'spirit__effects' }, x.effects.map(function (line) {
             return h('div', { class: 'spirit__effect' }, [
-              h('span', { class: 'spirit__label' }, line.zh),
+              h('span', { class: 'spirit__label' }, Core.L(line)),
               h('span', { class: 'spirit__v' }, line.value)
             ]);
           }))
         ]));
       });
       if (markers.length) body.push(h('div', { class: 'spirit__markers' }, [
-        h('strong', {}, '已记录的剧情状态'),
-        h('p', {}, '以下状态不额外提供持续数值修正；即时效果已在选择时结算。'),
+        h('strong', {}, T('sp.flags')),
+        h('p', {}, T('sp.flags.note')),
         h('div', { class: 'spirit__marker-list' }, markers.map(function (name) {
-          return h('span', { class: 'spirit__marker' }, name);
+          return h('span', { class: 'spirit__marker' }, Core.L(name));
         }))
       ]));
       return section('spirito', T('spirito.title'), T('spirito.sub'), body, { icon: 'star', defaultOpen: false });

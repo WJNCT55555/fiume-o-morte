@@ -929,7 +929,7 @@
       return Math.max(0, d);
     }
     /* The attacker is the Royal Army reinforced by the ships (the siege axis
-       `coup`, 0..140) plus Mussolini's squads. */
+       `coup`, 0..100) plus Mussolini's squads. */
     var a = o.garrison * (C.garrison == null ? 34.0 : C.garrison)
       + Math.max(0, o.coup || 0) * (C.coup == null ? 26.0 : C.coup)
       + o.squadre * (C.squadre == null ? 8.0 : C.squadre);
@@ -947,7 +947,7 @@
      the attacker is the squads AND the state that backs them. This is why it is a
      separate pricing rather than a reuse of the siege or the 1922 coup: neither of
      those has a foreign ultimatum behind it. `subversion` is the internal fascist
-     pressure (0..~140) and is what makes this attempt bigger than the 1922 one. */
+     pressure (0..100) and is what makes this attempt bigger than the 1922 one. */
   R.annexationForces = function (state, side) {
     if (side === 'defender') return R.battleForces(state, 'defender');
     var o = state.order, C = W.COUP_1924 || {};
@@ -997,6 +997,163 @@
       defender: d, attacker: a, ratio: ratio,
       favorable: ratio >= (W.BATTLE_FAVORABLE || 0.95)
     };
+  };
+
+  /* ===================== The Arengo: two chambers ===================== */
+  /* The Charter's legislature is bicameral and only exists once the Charter has been
+     promulgated — the two councils TOGETHER are the Arengo (see gv_arengo). Neither
+     is a general election: the Ottimi are apportioned to the citizen body, the
+     Provvisori to the nine Corporations. */
+
+  /** The franchise, per `laws.cittadinanza`. Level 0 is the Legion plus anyone
+      resident before 1918; each further level admits another group, with the
+      post-1918 Italians (`regnicoli`) last. Returns the franchised share of each
+      class and the citizen total, from which the Ottimi's size follows. */
+  R.electorate = function (state) {
+    var level = clamp(state.laws.cittadinanza || 0, 0, W.CITIZENSHIP_FRANCHISE.length - 1);
+    var admitted = {};
+    for (var i = 0; i <= level; i++) {
+      (W.CITIZENSHIP_FRANCHISE[i] || []).forEach(function (cid) { admitted[cid] = true; });
+    }
+    var byClass = {}, share = 0;
+    W.CLASSES.forEach(function (cl) {
+      var st = state.classes[cl.id];
+      if (!st) return;
+      var on = !!admitted[cl.id];
+      byClass[cl.id] = on ? st.pop : 0;
+      if (on) share += st.pop;
+    });
+    var citizens = Math.round((state.economy.population || 0) * share / 100);
+    return {
+      level: level, byClass: byClass,
+      classShare: share,
+      citizens: citizens,
+      popTotal: Math.round(state.economy.population || 0)
+    };
+  };
+
+  /** The Consiglio degli Ottimi: one councillor per thousand CITIZENS, so both the
+      franchise and the population move it. Seats are apportioned to parties by the
+      same class→support weights the general election uses, restricted to the
+      franchised classes. Term: three years (`W.OTTIMI_TERM_TURNS`). */
+  R.ottimiChamber = function (state) {
+    var el = R.electorate(state);
+    var seats = Math.max(1, Math.floor(el.citizens / (W.OTTIMI_PER_CITIZENS || 1000)));
+    var weights = {};
+    R.PARTY_IDS.forEach(function (p) { weights[p] = 0; });
+    W.CLASSES.forEach(function (cl) {
+      if (!el.byClass[cl.id]) return;
+      var st = state.classes[cl.id];
+      if (!st) return;
+      for (var pid in st.support) {
+        if (!Object.prototype.hasOwnProperty.call(st.support, pid)) continue;
+        weights[pid] = (weights[pid] || 0) + el.byClass[cl.id] * st.support[pid] / 100;
+      }
+    });
+    var alloc = Core.largestRemainder(weights, seats);
+    var out = {};
+    R.PARTY_IDS.forEach(function (p) { out[p] = alloc[p] || 0; });
+    return { seats: seats, byParty: out, citizens: el.citizens, franchiseLevel: el.level };
+  };
+
+  /** The Consiglio dei Provvisori: 60 seats, elected by the nine Corporations.
+      For each Corporation its seat bloc is apportioned among the parties in
+      proportion to the class support inside that Corporation's membership. Any
+      seats that fall to the player's own party are then spread across the Legion's
+      internal factions in proportion to their influence. */
+  R.provvisoriChamber = function (state) {
+    var byParty = {}, byCorporation = {};
+    R.PARTY_IDS.forEach(function (p) { byParty[p] = 0; });
+    (W.CORPORATIONS || []).forEach(function (corp) {
+      var weights = {};
+      R.PARTY_IDS.forEach(function (p) { weights[p] = 0; });
+      Object.keys(corp.members).forEach(function (cid) {
+        var st = state.classes[cid];
+        if (!st) return;
+        var w = corp.members[cid] * st.pop;
+        for (var pid in st.support) {
+          if (!Object.prototype.hasOwnProperty.call(st.support, pid)) continue;
+          weights[pid] = (weights[pid] || 0) + w * st.support[pid] / 100;
+        }
+      });
+      var alloc = Core.largestRemainder(weights, corp.seats);
+      var seats = {};
+      R.PARTY_IDS.forEach(function (p) { seats[p] = alloc[p] || 0; byParty[p] += seats[p]; });
+      var tot = R.PARTY_IDS.reduce(function (a, p) { return a + weights[p]; }, 0) || 1;
+      var top = R.PARTY_IDS.filter(function (p) { return seats[p] > 0; })
+        .sort(function (a, b) { return seats[b] - seats[a]; });
+      byCorporation[corp.id] = {
+        id: corp.id, zh: corp.zh, it: corp.it, seats: corp.seats,
+        byParty: seats, winner: top[0] || null,
+        share: weights[top[0]] ? weights[top[0]] * 100 / tot : 0
+      };
+    });
+    return {
+      seats: W.CORPORATION_SEATS || 60,
+      byParty: byParty,
+      byCorporation: byCorporation,
+      factions: R.splitFactions(state, byParty[state.playerForce] || 0)
+    };
+  };
+
+  /** Spread `seats` across the player's own factions in proportion to influence.
+      The Legion is not one party: handing it a bloc of council seats hands them to
+      the arditi, the sindacalisti, the futuristi and the rest, in the share they
+      actually hold inside it. */
+  R.splitFactions = function (state, seats) {
+    if (!seats) return {};
+    var weights = {};
+    W.FACTIONS.forEach(function (f) {
+      var st = state.factions[f.id];
+      weights[f.id] = st ? Math.max(0, st.inf) : 0;
+    });
+    var alloc = Core.largestRemainder(weights, seats);
+    var out = {};
+    W.FACTIONS.forEach(function (f) { if (alloc[f.id]) out[f.id] = alloc[f.id]; });
+    return out;
+  };
+
+  /** Rebuild both chambers. Called when the Charter is promulgated and whenever a
+      chamber's term runs out. Returns null while the Charter is still in the
+      archive: there is nothing to sit in. */
+  R.conveneArengo = function (state) {
+    if (!state.flags.charter_promulgated) return null;
+    var ottimi = R.ottimiChamber(state);
+    var provvisori = R.provvisoriChamber(state);
+    state.arengo = {
+      ottimi: {
+        seats: ottimi.seats, byParty: ottimi.byParty,
+        byFaction: R.splitFactions(state, ottimi.byParty[state.playerForce] || 0),
+        citizens: ottimi.citizens, franchiseLevel: ottimi.franchiseLevel,
+        termStart: state.turn, termEnd: state.turn + (W.OTTIMI_TERM_TURNS || 72)
+      },
+      provvisori: {
+        seats: provvisori.seats, byParty: provvisori.byParty,
+        byCorporation: provvisori.byCorporation, byFaction: provvisori.factions,
+        termStart: state.turn, termEnd: null      /* the Corporations sit for the life of the Regency */
+      },
+      convened: state.turn
+    };
+    return state.arengo;
+  };
+
+  /** The Ottimi's three-year term. Idempotent; the engine calls it every turn so a
+      long Regency reseats the council rather than freezing its first composition. */
+  R.arengoTick = function (state) {
+    if (!state.flags.charter_promulgated) return false;
+    if (!state.arengo || !state.arengo.ottimi) { R.conveneArengo(state); return true; }
+    var o = state.arengo.ottimi;
+    if (o.termEnd != null && state.turn >= o.termEnd) {
+      var fresh = R.ottimiChamber(state);
+      state.arengo.ottimi = {
+        seats: fresh.seats, byParty: fresh.byParty,
+        byFaction: R.splitFactions(state, fresh.byParty[state.playerForce] || 0),
+        citizens: fresh.citizens, franchiseLevel: fresh.franchiseLevel,
+        termStart: state.turn, termEnd: state.turn + (W.OTTIMI_TERM_TURNS || 72)
+      };
+      return true;
+    }
+    return false;
   };
 
   /* ===================== Endings and achievements ===================== */
@@ -1082,7 +1239,7 @@
       state.diplo[dk] = clamp((state.diplo[dk] || 0) + e.diplo[dk], 0, 100);
     }
     if (e.order) for (var ok in e.order) if (Object.prototype.hasOwnProperty.call(e.order, ok)) {
-      if (ok === 'coup') o.coup = clamp(o.coup + e.order[ok], 0, 140);
+      if (ok === 'coup' || ok === 'subversion') o[ok] = clamp((o[ok] || 0) + e.order[ok], 0, W.CRISIS_MAX);
       /* Unit counts, not 0-100 scales. `milizia` belongs here and was missing:
          it is a headcount that starts at 2 500 and is raised by events well past
          100 (ev_1919_09_marcia +260, ev_1920_01_inverno +400, advisors +320), so

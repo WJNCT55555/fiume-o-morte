@@ -3,13 +3,17 @@
    src/map/data/districts.js  →  13 个可点选地点 + 1919 周边控制区 + 埃内奥河
    ========================================================================== */
 (function (root, factory) {
-  var mod = factory(root.Fiume.Core, root.Fiume.World);
+  var mod = factory(root.Fiume.Core, root.Fiume.World, root.Fiume.I18N);
   if (typeof module === 'object' && module.exports) module.exports = mod;
   root.Fiume = root.Fiume || {};
   root.Fiume.MapView = mod;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Core, W) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Core, W, I18N) {
   'use strict';
   var svg = Core.svg;
+  /* One language at a time: every label this module draws goes through the
+     shared catalogue rather than a hardcoded literal. */
+  var T = function (key, vars) { return I18N ? I18N.t(key, vars) : key; };
+  var L = function (node) { return Core.L(node); };
   var GEO = (typeof window !== 'undefined' && window.FIUME_GEO_DISTRICTS) || null;
   var COAST = (typeof window !== 'undefined' && window.FIUME_GEO_COAST) || null;
   var CONTEXT = (typeof window !== 'undefined' && window.FIUME_GEO_CONTEXT) || null;
@@ -17,7 +21,7 @@
   var M = {};
 
   var STATUS_STYLE = {
-    fiume: { label: { zh: '军团控制区', it: 'Controllo legionari' }, color: '#B87668' },
+    fiume: { label: { zh: '军团影响区', it: 'Influenza legionaria' }, color: '#B87668' },
     yugo:  { label: { zh: '南斯拉夫控制区', it: 'Regno S.H.S.' }, color: '#AEBCA2' }
   };
   M.STATUS_STYLE = STATUS_STYLE;
@@ -28,17 +32,39 @@
   function meta() { return { lon0: 14.4135, lat0: 45.3477 }; }
 
   M.zoom = 1;
+  M.minZoom = 1;
+  M.maxZoom = 3.2;
   M.center = null;
+  M.viewBox = function () {
+    var box = M.baseBox;
+    if (!box) return null;
+    var cx = M.center ? M.center[0] : box[0] + box[2] / 2;
+    var cy = M.center ? M.center[1] : box[1] + box[3] / 2;
+    return [cx - box[2] / M.zoom / 2, cy - box[3] / M.zoom / 2,
+      box[2] / M.zoom, box[3] / M.zoom];
+  };
+  M.panTo = function (x, y) {
+    var box = M.baseBox;
+    if (!box) return;
+    // A little surrounding countryside remains available at the initial scale.
+    // Keep the viewport inside the painted context instead of exposing blanks.
+    var halfW = box[2] / M.zoom / 2, halfH = box[3] / M.zoom / 2;
+    var marginX = box[2] * .12, marginY = box[3] * .12;
+    M.center = [Core.clamp(x, box[0] + halfW - marginX, box[0] + box[2] - halfW + marginX),
+      Core.clamp(y, box[1] + halfH - marginY, box[1] + box[3] - halfH + marginY)];
+  };
   M.zoomAt = function (factor, fx, fy) {
     var box = M.baseBox;
     if (!box) return;
-    var prior = M.zoom, next = Core.clamp(prior * factor, 0.65, 3.2);
+    var prior = M.zoom, next = Core.clamp(prior * factor, M.minZoom, M.maxZoom);
+    if (next === prior) return false;
     var cx = M.center ? M.center[0] : box[0] + box[2] / 2;
     var cy = M.center ? M.center[1] : box[1] + box[3] / 2;
     var nx = cx + (fx - .5) * box[2] / prior - (fx - .5) * box[2] / next;
     var ny = cy + (fy - .5) * box[3] / prior - (fy - .5) * box[3] / next;
-    M.center = [Core.clamp(nx, box[0], box[0] + box[2]), Core.clamp(ny, box[1], box[1] + box[3])];
     M.zoom = next;
+    M.panTo(nx, ny);
+    return true;
   };
   M.zoomBy = function (factor) { M.zoomAt(factor, .5, .5); };
   M.resetZoom = function () { M.zoom = 1; M.center = null; };
@@ -54,6 +80,18 @@
     return date.y < 1921 || (date.y === 1921 && (date.m < 5 || (date.m === 5 && date.d < 26)));
   }
   M.kastavUnderItaly = kastavUnderItaly;
+
+  // S.H.S. sovereignty did not mean its troops controlled Sušak: regular
+  // Italian troops withdrew on 3 March 1923 (historical audit in docs).
+  M.susakUnderItaly = function (date) {
+    if (!date) return true;
+    return date.y < 1923 || (date.y === 1923 && (date.m < 3 || (date.m === 3 && date.d < 3)));
+  };
+  M.occupation = function (id, date) {
+    if (id === 'srdoci' && kastavUnderItaly(date)) return 'italy';
+    if (['susak', 'tersatto', 'pecine'].indexOf(id) >= 0 && M.susakUnderItaly(date)) return 'italy';
+    return null;
+  };
 
   function ringPath(ring) {
     if (!ring || ring.length < 3) return '';
@@ -85,18 +123,17 @@
         poly.forEach(function (r) { r.forEach(function (p) { xs.push(p[0]); ys.push(p[1]); }); });
       });
     });
-    var pad = 3000;
+    var pad = 900;
     var vb = [Math.min.apply(null, xs) - pad, Math.min.apply(null, ys) - pad,
       (Math.max.apply(null, xs) - Math.min.apply(null, xs)) + pad * 2,
       (Math.max.apply(null, ys) - Math.min.apply(null, ys)) + pad * 2];
+    // Match the compact 4:3 map window, keeping every district in the initial view.
+    var width = Math.max(vb[2], vb[3] * 4 / 3), height = width * 3 / 4;
+    vb = [vb[0] - (width - vb[2]) / 2, vb[1] - (height - vb[3]) / 2, width, height];
     M.baseBox = vb;
-    var cx = M.center ? M.center[0] : vb[0] + vb[2] / 2;
-    var cy = M.center ? M.center[1] : vb[1] + vb[3] / 2;
-    var vw = vb[2] / M.zoom, vh = vb[3] / M.zoom;
-    var zoomBox = [cx - vw / 2, cy - vh / 2, vw, vh];
-    var root = svg('svg', { viewBox: zoomBox.join(' '), preserveAspectRatio: 'xMidYMid meet', style: 'max-height:56vh' });
+    var root = svg('svg', { viewBox: M.viewBox().join(' '), preserveAspectRatio: 'xMidYMid meet' });
     root.setAttribute('role', 'img');
-    root.setAttribute('aria-label', '阜姆与周边地点示意地图；加减按钮或滚轮缩放，回车选择地区');
+    root.setAttribute('aria-label', T('map.aria'));
 
     var defs = svg('defs');
     var paper = svg('pattern', { id: 'map-paper-fleck', patternUnits: 'userSpaceOnUse', width: 410, height: 350 });
@@ -178,19 +215,18 @@
       var p = f.properties, d = dmap[p.id];
       if (!d) return;
       var g = svg('g', { 'class': 'mp' + (selected === p.id ? ' is-sel' : ''), 'data-id': p.id,
-        tabindex: '0', role: 'button', 'aria-label': d.zh + '，控制 ' + Math.round(d.control) + '，动荡 ' + Math.round(d.agitation) });
+        tabindex: '0', role: 'button',
+        'aria-label': T('map.district.tip', { d: L(d), c: Math.round(d.control), a: Math.round(d.agitation) }) });
       var ti = svg('title');
-      ti.textContent = d.zh + ' / ' + d.it + ' — 控制 ' + Math.round(d.control) + ' · 动荡 ' + Math.round(d.agitation);
+      ti.textContent = L(d) + ' — ' + T('map.control') + ' ' + Math.round(d.control) +
+        ' · ' + T('map.agitation') + ' ' + Math.round(d.agitation);
       g.appendChild(ti);
-      var fill = p.id === 'srdoci' && italyInKastav ? '#D5BA98' : controlColor(d.control, d.status);
+      var fill = M.occupation(p.id, opts.date) === 'italy' ? '#D5BA98' : controlColor(d.control, d.status);
       f.geometry.coordinates.forEach(function (poly) {
-        poly.forEach(function (r) {
-          g.appendChild(svg('path', {
-            d: ringPath(r), fill: fill,
-            'fill-opacity': '.94',
-            stroke: '#594D3D', 'stroke-width': '26'
-          }));
-        });
+        g.appendChild(svg('path', {
+          d: poly.map(ringPath).join(' '), fill: fill, 'fill-rule': 'evenodd',
+          'fill-opacity': '.94', stroke: '#594D3D', 'stroke-width': '26'
+        }));
       });
       root.appendChild(g);
     });
@@ -206,15 +242,11 @@
     if (M.zoom >= 1.25) GEO.features.forEach(function (f) {
       var d = dmap[f.properties.id];
       if (!d) return;
-      var points = [];
-      f.geometry.coordinates.forEach(function (poly) { poly.forEach(function (ring) { ring.forEach(function (p) { points.push(p); }); }); });
-      if (!points.length) return;
-      var lx = points.reduce(function (a, p) { return a + p[0]; }, 0) / points.length;
-      var ly = points.reduce(function (a, p) { return a + p[1]; }, 0) / points.length;
+      var lx = f.properties.cx, ly = f.properties.cy;
       var label = svg('text', { x: lx, y: ly, 'text-anchor': 'middle', fill: '#493E32',
         'font-size': '170', 'font-family': 'Georgia, serif', 'letter-spacing': '8',
         stroke: '#E9DCC0', 'stroke-width': '18', 'paint-order': 'stroke', 'pointer-events': 'none' });
-      label.textContent = Core.sub(d) || d.zh; root.appendChild(label);
+      label.textContent = L(d); root.appendChild(label);
     });
 
     if (GEO.river) {
@@ -233,7 +265,7 @@
       var name = svg('text', { 'class': 'context-label context-label--' + entry.id,
         x: pos[0], y: pos[1], 'text-anchor': 'middle', 'pointer-events': 'none',
         fill: atSea ? '#4B6B74' : '#302A22', opacity: atSea ? '.82' : '.9',
-        'font-size': atSea ? '525' : (entry.id === 'shs' ? '650' : '930'),
+        'font-size': atSea ? '420' : (entry.id === 'shs' ? '470' : '750'),
         'font-family': 'Georgia, Times New Roman, serif', 'font-style': atSea ? 'italic' : 'normal',
         'letter-spacing': atSea ? '54' : '48' });
       name.textContent = entry.text;
@@ -246,6 +278,9 @@
       ['Baccari', 14.536, 45.309], ['Grobnico', 14.469, 45.377]
     ].forEach(function (place) {
       var pos = project(place[1], place[2]);
+      // Omit off-sheet place names so their final letters do not peek into the
+      // initial sheet from beyond its frame.
+      if (pos[0] < vb[0] || pos[0] > vb[0] + vb[2] || pos[1] < vb[1] || pos[1] > vb[1] + vb[3]) return;
       var label = svg('g', { 'class': 'context-place', 'pointer-events': 'none' });
       label.appendChild(svg('circle', { cx: pos[0], cy: pos[1], r: 32, fill: '#584D3C' }));
       var name = svg('text', { x: pos[0] + 95, y: pos[1] + 35, fill: '#594C39',
@@ -259,7 +294,7 @@
         : (m.kind === 'industry' ? '#94713F' : (m.kind === 'border' ? '#A45A4E'
           : (m.kind === 'memorial' ? '#806941' : '#655C49')));
       var g = svg('g', { 'class': 'mk' });
-      var ti = svg('title'); ti.textContent = m.zh + ' · ' + m.it; g.appendChild(ti);
+      var ti = svg('title'); ti.textContent = L(m); g.appendChild(ti);
       if (m.kind === 'dispute') {
         g.appendChild(svg('circle', { cx: xy[0], cy: xy[1], r: 210, fill: 'rgba(166,117,56,.10)', stroke: col, 'stroke-width': '18', 'stroke-dasharray': '46 36' }));
         g.appendChild(svg('circle', { cx: xy[0], cy: xy[1], r: 80, fill: col, stroke: '#4C4033', 'stroke-width': '12' }));
@@ -276,7 +311,7 @@
       var col = u.allied ? '#65868F' : '#9D6B4F';
       var w = 430, hgt = 500;
       var g = svg('g', { 'class': 'mk unit-mk' });
-      var ti = svg('title'); ti.textContent = u.zh + (u.count == null ? ' · 位置示意，人数未考证' : ' · 游戏兵力 ' + Core.fmt(u.count)); g.appendChild(ti);
+      var ti = svg('title'); ti.textContent = L(u) + (u.count == null ? ' · ' + T('map.unit.schematic') : ' · ' + T('map.unit.game') + ' ' + Core.fmt(u.count)); g.appendChild(ti);
       g.appendChild(svg('rect', {
         x: xy[0] - w / 2, y: xy[1] - hgt / 2, width: w, height: hgt,
         fill: '#F2E7D0', stroke: col, 'stroke-width': '40'
@@ -318,20 +353,21 @@
 
   M.legend = function (date) {
     var el = Core.h('div', { class: 'maplegend' });
-    function add(color, zh) {
+    function add(color, key) {
       el.appendChild(Core.h('span', { class: 'maplegend__i' }, [
         Core.h('span', { class: 'maplegend__sw', style: { background: color } }),
-        Core.h('span', {}, zh)
+        Core.h('span', {}, T(key))
       ]));
     }
-    add('#B87668', '阜姆军团控制');
-    add('#D5BA98', kastavUnderItaly(date) ? '意大利占领区（含卡斯塔夫）' : '意大利控制区');
-    add('#BFC8B0', '南斯拉夫（S.H.S.）控制区');
-    add('#C1D2D2', '亚德里亚海');
-    add('#77959A', '埃内奥河');
-    add('#A67538', '争议地');
-    add('#9D6B4F', '军团驻点');
-    add('#65868F', '协约国警备点');
+    add('#B87668', 'map.leg.fiume');
+    add('#D5BA98', kastavUnderItaly(date) ? 'map.leg.italyKastav'
+      : (M.susakUnderItaly(date) ? 'map.leg.italySusak' : 'map.leg.italy'));
+    add('#BFC8B0', 'map.leg.shs');
+    add('#C1D2D2', 'map.leg.adriatic');
+    add('#77959A', 'map.leg.eneo');
+    add('#A67538', 'map.leg.disputed');
+    add('#9D6B4F', 'map.leg.legion');
+    add('#65868F', 'map.leg.allied');
     return el;
   };
 
