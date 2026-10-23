@@ -296,25 +296,29 @@
       desc: { zh: '1919 年 9 月有人提过这个计划，1920 年 6 月它第二次被提出来。这一次罗马没有尼蒂，' +
           '只有一个刚上台的焦利蒂，和一支刚刚在阜姆面前退过一次的军队。' +
           '问题是：要把社会党人、无政府主义者、共产党人、法西斯主义者、民族主义者和革命工团主义者放进同一支纵队，' +
-          '你得让彼此敌视的六股力量至少有三股与你同行。',
+          '你得让彼此敌视的六股力量至少有三股与你同行。但到了出发前夜，决定成败的不是名单，' +
+          '而是名单背后的人数：每一股能带多少人上车，军官团能拉走多少陆军，军团自己还剩多少。',
               it: 'Nel settembre 1919 qualcuno lo propose. Nel giugno 1920 lo si propone una seconda volta. ' +
           'Questa volta a Roma non c\'è Nitti, ma un Giolitti appena insediato, e un esercito che davanti a Fiume ' +
           'ha già ceduto una volta. Il problema è tenere nella stessa colonna socialisti, anarchici, ' +
-          'comunisti, fascisti, nazionalisti e sindacalisti rivoluzionari: almeno tre devono seguirti.' },
+          'comunisti, fascisti, nazionalisti e sindacalisti rivoluzionari: almeno tre devono seguirti. ' +
+          'Ma alla vigilia non decide la lista: decidono gli uomini — quelli che ogni forza porta, ' +
+          'quelli che il corpo ufficiale porta via all\'esercito, quelli che la Legione riesce ancora a mettere in strada.' },
       start: { zh: '决定串联全国的反政府力量', it: 'Si decide di collegare le forze antisistema' },
-      active: { zh: '每月向关系最好的三股力量各 +3；军官团立场随兵力浮动', it: '+3 al mese alle tre forze più vicine; il corpo ufficiale segue la milizia' },
+      active: { zh: '每半回合向关系 ≥ 50 的前三股力量各 +3.2；军官团立场随兵力浮动；出发前夜按各股人数、军官团与军团兵力对比判定成败', it: '+3,2 per mezzo turno alle tre forze più vicine (≥ 50); il corpo ufficiale segue la milizia. Alla vigilia decidono gli uomini: le forze, il corpo ufficiale, la Legione' },
       goal: {
         complete: [{ zh: '军团兵力 ≥ 10 000', it: 'milizia ≥ 10.000' },
                    { zh: '与意大利军官团的默契 ≥ 60', it: 'intesa con il corpo ufficiale ≥ 60' },
                    { zh: '六股意大利政治力量中，至少三股关系 ≥ 80（意共成立后计入）', it: 'almeno tre delle sei forze politiche italiane ≥ 80 (il PCdI conta dopo la fondazione)' }],
-        fail: [{ zh: '1922 年 3 月之后仍未达成，或法西斯已经进城', it: 'dopo marzo 1922, o quando i fascisti sono già in città' }]
+        fail: [{ zh: '到 1922 年 10 月 28 日仍未达成（墨索里尼已经进军罗马），或法西斯已经进城', it: 'non raggiunto entro il 28 ottobre 1922 (Mussolini è già a Roma), o quando i fascisti sono già in città' }]
       },
       outcome: {
         onComplete: [{ zh: '开启「进军罗马」终局链', it: 'si apre l\'epilogo: la marcia su Roma' },
-                     { zh: '未结盟的力量转为敌对', it: 'le forze escluse passano all\'ostilità' }],
+                     { zh: '民众热忱 +12、领袖权威 +6', it: 'fervore +12, autorità +6' }],
         onFail: [{ zh: '已存在的政治力量关系各 −25，军官团 −15（阵线瓦解）', it: 'forze politiche esistenti −25, corpo ufficiale −15' },
                  { zh: '军团兵力 −1 500（逃散）', it: 'milizia −1.500' },
-                 { zh: '法西斯派影响力 +6（墨索里尼接管了这场运动）', it: 'influenza fascista +6' }]
+                 { zh: '法西斯派影响力 +6（墨索里尼接管了这场运动）', it: 'influenza fascista +6' },
+                 { zh: '若因 1922-10-28 逾期，则这场进军已经属于另一个人', it: 'se il termine del 28 ottobre 1922 è scaduto, la marcia appartiene già a un altro' }]
       },
       /* Only the best-placed forces are carried; the rest are left out. The
          front and the number required live in world.js (W.FORZA_FRONT /
@@ -330,8 +334,9 @@
         var W = ((typeof globalThis !== 'undefined' ? globalThis : this).Fiume || {}).World || {};
         var front = W.availableForzaFront(s);
         var carry = W.FORZA_FRONT_NEEDED || 3;
+        var floor = W.FORZA_FRONT_MIN == null ? 50 : W.FORZA_FRONT_MIN;
         var ids = front
-          .filter(function (k) { return (z[k] || 0) >= 50; })
+          .filter(function (k) { return (z[k] || 0) >= floor; })
           .sort(function (a, b) { return (z[b] || 0) - (z[a] || 0); })
           .slice(0, carry);
         var out = {};
@@ -342,29 +347,25 @@
       complete: function (s) {
         var z = s.forze || {};
         var W = ((typeof globalThis !== 'undefined' ? globalThis : this).Fiume || {}).World || {};
+        /* The deadline outranks completion. On 31 October 1922 the column could
+           still, arithmetically, meet the three gates — but Mussolini has already
+           been in Rome since the 28th, and the question is no longer Fiume's. So a
+           last-minute completion must not be allowed to win on the same
+           settlement that the deadline closes. */
+        if (W.marciaClosed && W.marciaClosed(s)) return false;
         var front = W.availableForzaFront(s);
         var n = front.filter(function (k) { return (z[k] || 0) >= 80; }).length;
         return s.order.milizia >= 10000 && (z.forzearmate || 0) >= 60 && n >= (W.FORZA_FRONT_NEEDED || 3);
       },
-      /* Mutually exclusive with `complete` on purpose: a journal whose complete
-         and fail are both true in one turn resolves as complete, so the deadline
-         must not be able to fire on the same turn the conditions are met.
-         The deadline is March 1922, not a date of my own choosing: the engine
-         fires the historical march on Rome in October 1922, and after the
-         fascists are in the Palazzo the question is moot. */
+      /* The deadline is 28 October 1922, the day Mussolini's own march reached
+         Rome. Before that, the only other way to close the journal is the fascist
+         takeover in Fiume (`coup_done`), which the rest of the game already treats
+         as a hard ending. Because `complete` refuses to fire once the deadline has
+         passed, `fail` can simply return the closed state: there is no race left
+         to lose by a single turn. */
       fail: function (s) {
-        /* `> 1922-03` rather than `>= 1922-03`: months are half-turns, so on the
-           first turn of March 1922 the date has already flipped to m === 3 while
-           the month's own settlements are still running. Failing on `>= 3` fired
-           the deadline one turn before the last settlement that can complete it,
-           which made the journal unwinnable by a single turn. */
-        var closed = s.flags.coup_done || s.date.y > 1922 || (s.date.y === 1922 && s.date.m > 3);
-        if (!closed) return false;
-        var z = s.forze || {};
         var W = ((typeof globalThis !== 'undefined' ? globalThis : this).Fiume || {}).World || {};
-        var front = W.availableForzaFront(s);
-        var n = front.filter(function (k) { return (z[k] || 0) >= 80; }).length;
-        return !(s.order.milizia >= 10000 && (z.forzearmate || 0) >= 60 && n >= (W.FORZA_FRONT_NEEDED || 3));
+        return !!(W.marciaClosed && W.marciaClosed(s));
       },
       onComplete: function () { return { flags: { marcia_1920_open: true }, order: { fervour: 12, authority: 6 } }; },
       onFail: function (s) {
@@ -376,7 +377,13 @@
           forze: hit,
           order: { milizia: -1500, fervour: -14 },
           factions: { fascisti: { inf: 6 } },
-          flags: { marcia_1920_failed: true }
+          flags: {
+            marcia_1920_failed: true,
+            /* Distinguish "Mussolini got there first" from "the fascists took
+               Fiume": the first is the historical deadline, the second is the
+               internal coup. Only the first is the 1922 march overtaking you. */
+            marcia_1920_overtaken: !s.flags.coup_done && !!(W.marciaClosed && W.marciaClosed(s))
+          }
         };
       }
     }
@@ -438,17 +445,53 @@
        ev_1922_10_roma is dated October 1922 — a game that reaches the October
        event has already ended at the March coup, and checkEnd settles any state
        with coup_done immediately. The 1920 march below is the surviving march
-       ending; see docs/内容梳理与路线重构方案.md §2.2. */
-    /* The 1920 march — the one surviving march ending, and the destination of
-       the `marcia` route. Priority 4 puts it beside "法西斯城邦" (4); it is
-       listed first so a stable sort resolves the tie in its favour. The coup
-       check is excluded so a game that has already fallen to Mussolini cannot
-       claim this ending instead.
-       It is now named simply 进军罗马 / La marcia su Roma; the 1922 variant that
-       used to carry that name was cut as unreachable (see §2.2 of
-       docs/内容梳理与路线重构方案.md). */
+       line; see docs/内容梳理与路线重构方案.md §2.2. */
+    /* The 1920 march now has two outcomes, both on the `marcia` route:
+       `ending_marcia_1920_win` (the column arrives) and `ending_marcia_1920`
+       ("la notte lunga", the column stops). Which one is reached is decided in
+       `ev_romafronte_epilogo` by `W.marciaBalance`: the attitudes of the forces
+       that march with you plus the officer corps, against the hostility of the
+       forces you left out plus the officer corps' hostile share. The journal's
+       three gates only buy the departure; the balance decides the arrival.
+       Both are priority 4, beside "法西斯城邦" (4), and both exclude `coup_done`
+       so a game already taken by Mussolini cannot claim either. Success is listed
+       first so a stable sort prefers it if a corrupted state ever sets both
+       outcome flags. */
     {
-      id: 'ending_marcia_1920', priority: 4, route: 'marcia', zh: '进军罗马', it: 'La marcia su Roma', tag: '架空',
+      id: 'ending_marcia_1920_win', priority: 4, route: 'marcia', zh: '进军罗马 · 荣冠', it: 'La marcia su Roma: il lauro', tag: '胜利',
+      body: { zh: '第六天傍晚，纵队进入罗马。没有巷战。\n\n' +
+          '焦利蒂在最后一刻宣布戒严，但驻军没有开出营房。撒丁掷弹兵的旧账被翻了出来：' +
+          '军官团里有一半人拒绝向从阜姆来的那支队伍开枪。国王在奎里纳莱宫接见了你，' +
+          '没有要求你解散军团，只问了一句：你想把这个人带去哪里？\n\n' +
+          '你没有宣布共和国，也没有要求王位。你要的是一届制宪议会，' +
+          '把《卡尔纳罗宪章》的第一条——劳动——写进这个国家的法律。\n\n' +
+          '焦利蒂下台。新政府在四十天后组成：外交部长是一个你从都灵请来的人，' +
+          '司法部长是一个无政府主义者，战争部长是一个法西斯。他们在一间屋子里坐了三个月，然后各自离开。\n\n' +
+          '宪章没有成为意大利的宪法。但它成了之后二十年所有制宪会议的参照：' +
+          '劳动是第一条款，港口归城市，音乐归国家。\n\n' +
+          '法西斯分子是最后离开的那一批。他们带走了讲台、口号，' +
+          '和那套把一万人送上火车的办法。两年后，墨索里尼在同一个广场上宣布自己成功了。' +
+          '这一次他不用再向阜姆学习——他是从你的政府里走出来的。',
+          it: 'La sera del sesto giorno la colonna entra a Roma. Nessuna battaglia per le strade.\n\n' +
+          'Giolitti proclama lo stato d\'assedio all\'ultimo momento, ma il presidio non esce dalle caserme. ' +
+          'Il conto dei granatieri di Sardegna torna fuori: metà del corpo ufficiale rifiuta di sparare su quelli ' +
+          'che vengono da Fiume. Il re ti riceve al Quirinale; non ti chiede di sciogliere la Legione, ' +
+          'chiede solo: dove vuoi portare quest\'uomo?\n\n' +
+          'Non proclami la Repubblica e non chiedi il trono. Chiedi un\'Assemblea costituente che scriva ' +
+          'nell\'ordinamento dello Stato il primo articolo della Carta del Carnaro: il lavoro.\n\n' +
+          'Giolitti cade. Il nuovo governo nasce quaranta giorni dopo: agli Esteri un uomo che hai chiamato ' +
+          'da Torino, alla Giustizia un anarchico, alla Guerra un fascista. Restano nella stessa stanza tre mesi, ' +
+          'poi se ne vanno uno per uno.\n\n' +
+          'La Carta non diventa la Costituzione d\'Italia. Diventa però il riferimento di tutte le costituenti ' +
+          'dei vent\'anni successivi: il lavoro come primo articolo, il porto alla città, la musica come ' +
+          'istituzione dello Stato.\n\n' +
+          'I fascisti sono gli ultimi a uscire. Si portano via il palco, gli slogan e il metodo per caricare ' +
+          'diecimila uomini su un treno. Due anni dopo, Mussolini annuncia il proprio successo nella stessa piazza. ' +
+          'Questa volta non ha più bisogno di imparare da Fiume: è uscito dal tuo governo.' },
+      check: function (s) { return !!s.flags.marcia_1920_win && !s.flags.coup_done; }
+    },
+    {
+      id: 'ending_marcia_1920', priority: 4, route: 'marcia', zh: '进军罗马 · 长夜', it: 'La marcia su Roma: la notte lunga', tag: '失败',
       body: { zh: '纵队从阜姆出发时有一万一千人，到博洛尼亚时剩下不到四千。罗马没有宣布戒严——' +
           '它不需要。焦利蒂只是把铁路时刻表改了，把桥封了两座，然后等。\n\n' +
           '第六天，在台伯河以北的乡间，纵队停下来，因为没有粮食了。' +
@@ -465,7 +508,7 @@
           'e partendo si portano via il metodo.\n\n' +
           'Due anni più tardi, a Roma, un altro riesce con lo stesso schieramento: la stessa colonna, ' +
           'le stesse ferrovie, la stessa "marcia su Roma". Da Fiume ha imparato più di quanto abbia imparato da te.' },
-      check: function (s) { return !!s.flags.marcia_1920 && !s.flags.coup_done; }
+      check: function (s) { return !!s.flags.marcia_1920 && !s.flags.marcia_1920_win && !s.flags.coup_done; }
     },
     {
       /* The diplomatic arm of the 1924 crisis — the counterpart of

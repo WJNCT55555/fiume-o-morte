@@ -3,7 +3,13 @@ import type { GameEvent } from '../content/types';
 
 export const evViolence: GameEvent = {
     id: 'ev_violence', repeatable: true, cooldown: 4,
-    condition: function (s) { return s.order.squadre > 42 && s.order.violence < 85; },
+    crisis: { axis: 'subversion', at: 50 },
+    condition: function (s) {
+      /* 史实 keeps the street-condition trigger; non-historical modes tie the
+         recurring street violence to the plot gauge's 50 milestone instead. */
+      if (s.difficulty !== 'historical') return s.order.subversion >= 50;
+      return s.order.squadre > 42 && s.order.violence < 85;
+    },
     title: { zh: '街头的枪声', it: 'Sparì in strada' },
     body: { zh: '一个自治党的党部门口被砸了。玻璃、传单、一瓶燃烧的汽油。\n\n' +
         '市警在两条街之外。宪兵在三条街之外。',

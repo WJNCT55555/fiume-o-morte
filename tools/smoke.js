@@ -132,6 +132,81 @@ ok(advisorsWithoutPortrait.slice().sort().join(',') === PORTRAIT_GAPS.slice().so
     ok(row.factionZh && row.factionIt !== undefined, `顾问 ${a.id} 的派系名必须双语`);
   });
 }
+/* Advisor menus must preview and execute the selected directive, and enforce
+   the same shared cooldown and resource conditions in both paths. */
+{
+  function advisorState(id) {
+    const s = Eng.createState('1919-09', 'historical', 7);
+    s.currentEvent = null;
+    s.phase = 'action';
+    s.advisors.active = [id];
+    s.ap = 2;
+    s.arms = 30;
+    Object.values(s.factions).forEach(f => { f.dis = 20; });
+    return s;
+  }
+  W.ADVISORS.forEach(advisor => {
+    ok(advisor.actions.length >= 1 && advisor.actions.length <= 3, `${advisor.id} must offer 1–3 directives`);
+    ok(new Set(advisor.actions.map(o => o.id)).size === advisor.actions.length, `${advisor.id} directive IDs must be unique`);
+    advisor.actions.forEach(option => {
+      ok(option.text.zh && option.text.it && option.subtitle.zh && option.subtitle.it, `${advisor.id}/${option.id} must be bilingual`);
+      const s = advisorState(advisor.id);
+      const before = JSON.stringify(s);
+      const view = F.Sel.advisorView(s, advisor.id);
+      const selected = view.actions.find(o => o.id === option.id);
+      ok(selected.enabled, `${advisor.id}/${option.id} should be available`);
+      ok(selected.preview.some(line => line.includes('行动力') && line.includes('−1')), `${advisor.id}/${option.id} preview must include its AP cost`);
+      ok(JSON.stringify(s) === before, `${advisor.id}/${option.id} preview must not mutate live state`);
+      const result = Eng.dispatch(s, { type: 'USE_ADVISOR', advisorId: advisor.id, optionId: option.id });
+      ok(result.toast?.kind === 'ok' && result.state.ap === 1, `${advisor.id}/${option.id} must execute for exactly 1 AP`);
+      ok(result.state.log.at(-1).zh === advisor.zh + '：' + option.text.zh, `${advisor.id}/${option.id} must log the selected directive`);
+      ok(result.state.advisors.lastAction === s.monthIndex, `${advisor.id}/${option.id} must start the shared cooldown`);
+    });
+  });
+  const s = advisorState('keller');
+  const used = Eng.dispatch(s, { type: 'USE_ADVISOR', advisorId: 'keller', optionId: 'reconnaissance' }).state;
+  ok(used.order.milizia === s.order.milizia + 140 && used.order.fervour === s.order.fervour,
+    'choosing Keller’s second directive must not execute his first directive');
+  used.advisors.active.push('carli');
+  const cooling = F.Sel.advisorView(used, 'carli');
+  ok(cooling.actions.every(o => !o.enabled) && cooling.cdLeft === used.advisors.cooldown,
+    'one advisor action must place all advisors on cooldown');
+  used.advisors.lastAction = 0;
+  used.monthIndex = 5;
+  used.turn = 6;
+  ok(F.Sel.advisorView(used, 'carli').cdLeft === 1,
+    'the menu must not show ready one half-month earlier than the engine');
+  used.monthIndex = 6;
+  ok(F.Sel.advisorView(used, 'carli').actions.every(o => o.enabled), 'directives must unlock at the cooldown boundary');
+  const m = advisorState('micheletti');
+  m.arms = 0;
+  const military = F.Sel.advisorView(m, 'micheletti');
+  ok(!military.actions[0].enabled && military.actions[0].reason.zh.includes('6') && military.actions[1].enabled,
+    'insufficient arms must disable only the directive that spends arms');
+  const cases = [
+    { label: 'missing selection', state: s, advisorId: 'keller' },
+    { label: 'foreign directive', state: s, advisorId: 'keller', optionId: 'newspaper' },
+    { label: 'inactive advisor', state: s, advisorId: 'carli', optionId: 'newspaper' },
+    { label: 'no AP', state: { ...s, ap: 0 }, advisorId: 'keller', optionId: 'leaflets' },
+    { label: 'pending event', state: { ...s, currentEvent: 'ev_1919_09_marcia' }, advisorId: 'keller', optionId: 'leaflets' },
+    { label: 'pending card', state: { ...s, pendingCard: 'az_propaganda' }, advisorId: 'keller', optionId: 'leaflets' },
+    { label: 'insufficient arms', state: m, advisorId: 'micheletti', optionId: 'discipline' },
+    { label: 'cooldown', state: { ...s, advisors: { ...s.advisors, lastAction: s.monthIndex } }, advisorId: 'keller', optionId: 'leaflets' },
+    { label: 'dissent', state: { ...s, factions: { ...s.factions, arditi: { ...s.factions.arditi, dis: 71 } } }, advisorId: 'keller', optionId: 'leaflets' },
+  ];
+  cases.forEach(({ label, state, advisorId, optionId }) => {
+    const result = Eng.dispatch(state, { type: 'USE_ADVISOR', advisorId, optionId });
+    ok(result.toast?.kind === 'warn' && result.state.ap === state.ap && result.state.arms === state.arms
+      && result.state.advisors.lastAction === state.advisors.lastAction && result.state.log.length === state.log.length,
+    `refused advisor action (${label}) must not spend resources, start cooldown or add a log`);
+  });
+  F.I18N.setLang('it');
+  const italian = F.Sel.advisorView(s, 'keller').actions[0].preview;
+  ok(italian.some(line => line.includes('Punti azione') && line.includes('−1')) && italian.every(line => !/[\u3400-\u9FFF]/.test(line)),
+    'advisor effect previews must follow the Italian locale');
+  F.I18N.setLang('zh');
+}
+
 /* Retiring an advisor must also free the seat it held in existing saves: seats
    are ids, the panel only renders advisors that still exist, and DISMISS looks
    the id up in the same list, so a stale id would be unremovable. */
@@ -891,6 +966,85 @@ console.log('\n12b) 选举结果事件展示议会图');
         `${optionId} 的结果必须有双语图注`);
     }
   });
+}
+
+console.log('\n12c) 进军罗马：人数对比、1922-10-28 截止与双结局');
+{
+  const mk = (y, m, d) => {
+    const st = Eng.createState('1919-09', 'historical', 42);
+    st.date = { y, m, d };
+    st.flags.comintern_door = true;
+    st.order.milizia = 10000;
+    return st;
+  };
+  const set = (st, o) => Object.keys(o).forEach(k => { st.forze[k] = o[k]; });
+  const dissent = R.factionDissent(mk(1921, 1, 15)) / 100;
+  const legion = 10000 * (1 - dissent);
+
+  /* Big three with you, small three against you: 32,000 + 18,000 + legion vs
+     5,600 + 12,000. The near-allies are the interesting case, not the zeroes. */
+  const win = mk(1921, 1, 15);
+  set(win, { fascisti: 80, socialisti: 80, corradini: 80,
+    anarchici: 20, comunisti: 20, sindacalisti: 20, forzearmate: 60 });
+  const wb = W.marciaBalance(win);
+  ok(W.ITALIAN_ARMY === 30000, '意大利陆军人数为 30 000，集中在一个常量里');
+  ok(Math.abs(wb.forceSupport - 32000) < 0.01 && Math.abs(wb.forceOppose - 5600) < 0.01,
+    '派系人数：三股 80 带 32 000 人，三股 20 带 5 600 人');
+  ok(Math.abs(wb.officerSupport - 18000) < 0.01 && Math.abs(wb.officerOppose - 12000) < 0.01,
+    '军官团 60/100 把 30 000 陆军分成 18 000 : 12 000');
+  ok(Math.abs(wb.legion - legion) < 0.01, '军团 10 000 按总分歧度折减');
+  ok(wb.win && Math.abs(wb.support - (32000 + 18000 + legion)) < 0.01,
+    '大股 80、小股 20、军官团 60：支持大于反对，成功');
+
+  /* Small three with you, big three just short of the gate at 79: the big
+     forces' men march against you, 34,760 + 12,000, and the column fails. */
+  const lose = mk(1921, 1, 15);
+  set(lose, { anarchici: 80, comunisti: 80, corradini: 80,
+    fascisti: 79, socialisti: 79, sindacalisti: 79, forzearmate: 60 });
+  const lb = W.marciaBalance(lose);
+  ok(Math.abs(lb.forceOppose - 34760) < 0.01 && !lb.win,
+    '招募小股、把大股留在 79：差一点够 80 的大股会把 34 760 人带到对面');
+
+  /* A force driven to zero has no men on the road under the formula's
+     relationship × men term. This is the literal rule, not a neutral band. */
+  const zero = mk(1921, 1, 15);
+  set(zero, { anarchici: 80, comunisti: 80, corradini: 80,
+    fascisti: 0, socialisti: 0, sindacalisti: 0, forzearmate: 60 });
+  ok(W.marciaBalance(zero).forceOppose === 0,
+    '关系归零的股按 关系 × 兵力 计为 0：他们不出人');
+
+  const hate = mk(1921, 1, 15);
+  set(hate, { socialisti: 80, corradini: 80, anarchici: 80,
+    fascisti: -40, comunisti: 0, sindacalisti: 0, forzearmate: 60 });
+  ok(W.marciaBalance(hate).forceOppose >= 12000,
+    '关系为负的股视为掉头：法西斯 12 000 人全员计入反对');
+
+  const before = mk(1922, 10, 15);
+  ok(!W.marciaClosed(before), '1922-10-15 尚未到 10-28，日志仍可完成');
+  const after = mk(1922, 10, 31);
+  ok(W.marciaClosed(after), '1922-10-31 已越过 10-28，日志关闭');
+
+  const j = Meta.JOURNAL_BY_ID.marcia_1920;
+  const gates = (st) => {
+    st.order.milizia = 10000;
+    st.forze.forzearmate = 60;
+    st.forze.fascisti = 80;
+    st.forze.socialisti = 80;
+    st.forze.corradini = 80;
+  };
+  gates(before);
+  ok(j.complete(before) && !j.fail(before), '截止前达成三门槛：日志完成');
+  gates(after);
+  ok(!j.complete(after) && j.fail(after), '截止后即使门槛齐备：日志也自动作废');
+
+  const route = (st) => {
+    st.order.milizia = 10000;
+    st.flags.marcia_1920_open = true;
+    st.currentEvent = 'ev_romafronte_epilogo';
+    return Eng.dispatch(st, { type: 'RESOLVE_EVENT', optionId: 'partire' }).state.ending;
+  };
+  ok(route(win) === 'ending_marcia_1920_win', '支持大于反对：出发 → 成功结局');
+  ok(route(lose) === 'ending_marcia_1920', '反对大于支持：出发 → 失败结局');
 }
 
 console.log('\n13) 卡牌与事件选项按实际结算预览');

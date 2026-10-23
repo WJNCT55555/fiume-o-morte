@@ -7,8 +7,10 @@ tmp/
 tools/*
 !tools/check_map.js
 !tools/check_super_events.js
+!tools/check_sandbox.js
 docs/
 PV/
+output/
 *.log
 .env
 .env.*

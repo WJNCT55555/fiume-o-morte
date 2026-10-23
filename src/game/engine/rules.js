@@ -343,17 +343,17 @@
     var ym = state.date.y * 12 + state.date.m;
     if (ym < 1920 * 12 + 9) {
       return [
-        { at: 25, id: 'i25', zh: '罗马切断军团兵的汇款与补给', it: 'Roma taglia fondi e rifornimenti ai legionari' },
-        { at: 50, id: 'i50', zh: '协约国调查委员会要求解散「阜姆军团」', it: 'La commissione interalleata chiede lo scioglimento della Legione' },
-        { at: 75, id: 'i75', zh: '自治派在城里公开组织起来', it: 'Gli autonomi si organizzano apertamente in città' },
-        { at: 100, id: 'i100', zh: '尼蒂政府考虑武力解决', it: 'Il governo Nitti valuta la soluzione militare' }
+        { at: 25, id: 'i25', event: 'ev_1919_11_blocco', zh: '罗马切断军团兵的汇款与补给', it: 'Roma taglia fondi e rifornimenti ai legionari' },
+        { at: 50, id: 'i50', event: 'ev_1920_06_alleati', zh: '协约国调查委员会要求解散「阜姆军团」', it: 'La commissione interalleata chiede lo scioglimento della Legione' },
+        { at: 75, id: 'i75', event: 'ev_crisis_siege_75', zh: '自治派在城里公开组织起来', it: 'Gli autonomi si organizzano apertamente in città' },
+        { at: 100, id: 'i100', event: 'ev_natale', zh: '尼蒂政府考虑武力解决', it: 'Il governo Nitti valuta la soluzione militare' }
       ];
     }
     return [
-      { at: 25, id: 'n25', zh: '罗马中断谈判，开始海上拦截', it: 'Roma interrompe i negoziati e ferma le navi' },
-      { at: 50, id: 'n50', zh: '封锁收紧；面粉与煤开始配给', it: 'Il blocco stringe: razionati farina e carbone' },
-      { at: 75, id: 'n75', zh: '卡维利亚将军包围城市，发出最后通牒', it: 'Caviglia accerchia la città e invia l\'ultimatum' },
-      { at: 100, id: 'n100', zh: '皇家陆军准备进攻', it: 'Il Regio Esercito è pronto ad attaccare' }
+      { at: 25, id: 'n25', event: 'ev_1919_11_blocco', zh: '罗马中断谈判，开始海上拦截', it: 'Roma interrompe i negoziati e ferma le navi' },
+      { at: 50, id: 'n50', event: 'ev_1920_06_alleati', zh: '封锁收紧；面粉与煤开始配给', it: 'Il blocco stringe: razionati farina e carbone' },
+      { at: 75, id: 'n75', event: 'ev_1920_11_rapallo', zh: '卡维利亚将军包围城市，发出最后通牒', it: 'Caviglia accerchia la città e invia l\'ultimatum' },
+      { at: 100, id: 'n100', event: 'ev_natale', zh: '皇家陆军准备进攻', it: 'Il Regio Esercito è pronto ad attaccare' }
     ];
   };
 
@@ -363,10 +363,10 @@
      independent of the siege's. */
   R.subversionMilestones = function () {
     return [
-      { at: 25, id: 's25', zh: '法西斯派在党内要求席位', it: 'I fascisti chiedono seggi nel movimento' },
-      { at: 50, id: 's50', zh: '街头枪击与报馆被砸；第一个死者', it: 'Sparatorie e tipografie devastate: il primo morto' },
-      { at: 75, id: 's75', zh: '君塔的小队从的里雅斯特进城', it: 'Le squadre di Giunta entrano da Trieste' },
-      { at: 100, id: 's100', zh: '他们准备进攻省督府', it: 'Si preparano ad attaccare il Palazzo' }
+      { at: 25, id: 's25', event: 'ev_crisis_plot_25', zh: '法西斯派在党内要求席位', it: 'I fascisti chiedono seggi nel movimento' },
+      { at: 50, id: 's50', event: 'ev_violence', zh: '街头枪击与报馆被砸；第一个死者', it: 'Sparatorie e tipografie devastate: il primo morto' },
+      { at: 75, id: 's75', event: 'ev_crisis_plot_75', zh: '君塔的小队从的里雅斯特进城', it: 'Le squadre di Giunta entrano da Trieste' },
+      { at: 100, id: 's100', event: 'ev_coup', zh: '他们准备进攻省督府', it: 'Si preparano ad attaccare il Palazzo' }
     ];
   };
 

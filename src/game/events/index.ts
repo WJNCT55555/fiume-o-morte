@@ -39,6 +39,9 @@ import { evWhitehead } from './ev_whitehead';
 import { evStrike } from './ev_strike';
 import { evBlockade } from './ev_blockade';
 import { evFactory } from './ev_factory';
+import { evCrisisPlot25 } from './ev_crisis_plot_25';
+import { evCrisisPlot75 } from './ev_crisis_plot_75';
+import { evCrisisSiege75 } from './ev_crisis_siege_75';
 import { evViolence } from './ev_violence';
 import { ev192111Pcdf } from './ev_1921_11_pcdf';
 import { ev192101Pcdi } from './ev_1921_01_pcdi';
@@ -97,6 +100,9 @@ export const ALL_EVENTS = [
   evStrike,
   evBlockade,
   evFactory,
+  evCrisisPlot25,
+  evCrisisPlot75,
+  evCrisisSiege75,
   evViolence,
   ev192111Pcdf,
   ev192101Pcdi,

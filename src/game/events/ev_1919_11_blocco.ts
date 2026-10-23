@@ -3,6 +3,7 @@ import type { GameEvent } from '../content/types';
 
 export const ev191911Blocco: GameEvent = {
     id: 'ev_1919_11_blocco', date: { y: 1919, m: 11 },
+    crisis: { axis: 'coup', at: 25 },
     title: { zh: '封锁', it: 'Il blocco' },
     body: { zh: '罗马的命令下来了：所有驶往阜姆的船只在亚得里亚海被拦截。巴多里奥将军封锁了一切补给——' +
         '煤、面粉、糖、汽油都进不来。\n\n' +

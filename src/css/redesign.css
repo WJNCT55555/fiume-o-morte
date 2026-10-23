@@ -224,9 +224,8 @@ body::after { opacity: .07; }
 .relation-track__gate { background: var(--gold-lit); }
 .relation-scale { color: rgba(240,229,202,.48); font: 9px var(--font-mono); }
 .relation-scale--state { display: flex; justify-content: space-between; padding-top: 9px; }
-/* Political relations as a Roman portico. Each shaft uses the same −40…100
-   scale; solid fills grow from zero rather than treating a hostile score as
-   positive support. Actual lines create the bands without gradients. */
+/* Political relations as a Roman portico. The visible scale is 0…100;
+   hostile relations keep their signed readings and leave the shaft empty. */
 .forze-relations { padding: 12px 14px 14px; }
 .forze-relations__summary { display: grid; gap: 7px; padding: 0 0 12px; border-bottom: 1px solid var(--hair); }
 .forze-relations__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -237,7 +236,40 @@ body::after { opacity: .07; }
 .forze-relations__pledges .icn { position: absolute; width: 57px; height: 41px; opacity: .65; }
 .forze-relations__pledges strong { font: 700 14px var(--font-mono); letter-spacing: 0; padding-bottom: 5px; }
 .forze-relations__summary > span { color: rgba(240,229,202,.68); font-size: 10.5px; line-height: 1.55; }
-.forze-portico { --shaft-height: 196px; position: relative; margin-top: 15px; padding: 0 0 9px; border-bottom: 3px double var(--hair); }
+.forze-portico { --shaft-height: 196px; --portico-line: #9A8051; --portico-stone: #17130F; position: relative; margin-top: 15px; padding: 0 0 9px; border-bottom: 3px double var(--hair); }
+.forze-portico__colonnade { position: relative; }
+/* The beam repeats the columns' 1px outlines, dark surfaces and three stepped
+   courses. The open gap above the column readings is intentional. */
+.forze-entablature { --officer-ink: #C4A46B; margin: 0 0 19px 27px; color: #D4BD8E; }
+.forze-entablature__crown, .forze-entablature__cornice { position: relative; height: 7px; border: 1px solid var(--portico-line); background: var(--portico-stone); }
+.forze-entablature__crown::before, .forze-entablature__crown::after,
+.forze-entablature__cornice::before, .forze-entablature__cornice::after { content: ''; position: absolute; border: 1px solid var(--portico-line); background: var(--portico-stone); }
+.forze-entablature__crown { margin-bottom: 11px; }
+.forze-entablature__crown::before { top: 5px; left: 4px; right: 4px; height: 10px; }
+.forze-entablature__crown::after { top: 14px; left: 9px; right: 9px; height: 4px; }
+.forze-entablature__cornice { margin-top: 11px; }
+.forze-entablature__cornice::before { bottom: 5px; left: 4px; right: 4px; height: 10px; }
+.forze-entablature__cornice::after { bottom: 14px; left: 9px; right: 9px; height: 4px; }
+.forze-entablature__frieze { position: relative; display: grid; gap: 6px; margin: 0 10px; padding: 10px 13px 9px; border: 1px solid var(--portico-line); background: var(--portico-stone); }
+.forze-entablature__frieze::before, .forze-entablature__frieze::after { content: ''; position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(240,229,202,.15); }
+.forze-entablature__frieze::before { left: 4px; }
+.forze-entablature__frieze::after { right: 4px; }
+.forze-entablature__inscription, .forze-entablature__reading, .forze-entablature__meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.forze-entablature__inscription small { color: #A89163; font: 8px var(--font-display); letter-spacing: .15em; }
+.forze-entablature__inscription > span { color: #AA9B7D; font-size: 8px; line-height: 1.4; text-align: right; }
+.forze-entablature__reading > strong:first-child { min-width: 0; color: #E1C99A; font: 700 13px/1.4 var(--font-display); letter-spacing: .08em; }
+.forze-entablature__value { flex: none; color: var(--officer-ink); font-size: 23px; line-height: 1; letter-spacing: -.04em; }
+.forze-entablature__meta { color: #AC9C7A; font: 9px/1.5 var(--font-mono); }
+.forze-entablature__status { color: var(--officer-ink); }
+.forze-entablature__track { position: relative; height: 12px; margin: 0 10px; border: 1px solid var(--portico-line); border-top: 0; background: #0C0B08; }
+.forze-entablature__track::after { content: ''; position: absolute; inset: 3px 0; border-top: 1px solid rgba(240,229,202,.15); border-bottom: 1px solid rgba(240,229,202,.15); pointer-events: none; }
+.forze-entablature__fill { position: absolute; top: 0; bottom: 0; background: var(--officer-ink); transition: width 220ms ease, left 220ms ease; }
+.forze-entablature__ticks { position: absolute; inset: 0; overflow: hidden; }
+.forze-entablature__ticks i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--portico-stone); }
+.forze-entablature__gate { position: absolute; top: -3px; bottom: -3px; width: 1px; background: #B6C49B; }
+.forze-entablature__gate::before { content: ''; position: absolute; top: -3px; left: -2px; width: 6px; height: 3px; background: #B6C49B; }
+.forze-entablature.is-at-gate { --officer-ink: #B3C395; }
+.forze-entablature.is-negative { --officer-ink: #C77A68; }
 .forze-portico__guides { position: absolute; top: 66px; left: 0; right: 0; height: var(--shaft-height); pointer-events: none; }
 .forze-portico__guide { position: absolute; left: 0; right: 0; height: 1px; border-top: 1px solid rgba(183,154,92,.13); }
 .forze-portico__guide > span { position: absolute; left: 0; top: -6px; padding-right: 3px; color: #8F8166; font: 9px var(--font-mono); background: #17130F; }
@@ -257,16 +289,16 @@ body::after { opacity: .07; }
 .forze-pillar__head strong { color: var(--force-ink); font-size: 14px; line-height: 1; white-space: nowrap; }
 .forze-pillar.is-negative .forze-pillar__head strong { color: #DF857A; }
 .forze-pillar__monument { position: relative; display: block; width: 100%; height: calc(var(--shaft-height) + 36px); }
-.forze-pillar__capital, .forze-pillar__base { position: absolute; display: block; left: 50%; width: min(44px, 94%); height: 7px; transform: translateX(-50%); border: 1px solid #9A8051; background: #17130F; }
+.forze-pillar__capital, .forze-pillar__base { position: absolute; display: block; left: 50%; width: min(44px, 94%); height: 7px; transform: translateX(-50%); border: 1px solid var(--portico-line); background: var(--portico-stone); }
 .forze-pillar__capital { top: 0; }
 .forze-pillar__capital::before, .forze-pillar__capital::after,
-.forze-pillar__base::before, .forze-pillar__base::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); border: 1px solid #9A8051; background: #17130F; }
+.forze-pillar__base::before, .forze-pillar__base::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); border: 1px solid var(--portico-line); background: var(--portico-stone); }
 .forze-pillar__capital::before { top: 5px; width: 86%; height: 10px; }
 .forze-pillar__capital::after { top: 14px; width: 72%; height: 4px; }
 .forze-pillar__base { bottom: 0; }
 .forze-pillar__base::before { bottom: 5px; width: 86%; height: 10px; }
 .forze-pillar__base::after { bottom: 14px; width: 72%; height: 4px; }
-.forze-pillar__shaft { position: absolute; display: block; top: 18px; left: 50%; transform: translateX(-50%); width: min(28px, 64%); height: var(--shaft-height); border: 1px solid #9A8051; background: #0C0B08; overflow: hidden; }
+.forze-pillar__shaft { position: absolute; display: block; top: 18px; left: 50%; transform: translateX(-50%); width: min(28px, 64%); height: var(--shaft-height); border: 1px solid var(--portico-line); background: #0C0B08; overflow: hidden; }
 .forze-pillar__shaft::after { content: ''; position: absolute; inset: 0 4px; border-left: 1px solid rgba(240,229,202,.15); border-right: 1px solid rgba(240,229,202,.15); pointer-events: none; }
 .forze-pillar__fill { position: absolute; display: block; left: 0; right: 0; background: var(--force-ink); transition: height 220ms ease, bottom 220ms ease; }
 .forze-pillar.is-negative .forze-pillar__fill { background: #B85F50; }
@@ -296,10 +328,11 @@ body::after { opacity: .07; }
 .forze-dossier__identity em { color: #B7A78B; font: italic 10px/1.3 var(--font-body); overflow-wrap: anywhere; }
 .forze-dossier__status { flex: none; color: var(--force-ink); font: 10px var(--font-mono); }
 .forze-dossier > p { margin: 9px 0; color: #D3C6AC; font-size: 11px; line-height: 1.65; }
+.forze-dossier__men { margin: 0 0 7px; color: #AFA082; font-size: 10px; letter-spacing: .02em; }
 .forze-dossier__distance { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px; border-top: 1px solid var(--hair-soft); padding-top: 7px; color: #AFA082; font-size: 10px; }
 .forze-dossier__distance strong { color: var(--gold-lit); font: 10px var(--font-mono); }
 @media (prefers-reduced-motion: reduce) {
-  .forze-pillar__fill, .forze-pillar__seal { transition: none; }
+  .forze-pillar__fill, .forze-pillar__seal, .forze-entablature__fill { transition: none; }
 }
 .relation-entry--force { border-bottom: 1px solid rgba(183,154,92,.16); }
 .relation-entry--force .relation-entry__summary { display: block; padding: 9px 1px 8px; cursor: pointer; list-style: none; }
@@ -310,12 +343,6 @@ body::after { opacity: .07; }
 .relation-entry__detail { padding: 0 0 10px 15px; border-left: 2px solid var(--relation-color); margin-bottom: 7px; }
 .relation-entry__detail p { margin: 0 0 4px; color: rgba(240,229,202,.8); font-size: 11px; line-height: 1.55; }
 .relation-entry__detail span { color: var(--gold-lit); font: 10px var(--font-mono); }
-.forze-relations__pending { margin: 9px 0 2px; color: rgba(240,229,202,.6); font-size: 10.5px; line-height: 1.5; }
-.forze-relations__officer { margin-top: 13px; padding: 11px; border: 1px solid var(--hair); background: #211913; }
-.forze-relations__officer-title { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
-.forze-relations__officer-title strong { color: var(--gold-lit); font: 700 12px var(--font-display); }
-.forze-relations__officer-title span { color: rgba(240,229,202,.6); font-size: 10px; }
-.forze-relations__officer .relation-entry--force { border-bottom: 0; }
 .diplo-postures { padding: 14px 15px 12px; }
 .diplo-postures__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .diplo-posture { display: flex; flex-direction: column; gap: 5px; min-width: 0; min-height: 135px; padding: 12px 13px; text-align: left; cursor: pointer; color: var(--gold-pale); background: #211913; border: 1px solid var(--hair-soft); }
@@ -366,6 +393,8 @@ body::after { opacity: .07; }
 .crisis-axis__milestone-copy { display: grid; gap: 4px; min-width: 0; }
 .crisis-axis__milestone-name { color: #B7AA91; font-size: 10.5px; line-height: 1.65; }
 .crisis-axis__milestone-status { color: #82765F; font: 8.5px var(--font-mono); white-space: nowrap; }
+.crisis-axis__milestone-event { justify-self: start; padding: 1px 5px; border: 1px solid var(--hair); color: var(--crisis-ink); font: 8px var(--font-mono); letter-spacing: .08em; line-height: 1.35; }
+.crisis-axis__milestone.is-passed .crisis-axis__milestone-event { border-color: var(--crisis-ink); }
 .crisis-axis__milestone.is-passed .crisis-axis__threshold { color: var(--crisis-ink); border-color: var(--crisis-ink); }
 .crisis-axis__milestone.is-passed .crisis-axis__milestone-name { color: var(--gold-pale); }
 .crisis-axis__milestone.is-passed .crisis-axis__milestone-status { color: var(--crisis-ink); }
