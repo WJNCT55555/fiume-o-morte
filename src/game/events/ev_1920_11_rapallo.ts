@@ -3,13 +3,21 @@ import type { GameEvent } from '../content/types';
 
 export const ev192011Rapallo: GameEvent = {
     id: 'ev_1920_11_rapallo', date: { y: 1920, m: 11, d: 12 },
-    title: { zh: '1920 年 11 月 12 日：拉帕洛', it: '12 novembre 1920: Rapallo' },
+    crisis: { axis: 'coup', at: 75 },
+    condition: function (s) {
+      /* The post-1920-09 siege set uses this event for its 75 milestone. Before
+         that, the same tick is the autonomists organizing (ev_crisis_siege_75),
+         so the treaty must not preempt it. */
+      var ym = s.date.y * 12 + s.date.m;
+      return ym >= 1920 * 12 + 9;
+    },
+    title: { zh: '拉帕洛', it: 'Rapallo' },
     body: { zh: '乔利蒂和特伦比奇在拉帕洛附近的斯皮诺拉别墅签了字。意大利与塞尔维亚-克罗地亚-斯洛文尼亚王国"承认阜姆自由邦的完全自由与独立，并承诺永久尊重它"。\n\n' +
         '也就是说：你宣布的那个国家，被两个大国当作不存在——取而代之的是另一个国家，一个由条约制造、由别人划界的自由邦。\n\n' +
-        '四天前你在宣言里说，这份条约"把阜姆变成了一块抵押品"。11 月 21 日，摄政宣布进入**战争状态**。',
+        '四天前你在宣言里说，这份条约"把阜姆变成了一块抵押品"。几天后，摄政宣布进入**战争状态**。',
       it: 'Giolitti e Trumbić hanno firmato a Villa Spinola, presso Rapallo. Italia e Regno dei Serbi, Croati e Sloveni "riconoscono la completa libertà e indipendenza dello Stato libero di Fiume e si impegnano a rispettarla in perpetuo".\n\n' +
         'Cioè: lo Stato che hai proclamato viene trattato come se non esistesse — al suo posto un altro Stato, creato da un trattato, con confini tracciati da altri.\n\n' +
-        'Quattro giorni prima avevi dichiarato che il trattato "fa di Fiume una merce di scambio". Il 21 novembre la Reggenza proclama lo **stato di guerra**.' },
+        'Quattro giorni prima avevi dichiarato che il trattato "fa di Fiume una merce di scambio". Pochi giorni dopo, la Reggenza proclama lo **stato di guerra**.' },
     options: [
       {
         id: 'guerra', text: { zh: '宣布战争状态，占领韦利亚与阿尔贝两岛', it: 'Proclamare lo stato di guerra e occupare Veglia e Arbe' },

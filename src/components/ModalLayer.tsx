@@ -3,6 +3,7 @@ import { useGame } from '../game/GameContext';
 import { legacyUI } from '../legacy/ui/runtime';
 import { legacyToReact } from '../lib/legacyReact';
 import { assetUrl } from '../lib/assetUrl';
+import { SandboxMenu } from './SandboxMenu';
 
 /** UI string lookup. The catalogue lives in the legacy i18n module. */
 const T = (key: string, vars?: Record<string, string | number>): string => legacyUI.UI.T(key, vars);
@@ -37,14 +38,16 @@ export function ModalLayer() {
     <p className="modal__body">{T('ui.resume.body', { d: legacyUI.Core.dateLabel(resume.date), n: resume.turn })}</p>
   </Dialog>;
   if (!modal) return null;
+  if (modal === 'sandbox' && state?.difficulty === 'sandbox' && !state.ending) return <SandboxMenu />;
 
   // Events are rendered inline in the centre column (see GameScreen), matching
   // the reference project. SuperEventLayer owns the independent major-moment
-  // presentation. This layer contains the card picker, deck and settings.
-  if (state && ['card', 'deck', 'advdeck'].includes(modal)) {
+  // presentation. This layer contains card and advisor menus, decks and settings.
+  if (state && ['card', 'deck', 'advdeck', 'advisor'].includes(modal)) {
     let node: Node | null = null;
     if (modal === 'card') node = legacyUI.Views.cardModal(state, actions);
     else if (modal === 'advdeck') node = legacyUI.Views.advisorDeckModal(state, actions);
+    else if (modal === 'advisor') node = legacyUI.Views.advisorModal(state, ui.advisor, actions);
     else if (modal === 'deck') node = legacyUI.Views.deckModal(state, ui, actions);
     else node = legacyUI.Views.modal('', '', [legacyUI.UI.EventBoard.render(state, actions)],
       [legacyUI.Core.h('button', { class: 'btn btn--primary', onclick: actions.closeEventBoard }, '关闭')],
@@ -95,6 +98,10 @@ export function ModalLayer() {
         {legacyToReact(legacyUI.Orn.icon('disk', 16), refresh, 'set-save-ic')}
         <span className="setbtn__n">{T('set.save')}</span>
       </button>
+      {state?.difficulty === 'sandbox' && !state.ending && <button className="setbtn" onClick={actions.openSandbox}>
+        {legacyToReact(legacyUI.Orn.icon('gear', 16), refresh, 'set-sandbox-ic')}
+        <span className="setbtn__n">{T('sandbox.title')}</span>
+      </button>}
       <button className="setbtn" onClick={actions.about}>
         {legacyToReact(legacyUI.Orn.icon('laurel', 16), refresh, 'set-about-ic')}
         <span className="setbtn__n">{T('set.about')}</span>

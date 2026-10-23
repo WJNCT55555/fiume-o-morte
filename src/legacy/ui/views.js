@@ -139,6 +139,10 @@
         ])
       ]));
       slots.push(h('div', { class: 'resbar__motto' }, [
+        st.difficulty === 'sandbox' ? h('button', {
+          class: 'evboard-btn sandbox-trigger', type: 'button', title: T('sandbox.title'),
+          onclick: act.openSandbox
+        }, [icon('gear', 13), T('sandbox.title')]) : null,
         h('button', {
           class: 'evboard-btn', title: T('set.open'),
           onclick: act.openSettings
@@ -316,14 +320,14 @@
       var body = h('div', { style: { padding: '8px 11px' } }, [
         h('div', { class: 'tiny dim2', style: { marginBottom: '6px' } },
           T('adv.seated', { a: st.advisors.active.length, b: 3 }) + ' · ' +
-          T('adv.cooldown', { n: Math.max(0, st.advisors.cooldown - (st.turn - st.advisors.lastAction)) }))
+          T('adv.cooldown', { n: Eng.advisorCooldown(st) / 2 }))
       ]);
       av.forEach(function (a) {
         var row = h('div', { class: 'adv' }, [
           avatar(assetUrl(a.portrait), a.zh.slice(0, 1)),
           h('div', { class: 'adv__b' }, [
             h('div', { class: 'adv__n' }, Core.L(a)),
-            h('div', { class: 'adv__x' }, a.bio),
+            h('div', { class: 'adv__x' }, Core.L(a.bio)),
             h('div', { class: 'adv__m' }, [
               h('span', { class: 'chip' }, [h('span', { class: 'swatch', style: { background: a.factionColor } }), Core.L({ zh: a.factionZh, it: a.factionIt })]),
               h('span', { class: 'chip ' + (a.dissent > 60 ? 'chip--bad' : a.dissent > 40 ? 'chip--warn' : '') }, T('adv.dissent', { n: a.dissent }))
@@ -332,9 +336,9 @@
               var btns = h('div', { class: 'row', style: { gap: '5px', marginTop: '3px' } });
               if (a.active) {
                 btns.appendChild(h('button', {
-                  class: 'btn btn--sm', disabled: a.cdLeft > 0 || st.ap < 1,
-                  onclick: function () { act.useAdvisor(a.id); }
-                }, a.cdLeft > 0 ? T('adv.cooling', { n: a.cdLeft }) : Core.L(a.action)));
+                  class: 'btn btn--sm',
+                  onclick: function () { act.openAdvisor(a.id); }
+                }, T('adv.menu')));
                 btns.appendChild(h('button', { class: 'btn btn--sm btn--ghost', onclick: function () { act.fireAdvisor(a.id); } }, T('btn.fire')));
               } else {
                 btns.appendChild(h('button', {
@@ -684,33 +688,33 @@
       for (var i = 0; i < 3; i++) {
         var a = seated[i];
         if (!a) {
-          row.appendChild(h('div', { class: 'advslot advslot--empty' }, [
-            h('div', { class: 'advslot__i' }, String(i + 1)),
+          row.appendChild(h('button', { class: 'advslot advslot--empty', type: 'button',
+            disabled: !pool.length, onclick: act.openAdvisorDeck }, [
+            h('div', { class: 'advslot__i' }, Core.roman(i + 1)),
             h('div', { class: 'advslot__e' }, T('adv.empty'))
           ]));
           continue;
         }
-        var canAct = a.cdLeft <= 0;
-        var card = h('div', { class: 'advslot advslot--full' });
-        card.appendChild(h('div', { class: 'advslot__top' }, [
-          avatar(assetUrl(a.portrait), a.zh.slice(0, 1)),
-          h('div', { class: 'advslot__hd' }, [
-            h('div', { class: 'advslot__n' }, Core.L(a)),
-            h('div', { class: 'advslot__f', style: { color: a.factionColor } },
-              Core.L({ zh: a.factionZh, it: a.factionIt }) + (a.external ? '' : ' · ' + T('adv.diss') + ' ' + a.dissent.toFixed(1)))
-          ])
+        var card = h('button', { class: 'advslot advslot--full', type: 'button',
+          'aria-label': Core.L(a) + ' · ' + T('adv.menu'), 'aria-haspopup': 'dialog',
+          onclick: act.openAdvisor.bind(null, a.id) });
+        var status = a.cdLeft > 0 ? T('adv.cooling', { n: a.cdLeft / 2 }) :
+          a.availableCount ? T('adv.ready', { n: a.availableCount }) : T('adv.unavailable');
+        card.appendChild(h('div', { class: 'advslot__portrait' + (a.portrait ? '' : ' is-placeholder') }, [
+          a.portrait
+            ? h('img', { src: assetUrl(a.portrait), alt: Core.L(a), loading: 'lazy' })
+            : h('span', { class: 'advslot__initial', 'aria-hidden': 'true' }, a.zh.slice(0, 1)),
+          h('span', { class: 'advslot__seat', 'aria-hidden': 'true' }, Core.roman(i + 1)),
+          h('span', { class: 'advslot__status' + (a.availableCount ? ' is-ready' : ''),
+            title: status, 'aria-label': status })
         ]));
-        card.appendChild(h('div', { class: 'advslot__bio' }, a.bio));
-        card.appendChild(h('div', { class: 'advslot__act' }, Core.L(a.action)));
-        card.appendChild(h('div', { class: 'row', style: { gap: '6px', marginTop: 'auto' } }, [
-          h('button', {
-            class: 'btn btn--sm flex1', disabled: !canAct,
-            onclick: function () { act.useAdvisor(a.id); }
-          }, canAct ? T('adv.act') : T('adv.wait', { n: a.cdLeft })),
-          h('button', {
-            class: 'btn btn--sm btn--ghost', title: T('adv.fire'),
-            onclick: function () { act.fireAdvisor(a.id); }
-          }, '✕')
+        card.appendChild(h('div', { class: 'advslot__caption' }, [
+          h('div', { class: 'advslot__n' }, Core.L(a)),
+          h('div', { class: 'advslot__f' }, [
+            h('span', { class: 'advslot__faction-mark', style: { background: a.factionColor }, 'aria-hidden': 'true' }),
+            h('span', {}, Core.L({ zh: a.factionZh, it: a.factionIt }))
+          ]),
+          h('span', { class: 'advslot__open', 'aria-hidden': 'true' }, Orn.decoArrow())
         ]));
         row.appendChild(card);
       }
@@ -730,7 +734,7 @@
       ]));
 
       return frame('', [
-        banner(T('adv.title'), T('adv.sub')),
+        banner(T('adv.title'), T('adv.sub') + ' · ' + T('adv.seated', { a: seated.length, b: 3 })),
         h('div', { style: { padding: '9px 11px' } }, row)
       ]);
     }
@@ -750,8 +754,9 @@
             avatar(assetUrl(a.portrait), a.zh.slice(0, 1)),
             h('div', { class: 'deckrow__b' }, [
               h('div', { class: 'deckrow__n' }, Core.L(a)),
-              h('div', { class: 'deckrow__t' }, a.bio),
-              h('div', { class: 'advslot__act' }, Core.L(a.action))
+              h('div', { class: 'deckrow__t' }, Core.L(a.bio)),
+              h('div', { class: 'advslot__act' }, T('adv.options', { n: a.optionCount }) + ' · ' +
+                a.actions.map(function (o) { return Core.L(o.text); }).join(' / '))
             ]),
             h('div', { class: 'deckrow__m' }, [
               h('span', { style: { color: a.factionColor } }, Core.L({ zh: a.factionZh, it: a.factionIt })),
@@ -767,6 +772,49 @@
           T('adv.seated', { a: st.advisors.active.length, b: 3 })),
         h('button', { class: 'btn btn--ghost', onclick: act.closeAdvisorDeck }, T('btn.back'))
       ], { cls: 'modal--wide', onScrim: act.closeAdvisorDeck });
+    };
+
+    V.advisorModal = function (st, advisorId, act) {
+      var a = Sel.advisorView(st, advisorId);
+      if (!a) return null;
+      var profile = h('div', { class: 'advisor-menu__profile' }, [
+        avatar(assetUrl(a.portrait), a.zh.slice(0, 1), 'advisor-menu__portrait'),
+        h('div', { class: 'advisor-menu__identity' }, [
+          h('div', { class: 'advisor-menu__faction', style: { color: a.factionColor } },
+            Core.L({ zh: a.factionZh, it: a.factionIt })),
+          a.external ? null : h('div', { class: 'advisor-menu__dissent' }, T('adv.dissent', { n: a.dissent.toFixed(1) })),
+          h('p', { class: 'advisor-menu__bio' }, Core.L(a.bio))
+        ])
+      ]);
+      var directives = h('div', { class: 'advisor-menu__directives' }, [
+        h('div', { class: 'advisor-menu__choicehead' }, [
+          h('strong', {}, T('adv.directives')),
+          h('span', {}, T('adv.cost'))
+        ]),
+        h('p', { class: 'advisor-menu__rule' }, T('adv.rule', { n: st.advisors.cooldown / 2 }))
+      ]);
+      a.actions.forEach(function (option, index) {
+        directives.appendChild(h('button', {
+          class: 'opt opt--advisor', disabled: !option.enabled,
+          onclick: function () { act.useAdvisor(a.id, option.id); }
+        }, [
+          h('div', { class: 'opt__h' }, [
+            h('span', { class: 'advisor-menu__number', 'aria-hidden': 'true' }, Core.roman(index + 1)),
+            h('span', { class: 'opt__n' }, Core.L(option.text)),
+            h('span', { class: 'opt__i' }, Core.L(option.subtitle))
+          ]),
+          option.preview.length ? h('div', { class: 'opt__p' }, option.preview.map(function (line) {
+            return h('span', { class: 'opt__pv' + (/−/.test(line) ? ' dn' : (/\+/.test(line) ? ' up' : '')) }, line);
+          })) : null,
+          option.reason ? h('div', { class: 'opt__lock' }, Core.L(option.reason)) : null
+        ]));
+      });
+      return V.modal(Core.L(a), T('adv.menu'), [
+        h('div', { class: 'advisor-menu' }, [profile, directives])
+      ], [
+        h('button', { class: 'btn btn--ghost advisor-menu__fire', onclick: function () { act.fireAdvisor(a.id); } }, T('adv.fire')),
+        h('button', { class: 'btn btn--primary', onclick: act.closeModal }, T('btn.back'))
+      ], { cls: 'modal--advisor', kicker: T('adv.menu'), onScrim: act.closeModal });
     };
 
     function tabAzioni(st, act) {
@@ -1138,7 +1186,7 @@
       var groups = [
         { label: 'dip.groups.neighbours', ids: ['italy', 'yugoslavia'] },
         { label: 'dip.groups.entente', ids: ['uk', 'france', 'usa', 'league'] },
-        { label: 'dip.groups.other', ids: ['hungary', 'vatican', 'soviet'] }
+        { label: 'dip.groups.other', ids: ['soviet'] }
       ];
       groups.forEach(function (group) {
         b.appendChild(h('div', { class: 'diplo-relations__group' }, [
@@ -1174,7 +1222,7 @@
       ]));
 
       var fb = h('div', { class: 'forze-relations' });
-      var frontMin = W.FORZA_FRONT_MIN == null ? 60 : W.FORZA_FRONT_MIN;
+      var frontMin = W.FORZA_FRONT_MIN == null ? 50 : W.FORZA_FRONT_MIN;
       fb.appendChild(h('div', { class: 'forze-relations__summary' }, [
         h('div', { class: 'forze-relations__heading' }, [
           h('div', {}, [h('strong', {}, T('dip.portico.title'))]),
@@ -1216,6 +1264,7 @@
             h('span', { class: 'forze-dossier__status' }, forceStatus(f))
           ]),
           h('p', {}, f.note),
+          h('div', { class: 'forze-dossier__men' }, T('dip.dossier.men', { n: f.men })),
           h('div', { class: 'forze-dossier__distance' }, [
             h('span', {}, f.atGate ? T('dip.dossier.allied') : T('dip.dossier.distance', { n: f.gate })),
             h('strong', {}, f.atGate ? T('dip.dossier.gate') : T('dip.dossier.gap', { n: (f.gate - f.value).toFixed(1) }))
@@ -1223,21 +1272,24 @@
         );
       }
       var portico = h('div', { class: 'forze-portico', 'aria-label': T('dip.portico.chart.aria') });
+      // The officer corps has its own gate. Its horizontal scale becomes the
+      // entablature above the political columns, with room for their readings.
+      if (forces.officer) portico.appendChild(officerEntablature(forces.officer));
+      var colonnade = h('div', { class: 'forze-portico__colonnade' });
       var guides = h('div', { class: 'forze-portico__guides', 'aria-hidden': 'true' });
-      [100, 80, frontMin, 0, -40].forEach(function (value) {
+      [100, 80, frontMin, 0].forEach(function (value) {
         guides.appendChild(h('div', { class: 'forze-portico__guide' +
           (value === 80 ? ' is-gate' : value === frontMin ? ' is-floor' : value === 0 ? ' is-zero' : ''),
-          style: { bottom: ((value + 40) / 140 * 100) + '%' } }, h('span', {}, String(value).replace('-', '−'))));
+          style: { bottom: value + '%' } }, h('span', {}, String(value))));
       });
-      portico.appendChild(guides);
+      colonnade.appendChild(guides);
       var columnGrid = h('div', { class: 'forze-portico__columns' });
       columnGrid.style.setProperty('--force-count', forces.front.length);
       forces.front.forEach(function (f, index) {
         var design = forceDesign[f.id];
-        var zero = 40 / 140 * 100;
-        var position = Core.clamp((f.value + 40) / 140 * 100, 0, 100);
+        var position = Core.clamp(f.value, 0, 100);
         var ticks = h('span', { class: 'forze-pillar__ticks', 'aria-hidden': 'true' });
-        for (var n = 1; n < 28; n++) ticks.appendChild(h('i', { style: { bottom: (n / 28 * 100) + '%' } }));
+        for (var n = 1; n < 20; n++) ticks.appendChild(h('i', { style: { bottom: (n * 5) + '%' } }));
         var pillar = h('button', {
           class: 'forze-pillar' + (f.atGate ? ' is-at-gate' : '') + (f.value < 0 ? ' is-negative' : ''), type: 'button',
           'data-force': f.id, 'aria-controls': 'forze-dossier', 'aria-pressed': 'false',
@@ -1263,10 +1315,10 @@
           h('span', { class: 'forze-pillar__monument' }, [
             h('span', { class: 'forze-pillar__capital', 'aria-hidden': 'true' }),
             h('span', { class: 'forze-pillar__shaft', role: 'meter', 'aria-label': T('dip.aria.state', { a: Core.L(f) }),
-              'aria-valuemin': '-40', 'aria-valuemax': '100', 'aria-valuenow': String(f.value),
+              'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(position),
               'aria-valuetext': T('dip.pillar.valuetext', { v: Core.signed(f.value, 1), s: forceStatus(f) }) }, [
               h('span', { class: 'forze-pillar__fill', 'aria-hidden': 'true',
-                style: { bottom: Math.min(zero, position) + '%', height: Math.abs(position - zero) + '%' } }), ticks
+                style: { bottom: '0%', height: position + '%' } }), ticks
             ]),
             h('span', { class: 'forze-pillar__base', 'aria-hidden': 'true' })
           ]),
@@ -1278,55 +1330,47 @@
         pillar.style.setProperty('--force-ink', design.color);
         pillars.push(pillar); columnGrid.appendChild(pillar);
       });
-      portico.appendChild(columnGrid); fb.appendChild(portico);
+      colonnade.appendChild(columnGrid); portico.appendChild(colonnade); fb.appendChild(portico);
       fb.appendChild(h('div', { class: 'forze-portico__legend' }, [
         h('span', {}, T('dip.legend.zero')), h('span', { class: 'is-floor' }, T('dip.legend.floor', { n: frontMin })),
         h('span', { class: 'is-gate' }, T('dip.legend.gate')), h('small', {}, T('dip.legend.click'))
       ]));
       fb.appendChild(dossier);
       if (selectedForce) selectForce(selectedForce);
-      if (!W.forzaExists(st, 'comunisti')) fb.appendChild(h('p', { class: 'forze-relations__pending' },
-        T('dip.portico.pending')));
 
-      function officerEntry(f) {
-        var zero = 40 / 140 * 100;
-        var position = Core.clamp((f.value + 40) / 140 * 100, 0, 100);
-        var gatePosition = (f.gate + 40) / 140 * 100;
-        var tone = f.value < 0 ? 'cold' : f.atGate ? 'warm' : 'neutral';
-        var entry = h('details', { class: 'relation-entry relation-entry--force relation-entry--' + tone });
-        entry.appendChild(h('summary', { class: 'relation-entry__summary' }, [
-          h('span', { class: 'relation-entry__head' }, [
-            h('span', { class: 'relation-entry__identity' }, [
-              h('i', { class: 'relation-entry__sigil', style: { background: f.color }, 'aria-hidden': 'true' }),
-              h('span', { class: 'relation-entry__names' }, [
-                h('strong', {}, Core.L(f))
-              ])
+      function officerEntablature(f) {
+        var position = Core.clamp(f.value, 0, 100);
+        var ticks = h('span', { class: 'forze-entablature__ticks', 'aria-hidden': 'true' });
+        for (var n = 1; n < 20; n++) ticks.appendChild(h('i', { style: { left: (n * 5) + '%' } }));
+        return h('div', { class: 'forze-entablature' + (f.atGate ? ' is-at-gate' : '') +
+          (f.value < 0 ? ' is-negative' : ''), 'data-force': f.id }, [
+          h('div', { class: 'forze-entablature__crown', 'aria-hidden': 'true' }),
+          h('div', { class: 'forze-entablature__frieze' }, [
+            h('div', { class: 'forze-entablature__inscription' }, [
+              h('small', {}, 'CORPO · UFFICIALI'),
+              h('span', {}, T('dip.officer.independent'))
             ]),
-            h('span', { class: 'relation-entry__reading' }, forceStatus(f)),
-            h('strong', { class: 'relation-entry__value num' },
-              (f.value > 0 ? '+' : '') + f.value.toFixed(1))
+            h('div', { class: 'forze-entablature__reading' }, [
+              h('strong', {}, Core.L(f)),
+              h('strong', { class: 'forze-entablature__value num' }, Core.signed(f.value, 1))
+            ]),
+            h('div', { class: 'forze-entablature__meta' }, [
+              h('span', {}, T('dip.officer.gate', { n: f.gate })),
+              h('span', { class: 'forze-entablature__status' }, forceStatus(f))
+            ])
           ]),
-          h('span', { class: 'relation-track relation-track--force', role: 'meter',
-            'aria-label': T('dip.aria.state', { a: Core.L(f) }), 'aria-valuemin': '-40', 'aria-valuemax': '100',
-            'aria-valuenow': String(f.value) }, [
-            h('i', { class: 'relation-track__zero', style: { left: zero + '%' }, 'aria-hidden': 'true' }),
-            h('i', { class: 'relation-track__gate', style: { left: gatePosition + '%' }, 'aria-hidden': 'true' }),
-            h('span', { class: 'relation-track__fill' + (f.value >= 0 ? '' : ' is-negative'),
-              style: { left: Math.min(zero, position) + '%', width: Math.abs(position - zero) + '%' } })
-          ])
-        ]));
-        entry.appendChild(h('div', { class: 'relation-entry__detail' }, [
-          h('p', {}, f.note),
-          h('span', {}, T('dip.officer.need', { n: f.gate }))
-        ]));
-        return entry;
+          h('div', { class: 'forze-entablature__track', role: 'meter',
+            'aria-label': T('dip.aria.state', { a: Core.L(f) }), 'aria-valuemin': '0', 'aria-valuemax': '100',
+            'aria-valuenow': String(position),
+            'aria-valuetext': T('dip.pillar.valuetext', { v: Core.signed(f.value, 1), s: forceStatus(f) }) }, [
+            h('span', { class: 'forze-entablature__fill', 'aria-hidden': 'true',
+              style: { left: '0%', width: position + '%' } }),
+            ticks,
+            h('i', { class: 'forze-entablature__gate', style: { left: f.gate + '%' }, 'aria-hidden': 'true' })
+          ]),
+          h('div', { class: 'forze-entablature__cornice', 'aria-hidden': 'true' })
+        ]);
       }
-      if (forces.officer) fb.appendChild(h('div', { class: 'forze-relations__officer' }, [
-        h('div', { class: 'forze-relations__officer-title' }, [
-          h('strong', {}, T('dip.officer.title')), h('span', {}, T('dip.officer.sub', { n: forces.officer.gate }))
-        ]),
-        officerEntry(forces.officer)
-      ]));
       col.appendChild(h('div', { class: 'diplo-relations-grid' }, [
         frame('diplo-column', [banner(T('dip.states'), T('dip.states.sub')), b]),
         frame('diplo-column', [banner(T('dip.forces'), T('dip.forces.sub')), fb])
@@ -1623,11 +1667,14 @@
       var milestones = h('div', { class: 'crisis-axis__milestones' });
       defs.forEach(function (m) {
         var has = passed.indexOf(m.id) >= 0;
-        milestones.appendChild(h('div', { class: 'crisis-axis__milestone' + (has ? ' is-passed' : ''), 'data-milestone': m.id }, [
+        var ev = m.event ? Eng.EVENT_BY_ID[m.event] : null;
+        milestones.appendChild(h('div', { class: 'crisis-axis__milestone' + (has ? ' is-passed' : ''), 'data-milestone': m.id,
+          title: ev ? Core.L(ev.title) : '' }, [
           h('span', { class: 'crisis-axis__threshold' }, String(m.at)),
           h('div', { class: 'crisis-axis__milestone-copy' }, [
             h('span', { class: 'crisis-axis__milestone-name' }, Core.L(m)),
-            h('span', { class: 'crisis-axis__milestone-status' }, T(has ? 'cri.milestone.hit' : 'cri.milestone.miss'))
+            h('span', { class: 'crisis-axis__milestone-status' }, T(has ? 'cri.milestone.hit' : 'cri.milestone.miss')),
+            ev ? h('span', { class: 'crisis-axis__milestone-event' }, T('cri.milestone.event')) : null
           ])
         ]));
       });

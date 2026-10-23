@@ -318,7 +318,7 @@
        are already being carried. */
     S.forze = function (st) {
       var z = st.forze || {};
-      var frontMin = W.FORZA_FRONT_MIN == null ? 60 : W.FORZA_FRONT_MIN;
+      var frontMin = W.FORZA_FRONT_MIN == null ? 50 : W.FORZA_FRONT_MIN;
       var list = W.FORZE.filter(function (f) { return W.forzaExists(st, f.id); }).map(function (f) {
         var v = Core.round1(z[f.id] == null ? f.init : z[f.id]);
         var gate = f.gate == null ? 80 : f.gate;
@@ -327,7 +327,7 @@
            Chinese in every locale. */
         return { id: f.id, zh: f.zh, it: f.it, color: f.color,
           note: Core.L({ zh: f.note || '', it: f.noteIt || f.note || '' }),
-          value: v, allied: !!f.allied, gate: gate,
+          value: v, allied: !!f.allied, gate: gate, men: f.men || 0,
           atGate: v >= gate, consolidating: !!f.allied && v >= frontMin };
       });
       var front = list.filter(function (x) { return x.allied; });
@@ -470,12 +470,15 @@
       return W.ADVISORS.map(function (a) {
         var unlocked = a.require ? a.require(st) : true;
         var f = a.faction ? W.FACTIONS.filter(function (x) { return x.id === a.faction; })[0] : null;
-        var cdLeft = Math.max(0, st.advisors.cooldown - (st.turn - st.advisors.lastAction));
+        var cdLeft = Eng.advisorCooldown(st);
         var dis = (f && st.factions[f.id]) ? Core.round1(st.factions[f.id].dis) : 0;
         /* `portrait` has to travel with the advisor: the roster, the seat row and
            the deck all render it, and dropping it here silently reduced every
            advisor to a lettered placeholder. */
-        return { id: a.id, zh: a.zh, it: a.it, bio: a.bio, action: a.action,
+        var options = Eng.advisorOptions(st, a);
+        return { id: a.id, zh: a.zh, it: a.it, bio: a.bio,
+          actions: options, optionCount: options.length,
+          availableCount: options.filter(function (o) { return o.enabled; }).length,
           portrait: a.portrait || '',
           faction: a.faction, external: !a.faction,
           factionZh: f ? f.zh : '外部盟友', factionIt: f ? f.it : 'Alleati esterni',
@@ -695,6 +698,9 @@
       martyred: { zh: '殉难', it: 'Martirio' },
       marcia_1920: { zh: '向罗马进军', it: 'Marcia su Roma' },
       marcia_1920_failed: { zh: '进军罗马失败', it: 'Marcia su Roma fallita' },
+      marcia_1920_win: { zh: '进军罗马 · 荣冠', it: 'Marcia su Roma: il lauro' },
+      marcia_1920_fail: { zh: '进军罗马 · 失败', it: 'Marcia su Roma fallita' },
+      marcia_1920_overtaken: { zh: '被 1922 年进军罗马取代', it: 'Superata dalla marcia su Roma del 1922' },
       refused_march: { zh: '拒绝进军', it: 'Marcia rifiutata' },
       gramsci_front: { zh: '葛兰西加入阵线', it: 'Gramsci entra nel fronte' },
       malatesta_front: { zh: '马拉泰斯塔加入阵线', it: 'Malatesta entra nel fronte' },
@@ -731,12 +737,12 @@
       // The callback may read or alter its argument. Never give it the live state.
       return (typeof option.effect === 'function' ? option.effect(Core.deepClone(state)) : option.effect) || {};
     }
-    S.optionEffectPreview = function (st, type, option, enabled) {
+    S.optionEffectPreview = function (st, type, option, enabled, context) {
       if (!enabled) return [];
       try {
         var source = Core.deepClone(st);
         var patch = previewEffectPatch(option, source);
-        var result = Eng.dispatch(source, { type: type, optionId: option.id });
+        var result = Eng.dispatch(source, Object.assign({}, context, { type: type, optionId: option.id }));
         if (result.toast && result.toast.kind === 'warn') return [Core.L(PL.unavailable)];
         var after = result.state;
         var lines = [];
@@ -874,6 +880,17 @@
       } catch (e) {
         return [Core.L(PL.unavailable)];
       }
+    };
+
+    S.advisorView = function (st, advisorId) {
+      var advisor = W.ADVISORS.filter(function (a) { return a.id === advisorId; })[0];
+      var view = S.advisors(st).filter(function (a) { return a.id === advisorId && a.active; })[0];
+      if (!advisor || !view) return null;
+      view.actions.forEach(function (option) {
+        var authored = advisor.actions.filter(function (o) { return o.id === option.id; })[0];
+        option.preview = S.optionEffectPreview(st, 'USE_ADVISOR', authored, option.enabled, { advisorId: advisorId });
+      });
+      return view;
     };
 
     /* Card choice menu (multi-option cards) */

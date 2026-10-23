@@ -205,11 +205,15 @@ class CDP {
     // 2. 开始游戏
     await evalJs(`(() => { const b=[...document.querySelectorAll('.btn')].find(x=>x.textContent.includes('接受指挥')); if(b) b.click(); return !!b; })()`);
     await sleep(900);
+    await evalJs(`document.querySelector('.super-event__button')?.click()`);
+    await sleep(120);
     await shot('02a-event.png');
     // 处理初始事件：先关事件看板，再选第一个可用项
     let evCount = 0;
     for (let i = 0; i < 8; i++) {
       const ok = await evalJs(`(() => {
+        const major=document.querySelector('.super-event__button');
+        if(major){major.click();return 'acknowledge';}
         const m = document.querySelector('.scrim.show .modal');
         if (!m) return false;
         // 事件看板 → 点第一条待决事件
@@ -228,6 +232,8 @@ class CDP {
       await sleep(650);
     }
     console.log('已解决初始事件数:', evCount);
+    await evalJs(`document.querySelector('.super-event__button')?.click()`);
+    await sleep(120);
     await shot('02-game.png');
 
     const g1 = await evalJs(`(() => {
@@ -317,6 +323,138 @@ class CDP {
     await evalJs(`document.querySelector('#effect-card-fixture')?.remove()`);
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
 
+    // Exercise the advisor flow through React, including store updates and
+    // callbacks on all three seats. Restore the original test save afterward.
+    const advisorProblemsStart = problems.length;
+    await evalJs(`(() => {
+      const F=window.Fiume;
+      F.Sel.Save.save(F.Sel.Save.load('auto'),4);
+      const s=F.Engine.createState('1919-09','historical',7);
+      s.currentEvent=null; s.phase='action'; s.ap=2; s.arms=0;
+      s.advisors.active=['keller','carli','grossich'];
+      F.Sel.Save.save(s,'auto');
+    })()`);
+    async function resumeAdvisorFixture() {
+      await cdp.send('Page.reload');
+      await sleep(700);
+      for (let attempt=0; attempt<30; attempt++) {
+        const resumed=await evalJs(`(() => {
+          const b=[...document.querySelectorAll('.scrim.show button')].find(b=>b.textContent.trim()==='继续');
+          if(!b) return false; b.click(); return true;
+        })()`);
+        if(resumed) { await sleep(180); return; }
+        await sleep(150);
+      }
+      throw new Error('Advisor fixture resume dialog did not appear');
+    }
+    await resumeAdvisorFixture();
+    for (const width of [1680, 1280, 960, 390]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1100,deviceScaleFactor:1,mobile:false});
+      await evalJs(`document.querySelector('.advslots').scrollIntoView({block:'center'})`);
+      await sleep(220);
+      const advisorCards=await evalJs(`(() => {
+        const cards=[...document.querySelectorAll('.advslot--full')];
+        const frame=document.querySelector('.advslots').closest('.frame'),r=frame.getBoundingClientRect();
+        return {cards:cards.map(card=>{
+          const portrait=card.querySelector('.advslot__portrait'),img=portrait.querySelector('img');
+          return {name:card.querySelector('.advslot__n')?.textContent,faction:card.querySelector('.advslot__f')?.textContent,
+            portraitShare:portrait.getBoundingClientRect().height/card.getBoundingClientRect().height,
+            loaded:img?.complete&&img.naturalWidth>0,biography:!!card.querySelector('.advslot__bio'),
+            clipped:card.scrollWidth>card.clientWidth+2};
+        }),clip:{x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:1},
+          overflow:document.documentElement.scrollWidth>innerWidth+2};
+      })()`);
+      console.log('顾问卡片 '+width+'px:',JSON.stringify(advisorCards.cards));
+      if(advisorCards.cards.length!==3||advisorCards.overflow||advisorCards.cards.some(c=>!c.name||!c.faction||!c.loaded||c.biography||c.clipped||c.portraitShare<.6))
+        problems.push('ADVISORS: '+width+'px portrait cards must show readable names/factions, prominent images and no inline biography');
+      await shot('02h-advisor-cards-'+width+'.png',advisorCards.clip);
+    }
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:1680,height:1100,deviceScaleFactor:1,mobile:false});
+    await evalJs(`(() => {const F=window.Fiume,s=F.Sel.Save.load('auto');s.advisors.active=['keller','carli','micheletti'];F.Sel.Save.save(s,'auto');})()`);
+    await resumeAdvisorFixture();
+    await evalJs(`document.querySelectorAll('.advslot--full')[0].click()`);
+    await sleep(160);
+    const advisorOpen=await evalJs(`(() => {
+      const F=window.Fiume,s=F.Sel.Save.load('auto'),m=document.querySelector('.modal--advisor');
+      return {title:m?.querySelector('.modal__ttl').textContent,count:m?.querySelectorAll('.opt--advisor').length,
+        ap:s.ap,last:s.advisors.lastAction,focus:document.activeElement?.className};
+    })()`);
+    if(advisorOpen.title!=='圭多·凯勒'||advisorOpen.count!==3||advisorOpen.ap!==2||advisorOpen.last!==-99||!advisorOpen.focus.includes('opt'))
+      problems.push('ADVISORS: opening a seat must show its menu and focus a choice without spending AP');
+    const advisorPointer=await evalJs(`(() => { const r=document.querySelector('.opt--advisor').getBoundingClientRect(); return {x:r.left+70,y:r.top+r.height/2}; })()`);
+    await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...advisorPointer});
+    await sleep(100);
+    const advisorPreview=await evalJs(`(() => { const e=document.querySelector('.effect-float'); return getComputedStyle(e).display!=='none'&&e.textContent.includes('行动力 −1'); })()`);
+    if(!advisorPreview) problems.push('ADVISORS: pointer hover must show the selected directive’s effects');
+    await shot('02e-advisor-hover.png');
+    await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:1,y:1});
+    await shot('02e-advisor-menu.png');
+    await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+    await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});
+    await sleep(130);
+    if(await evalJs(`!!document.querySelector('.modal--advisor')`)) problems.push('ADVISORS: Escape must close the menu');
+    await evalJs(`document.querySelectorAll('.advslot--full')[1].click()`);
+    await sleep(130);
+    const secondAdvisor=await evalJs(`document.querySelector('.modal--advisor .modal__ttl')?.textContent`);
+    if(secondAdvisor!=='马里奥·卡利') problems.push('ADVISORS: the second seat opens the wrong advisor');
+    await evalJs(`document.querySelector('.modal--advisor .modal__ft .btn--primary').click()`);
+    await sleep(100);
+    await evalJs(`document.querySelectorAll('.advslot--full')[2].click()`);
+    await sleep(130);
+    const militaryMenu=await evalJs(`(() => { const m=document.querySelector('.modal--advisor'),o=m.querySelectorAll('.opt--advisor');
+      return {title:m.querySelector('.modal__ttl').textContent,count:o.length,locked:o[0].disabled,reason:o[0].querySelector('.opt__lock')?.textContent,other:o[1].disabled}; })()`);
+    if(militaryMenu.title!=='彼得罗·米凯莱蒂'||militaryMenu.count!==2||!militaryMenu.locked||!militaryMenu.reason?.includes('6')||militaryMenu.other)
+      problems.push('ADVISORS: the military advisor must show an arms requirement without blocking his other directive');
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:900,deviceScaleFactor:1,mobile:false});
+    await sleep(160);
+    const advisorMobile=await evalJs(`(() => { const m=document.querySelector('.modal--advisor'),r=m.getBoundingClientRect();
+      return {left:r.left,right:r.right,overflow:m.scrollWidth>m.clientWidth+2||m.querySelector('.modal__bd').scrollWidth>m.querySelector('.modal__bd').clientWidth+2}; })()`);
+    if(advisorMobile.left<0||advisorMobile.right>392||advisorMobile.overflow) problems.push('ADVISORS: 390px menu has horizontal overflow');
+    await shot('02f-advisor-mobile.png');
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:1680,height:1100,deviceScaleFactor:1,mobile:false});
+    await evalJs(`document.querySelector('.modal--advisor .modal__ft .btn--primary').click()`);
+    await sleep(100);
+    await evalJs(`document.querySelectorAll('.advslot--full')[0].click()`);
+    await sleep(100);
+    await evalJs(`document.querySelectorAll('.modal--advisor .opt--advisor')[1].click()`);
+    await sleep(160);
+    const advisorUsed=await evalJs(`(() => {const s=window.Fiume.Sel.Save.load('auto'); return {ap:s.ap,last:s.advisors.lastAction,log:s.log.at(-1).zh,closed:!document.querySelector('.modal--advisor')};})()`);
+    if(advisorUsed.ap!==1||advisorUsed.last!==0||advisorUsed.log!=='圭多·凯勒：侦察封锁线'||!advisorUsed.closed)
+      problems.push('ADVISORS: selecting a directive must execute that choice, spend 1 AP and close the menu');
+    await evalJs(`document.querySelectorAll('.advslot--full')[1].click()`);
+    await sleep(100);
+    const sharedCooldown=await evalJs(`(() => {const m=document.querySelector('.modal--advisor'); return [...m.querySelectorAll('.opt--advisor')].every(o=>o.disabled&&o.querySelector('.opt__lock')?.textContent.includes('3 个月'));})()`);
+    if(!sharedCooldown) problems.push('ADVISORS: cooling advisors must remain inspectable and show the shared cooldown');
+    await shot('02g-advisor-cooldown.png');
+    await evalJs(`document.querySelector('.advisor-menu__fire').click()`);
+    await sleep(120);
+    const advisorFired=await evalJs(`(() => {const s=window.Fiume.Sel.Save.load('auto');return !s.advisors.active.includes('carli')&&s.advisors.lastAction===0&&document.querySelectorAll('.advslot--empty').length===1&&!document.querySelector('.modal--advisor');})()`);
+    if(!advisorFired) problems.push('ADVISORS: dismissal must free the seat without resetting cooldown');
+    await evalJs(`document.querySelector('.advslot--empty').click()`);
+    await sleep(100);
+    const emptyOpensPool=await evalJs(`!!document.querySelector('.scrim.show .deckrow')`);
+    if(!emptyOpensPool) problems.push('ADVISORS: an empty seat must open the advisor pool');
+    await evalJs(`(() => {const F=window.Fiume,s=F.Sel.Save.load('auto');s.advisors.active=['blasich'];F.Sel.Save.save(s,'auto');})()`);
+    await resumeAdvisorFixture();
+    await evalJs(`document.querySelector('.advslot--full').click()`);
+    await sleep(100);
+    if(await evalJs(`document.querySelectorAll('.modal--advisor .opt--advisor').length!==1`)) problems.push('ADVISORS: a single directive must still open a menu');
+    await evalJs(`(() => {const F=window.Fiume;F.Sel.Save.save(F.Sel.Save.load(4),'auto');})()`);
+    await resumeAdvisorFixture();
+
+    console.log('顾问专项:', problems.length === advisorProblemsStart ? '菜单、选择执行、AP、共享冷却、军备条件、免职与 390px 布局全部通过 ✓' : problems.slice(advisorProblemsStart));
+    if (process.env.FIUME_VERIFY_ADVISORS_ONLY) {
+      const advisorProblems = [...new Set([
+        ...problems.slice(advisorProblemsStart),
+        ...problems.filter(p => /^(EXCEPTION:|CONSOLE\.|LOG:)/.test(p)),
+      ])];
+      advisorProblems.forEach(p => console.error(p));
+      console.log('顾问截图目录: ' + OUT);
+      cdp.close();
+      process.exitCode = advisorProblems.length ? 1 : 0;
+      return;
+    }
+
     for (const width of [1280, 960, 390]) {
       await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: false });
       await sleep(600);
@@ -367,11 +505,17 @@ class CDP {
           movements: document.querySelectorAll('.forze-pillar').length,
           postures: document.querySelectorAll('.diplo-posture').length,
           meters: document.querySelectorAll('.diplo-dossier [role="meter"]').length,
+          officer: document.querySelector('.forze-entablature [role="meter"]')?.getAttribute('aria-valuenow'),
+          oldOfficer: document.querySelectorAll('.forze-relations__officer').length,
+          beamAbove: (()=>{const beam=document.querySelector('.forze-entablature'),
+            head=document.querySelector('.forze-pillar__head');
+            return beam && head && head.getBoundingClientRect().top-beam.getBoundingClientRect().bottom>=15;})(),
           selected: document.querySelectorAll('.forze-pillar[aria-pressed="true"]').length,
           current: document.querySelectorAll('.diplo-posture[aria-pressed="true"]').length
         }))()`);
         if (diplomacy.countries !== 9 || diplomacy.movements !== 5 || diplomacy.postures !== 4 ||
-          diplomacy.meters !== 15 || diplomacy.current !== 1 || diplomacy.selected !== 1)
+          diplomacy.meters !== 15 || diplomacy.current !== 1 || diplomacy.selected !== 1 ||
+          diplomacy.officer !== '22' || diplomacy.oldOfficer !== 0 || !diplomacy.beamAbove)
           problems.push('外交关系分组、政治力量刻度或姿态未完整显示');
         await evalJs(`document.querySelector('.forze-pillar[data-force="sindacalisti"]').click()`);
         await sleep(120); // React applies the UI-only selection on the next render.
@@ -385,6 +529,9 @@ class CDP {
             !pillarSelection.distance?.includes('还差')) problems.push('政治力量柱子的详情选择错误');
         await evalJs(`scrollTo(0,0)`);
         await shot('03-tab-diplomazia-pillars.png');
+        const porticoClip = await evalJs(`(() => {const r=document.querySelector('.forze-relations').getBoundingClientRect();
+          return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:1};})()`);
+        await shot('03-diplomazia-entablature.png',porticoClip);
         await evalJs(`document.querySelector('.forze-pillar[data-force="sindacalisti"]').focus()`);
         await cdp.send('Input.dispatchKeyEvent', {type:'keyDown',key:'ArrowLeft',code:'ArrowLeft'});
         await cdp.send('Input.dispatchKeyEvent', {type:'keyUp',key:'ArrowLeft',code:'ArrowLeft'});
@@ -400,44 +547,55 @@ class CDP {
           return { gridRight:grid.right, postureRight:posture.right,
             porticoRight:document.querySelector('.forze-portico').getBoundingClientRect().right,
             pillarsFit:[...document.querySelectorAll('.forze-pillar')].every(p=>p.scrollWidth<=p.clientWidth+2),
+            // Check the frame and its text-bearing panels at mobile widths.
+            beamFits:[...document.querySelectorAll('.forze-entablature,.forze-entablature__frieze,.forze-entablature__reading,.forze-entablature__inscription,.forze-entablature__meta')].every(p=>p.scrollWidth<=p.clientWidth+2),
             gridColumns:getComputedStyle(document.querySelector('.diplo-relations-grid')).gridTemplateColumns.split(' ').length,
             postureColumns:getComputedStyle(document.querySelector('.diplo-postures__grid')).gridTemplateColumns.split(' ').length };
         })()`);
         if (diplomacyMobile.gridRight > 392 || diplomacyMobile.postureRight > 392 ||
           diplomacyMobile.gridColumns !== 1 || diplomacyMobile.postureColumns !== 1 ||
-          diplomacyMobile.porticoRight > 392 || !diplomacyMobile.pillarsFit)
+          diplomacyMobile.porticoRight > 392 || !diplomacyMobile.pillarsFit || !diplomacyMobile.beamFits)
           problems.push('390px 外交关系或外交姿态布局溢出');
         await evalJs(`document.querySelector('.diplo-dossier')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
         await shot('03-tab-diplomazia-390.png');
-        // The founded communist movement, zero, both endpoints, and gate values
-        // must share one scale without changing the underlying game state.
+        // The visible scale starts at zero; a negative relationship keeps its
+        // signed reading and an empty shaft without changing the game state.
         const pillarEdges = await evalJs(`(() => {
           const F=window.Fiume,s=F.Engine.createState('1919-09','historical',37);
           s.flags.comintern_door=true;
-          Object.assign(s.forze,{fascisti:80,socialisti:-40,anarchici:0,comunisti:100,corradini:60,sindacalisti:79.5});
+          Object.assign(s.forze,{fascisti:80,socialisti:-40,anarchici:0,comunisti:100,corradini:60,sindacalisti:79.5,forzearmate:60});
           const before=JSON.stringify(s),original=document.querySelector('.diplo-dossier');
           const node=F.Views.game(s,{tab:'diplomazia'},{}).querySelector('.diplo-dossier');
           window.__forzeOriginal=original; original.replaceWith(node);
           const read=id=>{const p=node.querySelector('.forze-pillar[data-force="'+id+'"]');
             return {value:p.querySelector('[role="meter"]').getAttribute('aria-valuenow'),
+              reading:p.querySelector('.forze-pillar__head strong').textContent,
               height:parseFloat(p.querySelector('.forze-pillar__fill').style.height),
               bottom:parseFloat(p.querySelector('.forze-pillar__fill').style.bottom)};};
           const first=node.querySelector('.forze-pillar');first.focus();
           first.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
           return {count:node.querySelectorAll('.forze-pillar').length,negative:read('socialisti'),zero:read('anarchici'),
             maximum:read('comunisti'),atGate:node.querySelectorAll('.forze-pillar.is-at-gate').length,
+            officer:{gate:node.querySelector('.forze-entablature').classList.contains('is-at-gate'),
+              value:node.querySelector('.forze-entablature [role="meter"]').getAttribute('aria-valuenow'),
+              width:parseFloat(node.querySelector('.forze-entablature__fill').style.width)},
             keyboard:node.querySelector('.forze-pillar[aria-pressed="true"]')?.getAttribute('data-force'),
             unchanged:JSON.stringify(s)===before,
             fits:[...node.querySelectorAll('.forze-pillar')].every(p=>p.scrollWidth<=p.clientWidth+2)};
         })()`);
         console.log('政治力量柱图边界:',JSON.stringify(pillarEdges));
-        if (pillarEdges.count !== 6 || pillarEdges.negative.value !== '-40' ||
-          Math.abs(pillarEdges.negative.height - 28.5714) > .01 || pillarEdges.negative.bottom !== 0 ||
-          pillarEdges.zero.height !== 0 || Math.abs(pillarEdges.maximum.height - 71.4286) > .01 ||
-          pillarEdges.atGate !== 2 || pillarEdges.keyboard !== 'socialisti' || !pillarEdges.unchanged || !pillarEdges.fits)
+        if (pillarEdges.count !== 6 || pillarEdges.negative.value !== '0' || pillarEdges.negative.reading !== '−40.0' ||
+          pillarEdges.negative.height !== 0 || pillarEdges.negative.bottom !== 0 ||
+          pillarEdges.zero.height !== 0 || pillarEdges.maximum.height !== 100 ||
+          pillarEdges.atGate !== 2 || !pillarEdges.officer.gate || pillarEdges.officer.value !== '60' ||
+          pillarEdges.officer.width!==60 ||
+          pillarEdges.keyboard !== 'socialisti' || !pillarEdges.unchanged || !pillarEdges.fits)
           problems.push('政治力量柱图的负值、零点、达标线、键盘选择或六派布局错误');
         await evalJs(`document.querySelector('.forze-relations')?.scrollIntoView({block:'start',behavior:'instant'})`);
         await shot('03-tab-diplomazia-six-390.png');
+        const porticoMobileClip = await evalJs(`(() => {const r=document.querySelector('.forze-relations').getBoundingClientRect();
+          return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:1};})()`);
+        await shot('03-diplomazia-entablature-390.png',porticoMobileClip);
         await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1100, deviceScaleFactor: 1, mobile: false });
         await evalJs(`scrollTo(0,0)`);
         await sleep(150);

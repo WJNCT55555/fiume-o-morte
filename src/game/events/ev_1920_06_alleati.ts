@@ -3,15 +3,16 @@ import type { GameEvent } from '../content/types';
 
 export const ev192006Alleati: GameEvent = {
     id: 'ev_1920_06_alleati', date: { y: 1920, m: 6 },
-    title: { zh: '六月：三个人的委员会', it: 'Giugno: una commissione di tre uomini' },
-    body: { zh: '英、法、美三国的代表来到阜姆，调查去年七月军团兵与法军安南兵冲突的责任。' +
+    crisis: { axis: 'coup', at: 50 },
+    title: { zh: '三个人的委员会', it: 'Una commissione di tre uomini' },
+    body: { zh: '英、法、美三国的代表来到阜姆，调查一九一九年七月军团兵与法军安南兵冲突的责任。' +
         '他们的报告建议解散「阜姆军团」，并把意大利驻军减少到一个营。\n\n' +
         '同一批人私下里跟你说的是另一件事：如果这座城市能证明它是一个能维持秩序的地方，' +
         '而不是一个需要被拯救的混乱地区，那么有些方案就会重新回到桌面上。\n\n' +
-        '他们指的是威尔逊总统去年提过的那个方案：把阜姆变成一个独立国家，甚至是国联的所在地。',
-      it: 'I rappresentanti di Gran Bretagna, Francia e Stati Uniti arrivano a Fiume per indagare sulle responsabilità degli scontri del luglio scorso fra legionari e truppe francesi. La loro relazione raccomanda lo scioglimento della Legione Fiumana e la riduzione del presidio italiano a un battaglione.\n\n' +
+        '他们指的是威尔逊总统一九一九年提过的那个方案：把阜姆变成一个独立国家，甚至是国联的所在地。',
+      it: 'I rappresentanti di Gran Bretagna, Francia e Stati Uniti arrivano a Fiume per indagare sulle responsabilità degli scontri del luglio 1919 fra legionari e truppe francesi. La loro relazione raccomanda lo scioglimento della Legione Fiumana e la riduzione del presidio italiano a un battaglione.\n\n' +
         'In privato ti dicono un\'altra cosa: se questa città dimostra di essere un luogo capace di mantenere l\'ordine, e non una regione in disordine da salvare, allora certe soluzioni tornano sul tavolo.\n\n' +
-        'Alludono al progetto che il presidente Wilson avanzò l\'anno scorso: fare di Fiume uno Stato indipendente, persino la sede della Società delle Nazioni.' },
+        'Alludono al progetto che il presidente Wilson avanzò nel 1919: fare di Fiume uno Stato indipendente, persino la sede della Società delle Nazioni.' },
     options: [
       {
         id: 'a', text: { zh: '配合调查。让军团兵表现得像一支军队。', it: 'Collaborare. Che i legionari si comportino come un esercito.' },

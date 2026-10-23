@@ -290,8 +290,6 @@
     { id: 'france',     zh: '法国',         it: 'Francia',          init: 38, color: '#2F6FA8' },
     { id: 'usa',        zh: '美国',         it: 'Stati Uniti',      init: 34, color: '#A0522D' },
     { id: 'league',     zh: '国际联盟',     it: 'Società delle Nazioni', init: 36, color: '#4A7C7E' },
-    { id: 'hungary',    zh: '匈牙利',       it: 'Regno d\'Ungheria', init: 34, color: '#6E8B3D' },
-    { id: 'vatican',    zh: '教廷',         it: 'Santa Sede',       init: 30, color: '#C9A227' },
     /* The keys in `state.diplo` are the ids here. Cards have been writing
        `diplo: { soviet: ... }` all along while this row was still called
        `comintern`, which worked only because nothing read it by name — the list
@@ -399,28 +397,31 @@
      Livorno, Malatesta is in and out of prison throughout). The event that opens
      each approach is still a meeting with a person. */
   W.FORZE = [
-    { id: 'fascisti',   zh: '意大利法西斯党', it: 'Partito Nazionale Fascista', init: 38, color: '#8F4124', allied: true, gate: 80,
+    { id: 'fascisti',   zh: '意大利法西斯党', it: 'Partito Nazionale Fascista', init: 38, color: '#8F4124', allied: true, gate: 80, men: 12000,
       note: '法西斯战斗团。已经在向右转，把阜姆当成障碍而不是跳板。',
       noteIt: 'I Fasci di combattimento. Girano già a destra: Fiume è per loro un ostacolo, non un trampolino.' },
-    { id: 'socialisti', zh: '意大利社会党',   it: 'Partito Socialista',   init: 32, color: '#B0202F', allied: true, gate: 80,
+    { id: 'socialisti', zh: '意大利社会党',   it: 'Partito Socialista',   init: 32, color: '#B0202F', allied: true, gate: 80, men: 18000,
       note: '最高纲领派主流。1921 年 1 月里窝那分裂之前，这是意大利最大的党。',
       noteIt: 'La corrente massimalista. Prima della scissione di Livorno, nel gennaio 1921, è il primo partito d\'Italia.' },
-    { id: 'anarchici',  zh: '意大利无政府主义者', it: 'Anarchici italiani', init: 30, color: '#070000', allied: true, gate: 80,
+    { id: 'anarchici',  zh: '意大利无政府主义者', it: 'Anarchici italiani', init: 30, color: '#070000', allied: true, gate: 80, men: 6000,
       note: '马拉泰斯塔的《新人类》网络。1920 年一度接近阜姆，看到「最坏的敌人倾向」占上风就走。',
       noteIt: 'La rete di «Umanità Nova» attorno a Malatesta. Nel 1920 si avvicina a Fiume, poi se ne allontana quando vede prevalere «le peggiori tendenze nemiche».' },
-    { id: 'comunisti',  zh: '意大利共产党',   it: 'Partito Comunista',    init: 24, color: '#A31621', allied: true, gate: 80,
+    { id: 'comunisti',  zh: '意大利共产党',   it: 'Partito Comunista',    init: 24, color: '#A31621', allied: true, gate: 80, men: 8000,
       note: '《新秩序报》一翼。1921 年 1 月自社会党分裂而出，把阜姆斥为小资产阶级的煽情民族主义。',
       noteIt: 'L\'ala dell\'«Ordine Nuovo». Nasce dalla scissione del gennaio 1921 e bolla Fiume come nazionalismo piccolo-borghese e melodrammatico.' },
-    { id: 'corradini',  zh: '意大利民族主义协会', it: 'Associazione Nazionalista Italiana', init: 34, color: '#b58e0d', allied: true, gate: 80,
+    { id: 'corradini',  zh: '意大利民族主义协会', it: 'Associazione Nazionalista Italiana', init: 34, color: '#b58e0d', allied: true, gate: 80, men: 10000,
       note: '科拉迪尼的协会。要的是一个由「最优秀者」统治的意大利——而阜姆正在演那一幕。',
       noteIt: 'L\'associazione di Corradini. Vuole un\'Italia governata dai «migliori», e a Fiume quella scena è già in corso.' },
-    { id: 'sindacalisti', zh: '意大利革命工团主义者', it: 'Sindacalisti rivoluzionari italiani', init: 30, color: '#a02c06', allied: true, gate: 80,
+    { id: 'sindacalisti', zh: '意大利革命工团主义者', it: 'Sindacalisti rivoluzionari italiani', init: 30, color: '#a02c06', allied: true, gate: 80, men: 14000,
       note: '德·安布里斯在意大利的工会与革命工团主义网络。',
       noteIt: 'La rete di sindacati e di sindacalismo rivoluzionario di De Ambris in Italia.' },
-    { id: 'forzearmate', zh: '意大利军官团', it: 'Corpo ufficiale italiano', init: 22, color: '#6B4E9E', allied: false, gate: 60,
-      note: 'Ronchi 的先例：1919 年 9 月，掷弹兵请邓南遮带头，正规军没能拦住他。',
-      noteIt: 'Il precedente di Ronchi: nel settembre 1919 i granatieri chiesero a D\'Annunzio di guidarli e l\'esercito non riuscì a fermarlo.' }
+    { id: 'forzearmate', zh: '意大利军官团', it: 'Corpo ufficiale italiano', init: 22, color: '#6B4E9E', allied: false, gate: 60 }
   ];
+  /* `men` is how many men each movement can actually put on the road in 1920 —
+     not its membership. These are design values, tuned so the mass organisations
+     (the PSI, the syndicalist unions, the fasci) are worth more than the fringe
+     groups in the final headcount. They live here, not in the event, so the
+     epilogue's tally, the ending and the docs read the same figures. */
   W.FORZA_BY_ID = {};
   W.FORZE.forEach(function (f) { W.FORZA_BY_ID[f.id] = f; });
   /* The front is the set of movements that can be brought into the column —
@@ -439,17 +440,17 @@
   /* The monthly consolidation floor for the 1920 front. Declared here rather
      than inline in the journal so the rule and the UI cannot drift apart: a
      force at or above this is already committed, and only the three best-placed
-     forces are carried each turn. */
-  W.FORZA_FRONT_MIN = 60;
+     forces are carried each turn. 50 is the journal's own floor; the panel's
+     "可维系" band reads the same constant, so the two can no longer disagree. */
+  W.FORZA_FRONT_MIN = 50;
   /* When each dated approach becomes available, as {y, m}, and when it
      stops being available. Without a window per force the conversations
      resolve on the same turn — RESOLVE_EVENT does not advance the clock — which
      would dump the whole antagonism on the player at once and leave no room to
      choose an order or to decline one. The windows are spread across the
-     journal's life (June 1920 – March 1921) so at most one approach opens per
-     month, and they close after December 1920: the window cannot be farmed, so
-     the two "at least three" routes are a January 1921 march and an April 1921
-     one. Each closes with the journal's own deadline. */
+     journal's life (July 1920 – March 1922) so at most one approach opens per
+     month; each approach is `once`, so the window cannot be farmed. They close
+     with the journal's own deadline, now 28 October 1922. */
   W.FORZA_WINDOW = {
     fascisti:   { from: { y: 1920, m: 7 },  to: { y: 1922, m: 3 } },
     anarchici:  { from: { y: 1920, m: 8 },  to: { y: 1922, m: 3 } },
@@ -505,6 +506,99 @@
     if (!w) return false;
     var ym = state.date.y * 12 + state.date.m;
     return ym >= (w.from.y * 12 + w.from.m) && ym <= (w.to.y * 12 + w.to.m);
+  };
+
+  /* ======================= 14c. The march's own arithmetic ======================= */
+  /* The 1920 march has two outcomes, and the epilogue is a headcount rather than
+     a score. The journal's three gates buy the departure; this decides the arrival.
+
+       support = Σ over forces at 80+ of (relationship × the force's men)
+               + (officer relationship × ITALIAN_ARMY)
+               + (milizia × (1 - factionDissent))
+       oppose  = Σ over forces below 80 of (relationship × the force's men)
+               + ((1 - officer relationship) × ITALIAN_ARMY)
+
+     The relationship is the force's `forze` value divided by 100 and clamped to
+     0..1. A force below 80 is not with you, and the share of it that is mobilized
+     marches against you; a force at zero has no men on the road. A force that has
+     gone negative has turned: it puts all its men on the opposing side (the game's
+     -40 floor is fully hostile, not absent). That makes the near-allies (70-79)
+     the most dangerous: they have the men and the grievance. The officer corps
+     splits the army by its own relationship; the Legion is discounted by the
+     movement's influence-weighted dissent. A tie goes to the defence (the column
+     stops). */
+  W.MARCIA_DEADLINE = { y: 1922, m: 10, d: 28 };
+  W.MARCIA_BALANCE = { ally: 80 };
+  /* The force Rome can actually put on the road against a column, not the nominal
+     size of the Royal Army. 30,000 keeps the officer term comparable to the
+     Legion (10,000) and to the factions (6,000-18,000 each); raise it and the
+     officer corps dominates the final count. */
+  W.ITALIAN_ARMY = 30000;
+
+  /* Has the march been overtaken by Mussolini's own march on Rome? This is the
+     journal's hard deadline: after 28 October 1922 the question is no longer
+     Fiume's. A coup in Fiume closes it earlier, on the same flag the rest of the
+     game uses for the fascist takeover. */
+  W.marciaClosed = function (state) {
+    if (state.flags && state.flags.coup_done) return true;
+    var d = state.date || {};
+    var dl = W.MARCIA_DEADLINE;
+    if (!d.y || !d.m) return false;
+    if (d.y > dl.y) return true;
+    if (d.y < dl.y) return false;
+    if (d.m > dl.m) return true;
+    if (d.m < dl.m) return false;
+    return (d.d || 1) >= dl.d;
+  };
+
+  /* The arithmetic of the final night. Returns the two camps, the lists behind
+     them, the three components of each side and the verdict, so the epilogue's
+     tally and the ending itself can never disagree about who was on which side. */
+  W.marciaBalance = function (state) {
+    var z = state.forze || {};
+    var front = W.availableForzaFront(state);
+    var allyGate = W.MARCIA_BALANCE.ally;
+    var allies = [], enemies = [];
+    var forceSupport = 0, forceOppose = 0;
+    function rel(v) { return Math.max(0, Math.min(1, (v || 0) / 100)); }
+    front.forEach(function (id) {
+      var def = W.FORZA_BY_ID[id] || {};
+      var raw = z[id] || 0;
+      /* 0 is neutral and stays home; a negative attitude has turned and puts
+         all its men on the opposing side. */
+      var r = raw < 0 ? 1 : rel(raw);
+      var men = def.men || 0;
+      var score = r * men;
+      if (raw >= allyGate) {
+        allies.push({ id: id, value: raw, rel: r, men: men, score: score });
+        forceSupport += score;
+      } else {
+        enemies.push({ id: id, value: raw, rel: r, men: men, score: score });
+        forceOppose += score;
+      }
+    });
+    var officerRaw = z.forzearmate || 0;
+    var officerRel = rel(officerRaw);
+    var army = W.ITALIAN_ARMY || 0;
+    var officerSupport = officerRel * army;
+    var officerOppose = (1 - officerRel) * army;
+    var F = (typeof globalThis !== 'undefined' ? globalThis : this).Fiume || {};
+    var R = F.Rules;
+    var dissent = (R && R.factionDissent) ? R.factionDissent(state) / 100 : 0;
+    dissent = Math.max(0, Math.min(1, dissent));
+    var milizia = state.order ? (state.order.milizia || 0) : 0;
+    var legion = milizia * (1 - dissent);
+    var support = forceSupport + officerSupport + legion;
+    var oppose = forceOppose + officerOppose;
+    return {
+      support: support, oppose: oppose, margin: support - oppose,
+      win: support > oppose,
+      forceSupport: forceSupport, forceOppose: forceOppose,
+      officer: officerRaw, officerRel: officerRel,
+      officerSupport: officerSupport, officerOppose: officerOppose,
+      army: army, dissent: dissent, legion: legion, milizia: milizia,
+      allies: allies, enemies: enemies
+    };
   };
 
   /* ======================= 15. Scenarios ======================= */

@@ -34,14 +34,23 @@ export interface Card {
   options: CardOption[];
 }
 
+export interface AdvisorAction {
+  id: string;
+  text: LocalizedText;
+  subtitle: LocalizedText;
+  effect: Effect;
+  require?: (state: SimulationState) => boolean;
+  requireText?: LocalizedText;
+}
+
 export interface Advisor {
   id: string;
   zh: string;
   it: string;
   faction: string | null;
-  bio: string;
-  action: LocalizedText;
-  effect: EffectPatch;
+  bio: LocalizedText;
+  /** One to three directives, selected from the advisor's menu. */
+  actions: AdvisorAction[];
   /** Path under `public/`, e.g. `img/Portrait/Portrait_mario_carli.png`. The
       data holds a plain project-relative path; each UI layer turns it into a
       served URL, because the Vite base is only known to the bundler.
@@ -101,6 +110,11 @@ export interface GameEvent {
   chain?: boolean;
   /** Legacy simulation priority flag; independent of the super-event UI layer. */
   superEvent?: boolean;
+  /** A crisis milestone this event belongs to. In non-historical modes
+      (`dateRule !== 'forced'`) the event can be scheduled by the named gauge
+      reaching `at`, even outside its own calendar month; 史实 keeps its date.
+      `axis` names a field on `state.order` (the eight crisis gauges). */
+  crisis?: { axis: 'authority' | 'garrison' | 'fervour' | 'squadre' | 'violence' | 'tension' | 'coup' | 'subversion'; at: number };
   condition?: (state: SimulationState) => boolean;
   /** A tally shown under the body, worked out when the event opens. `body` is
       fixed prose; anything that has to be counted — seats, votes, a division —

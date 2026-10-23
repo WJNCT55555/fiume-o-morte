@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test": "node tools/smoke.js && node tools/check_map.js && node tools/check_super_events.js",
+    "test": "node tools/smoke.js && node tools/check_map.js && node tools/check_super_events.js && node tools/check_sandbox.js",
     "check:doc": "node tools/check_doc_claims.js",
     "verify:ui": "node tools/verify_ui.js",
     "verify": "npm run lint && npm test && npm run build"

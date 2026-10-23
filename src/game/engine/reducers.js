@@ -282,6 +282,44 @@
       });
     };
 
+    // Menu availability and execution share the same checks. The stored clock
+    // advances once per half-month, including the advisors' global cooldown.
+    Eng.advisorCooldown = function (state) {
+      return Math.max(0, state.advisors.cooldown - (state.monthIndex - state.advisors.lastAction));
+    };
+    Eng.canUseAdvisor = function (state, advisor, option) {
+      function refused(zh, it) { return { ok: false, reason: { zh: zh, it: it } }; }
+      if (!advisor || state.advisors.active.indexOf(advisor.id) < 0) {
+        return refused('顾问尚未在任。', 'Il consigliere non è in carica.');
+      }
+      if (!option || advisor.actions.indexOf(option) < 0) {
+        return refused('请选择一项顾问行动。', 'Scegliere una direttiva.');
+      }
+      if (state.ending || state.currentEvent || state.pendingCard) {
+        return refused('请先处理当前待决事项。', 'Risolvere prima la decisione in sospeso.');
+      }
+      if (state.ap < 1) return refused('行动力不足，需要 1 AP。', 'Servono 1 PA.');
+      var cooldown = Eng.advisorCooldown(state);
+      if (cooldown > 0) {
+        return refused('顾问团共享冷却，还需 ' + cooldown / 2 + ' 个月。',
+          'Raffreddamento condiviso: ancora ' + cooldown / 2 + ' mesi.');
+      }
+      if (advisor.faction && state.factions[advisor.faction] && state.factions[advisor.faction].dis > 70) {
+        return refused('该派系异议过高，顾问拒绝行动。', 'Il consigliere rifiuta: dissenso di corrente troppo alto.');
+      }
+      if (option.require && !option.require(state)) {
+        return { ok: false, reason: option.requireText || { zh: '条件不满足。', it: 'Condizioni non soddisfatte.' } };
+      }
+      return { ok: true, reason: null };
+    };
+    Eng.advisorOptions = function (state, advisor) {
+      return advisor.actions.map(function (option) {
+        var available = Eng.canUseAdvisor(state, advisor, option);
+        return { id: option.id, text: option.text, subtitle: option.subtitle,
+          enabled: available.ok, reason: available.reason };
+      });
+    };
+
     Eng.canPlayCard = function (state, card) {
       if (!card) return { ok: false, reason: { zh: '无此卡牌', it: 'Carta inesistente' } };
       if (card.deck === 'partito' && (card.forces || ['LEG']).indexOf(state.playerForce) < 0) {
@@ -384,6 +422,29 @@
                          without a condition (the conditioned ones fall through to
                          pass B, which has no calendar gate). */
       var rule = dif && dif.dateRule;
+      /* 2b. Crisis milestones in non-historical modes. A `crisis` event is
+         scheduled by its own gauge threshold, not by its calendar month; the
+         historical date stays in force under `dateRule: 'forced'`. Sorting by
+         threshold keeps the lowest crossed milestone first when one settlement
+         crosses several. `evCondition` still enforces once/history/cooldown. */
+      if (rule !== 'forced') {
+        var gaugeHits = [];
+        for (var gi = 0; gi < Events.length; gi++) {
+          var ge = Events[gi];
+          if (!ge.crisis) continue;
+          /* Repeatable crisis events (street violence) are ambient: their own
+             condition schedules them in the conditional pass, and letting them
+             into this pass would let the 50 milestone preempt the 75 one. */
+          if (ge.repeatable) continue;
+          if ((state.order[ge.crisis.axis] || 0) < ge.crisis.at) continue;
+          if (!evCondition(ge, state)) continue;
+          gaugeHits.push(ge);
+        }
+        if (gaugeHits.length) {
+          gaugeHits.sort(function (a, b) { return a.crisis.at - b.crisis.at; });
+          return gaugeHits[0];
+        }
+      }
       var datedPass = [];
       var condPass = [];
       for (var i = 0; i < Events.length; i++) {
@@ -446,10 +507,115 @@
       if (EVENT_BY_ID[id] && state.eventQueue.indexOf(id) < 0) state.eventQueue.push(id);
     };
 
+    /* Sandbox edits share one catalogue with the menu. Only these numeric
+       fields can be written; derived readings and narrative internals stay out. */
+    Eng.sandboxFields = function (state) {
+      var fields = [];
+      function field(group, path, zh, it, min, max, step, unit) {
+        fields.push({ group: group, path: path, zh: zh, it: it,
+          min: min, max: max, step: step == null ? 1 : step, unit: unit || '',
+          integer: path.indexOf('laws.') === 0 || ['ap', 'handLimit', 'arms', 'order.milizia',
+            'order.police', 'order.carabinieri', 'economy.population'].indexOf(path) >= 0 });
+      }
+      field('resources', 'funds', '金库', 'Cassa', 0, 1000000000, 100, 'K£');
+      field('resources', 'arms', '军备', 'Armamenti', 0, 10000000, 100);
+      field('resources', 'ap', '本回合行动点', 'PA del turno', 0, 999, 1, 'AP');
+      field('resources', 'handLimit', '手牌槽位', 'Spazi nella mano', Math.max(1, state.hand.length), 30);
+      [['authority', '领袖权威', 'Autorità'], ['garrison', '意大利军队立场', 'Atteggiamento dell’esercito'],
+       ['fervour', '民众热忱', 'Fervore'], ['squadre', '法西斯小队', 'Squadre fasciste'],
+       ['violence', '政治暴力', 'Violenza politica'], ['coup', '围攻压力', 'Pressione dell’assedio'],
+       ['subversion', '阴谋压力', 'Pressione fascista']].forEach(function (x) {
+        field('resources', 'order.' + x[0], x[1], x[2], 0, 100);
+      });
+      [['milizia', '军团兵力', 'Legionari'], ['police', '市警人数', 'Polizia municipale'],
+       ['carabinieri', '皇家宪兵人数', 'Carabinieri']].forEach(function (x) {
+        field('resources', 'order.' + x[0], x[1], x[2], 0, 10000000, 100);
+      });
+      [['traffic', '港口吞吐', 'Traffico del porto'], ['hinterland', '腹地通达', 'Accesso all’entroterra'],
+       ['delta', '三角洲控制', 'Controllo del Delta'], ['works', '港口工程', 'Lavori portuali'],
+       ['recognition', '国际承认', 'Riconoscimento internazionale'], ['strike', '罢工强度', 'Scioperi'],
+       ['capitalConfidence', '资本信心', 'Fiducia dei capitali']].forEach(function (x) {
+        field('economy', 'economy.' + x[0], x[1], x[2], 0, 100);
+      });
+      field('economy', 'economy.unemployment', '失业率', 'Disoccupazione', 0, 70, 0.5, '%');
+      field('economy', 'economy.inflation', '通胀率', 'Inflazione', 0, 90, 0.5, '%');
+      field('economy', 'economy.population', '人口', 'Popolazione', 1, 10000000, 1000);
+      field('economy', 'economy.debt', '债务', 'Debito', 0, 1000000000, 100, 'K£');
+      field('economy', 'economy.arrears', '欠薪', 'Arretrati', 0, 1000000000, 100, 'K£');
+      W.DIPLO_ACTORS.forEach(function (x) { field('relations', 'diplo.' + x.id, x.zh, x.it, 0, 100, 5); });
+      W.FORZE.filter(function (x) { return W.forzaExists(state, x.id); }).forEach(function (x) {
+        field('relations', 'forze.' + x.id, x.zh, x.it, -40, 100, 5);
+      });
+      W.FACTIONS.forEach(function (x) {
+        field('politics', 'factions.' + x.id + '.inf', x.zh + ' · 影响力', x.it + ' · Influenza', 0, 100);
+        field('politics', 'factions.' + x.id + '.dis', x.zh + ' · 异议', x.it + ' · Dissenso', 0, 100);
+      });
+      W.CLASSES.forEach(function (x) {
+        W.PARTIES.forEach(function (p) {
+          field('politics', 'classes.' + x.id + '.support.' + p.id,
+            x.zh + ' · ' + p.zh, x.it + ' · ' + p.it, 0, 100);
+        });
+        field('politics', 'classes.' + x.id + '.turnout', x.zh + ' · 投票率', x.it + ' · Affluenza', 0, 100);
+      });
+      W.LAWS.forEach(function (x) { field('laws', 'laws.' + x.id, x.zh, x.it, 0, x.max); });
+      return fields;
+    };
+
+    Eng.sandboxEvents = function () { return Events.filter(function (e) { return !e.chain; }); };
+    Eng.applySandbox = function (state, action) {
+      function refuse(zh, it) { return { state: state, toast: { kind: 'warn', text: { zh: zh, it: it } } }; }
+      if (state.difficulty !== 'sandbox' || state.ending)
+        return refuse('仅限进行中的沙盒对局。', 'Disponibile solo in una partita Sandbox in corso.');
+      var next = Core.deepClone(state);
+      if (action.type === 'SANDBOX_EDIT') {
+        var spec = Eng.sandboxFields(state).filter(function (x) { return x.path === action.path; })[0];
+        if (!spec || typeof action.value !== 'number' || !Number.isFinite(action.value))
+          return refuse('请选择有效的数值字段。', 'Scegliere un campo numerico valido.');
+        var value = clamp(action.value, spec.min, spec.max), parts = spec.path.split('.');
+        if (spec.integer) value = Math.round(value);
+        if (parts[0] === 'factions' && parts[2] === 'inf') {
+          R.adjustFactionInfluence(next, parts[1], value - next.factions[parts[1]].inf);
+        } else if (parts[0] === 'classes' && parts[2] === 'support') {
+          var row = next.classes[parts[1]].support, party = parts[3];
+          // At 100% there are no proportional donors/receivers. Distribute the
+          // released share equally through the normal directed-transfer helper.
+          if (row[party] >= 100 - 1e-9 && value < row[party]) {
+            var others = W.PARTIES.filter(function (p) { return p.id !== party; });
+            var released = (row[party] - value) / others.length;
+            others.forEach(function (p) { R.defectSupport(next, parts[1], party, p.id, released); });
+          } else R.shiftClassSupport(next, parts[1], party, value - row[party]);
+        } else {
+          var obj = next;
+          parts.slice(0, -1).forEach(function (p) { obj = obj[p]; });
+          obj[parts[parts.length - 1]] = value;
+        }
+      } else if (action.type === 'SANDBOX_CLEAR_COOLDOWNS') {
+        Object.keys(next.eventCooldowns).forEach(function (id) {
+          if (id.indexOf('c_') === 0) delete next.eventCooldowns[id];
+        });
+        next.advisors.lastAction = -99;
+      } else if (action.type === 'SANDBOX_ADD_CARD') {
+        if (!CARD_BY_ID[action.cardId] || next.hand.indexOf(action.cardId) >= 0 || next.hand.length >= next.handLimit)
+          return refuse('卡牌不存在、已在手中或没有空余槽位。', 'Carta inesistente, già in mano o senza spazio disponibile.');
+        next.hand.push(action.cardId);
+      } else if (action.type === 'SANDBOX_EVENT') {
+        var event = Eng.sandboxEvents().filter(function (e) { return e.id === action.eventId; })[0];
+        if (!event || next.currentEvent === event.id || next.eventQueue.indexOf(event.id) >= 0)
+          return refuse('事件不可手动触发，或已经在处理中。', 'Evento non disponibile o già in corso.');
+        if (next.currentEvent || next.pendingCard) Eng.pushEvent(next, event.id);
+        else { next.currentEvent = event.id; next.phase = 'event'; }
+      } else return refuse('未知的沙盒操作。', 'Comando Sandbox sconosciuto.');
+      // These edits cost no AP and never consume RNG or advance the calendar.
+      Eng.postProcess(next);
+      return { state: next, toast: null };
+    };
+
     /* ==========================================================
        行动路由
        ========================================================== */
     Eng.dispatch = function (state, action) {
+      if (typeof action.type === 'string' && action.type.indexOf('SANDBOX_') === 0)
+        return Eng.applySandbox(state, action);
       var next = Core.deepClone(state);
       var rng = Core.makeRng(next.seed + next.turn * 7919 + (next.rngTick = (next.rngTick || 0) + 1));
       var result = { state: next, toast: null };
@@ -627,22 +793,16 @@
         }
         case 'USE_ADVISOR': {
           var adv2 = W.ADVISORS.filter(function (a) { return a.id === action.advisorId; })[0];
-          if (!adv2 || next.advisors.active.indexOf(adv2.id) < 0) break;
-          if (next.ap < 1) { result.toast = { kind: 'warn', text: Core.L({ zh: '行动力不足', it: 'PA insufficienti' }) }; break; }
-          var cd = next.advisors.cooldown - (next.monthIndex - next.advisors.lastAction);
-          if (next.monthIndex - next.advisors.lastAction < next.advisors.cooldown) {
-            result.toast = { kind: 'warn', text: Core.L({ zh: '顾问行动冷却中（还需 ' + cd + ' 个月）', it: 'Consulente in raffreddamento' }) }; break;
-          }
-          if (adv2.faction && next.factions[adv2.faction] && next.factions[adv2.faction].dis > 70) {
-            result.toast = { kind: 'warn', text: Core.L({ zh: '该派系异议过高，顾问拒绝行动', it: 'Il consigliere rifiuta: dissenso di corrente troppo alto' }) }; break;
-          }
+          var directive = adv2 && adv2.actions.filter(function (o) { return o.id === action.optionId; })[0];
+          var available = Eng.canUseAdvisor(next, adv2, directive);
+          if (!available.ok) { result.toast = { kind: 'warn', text: Core.L(available.reason) }; break; }
+          var ae = typeof directive.effect === 'function' ? directive.effect(Core.deepClone(next)) : directive.effect;
           next.ap -= 1;
           next.advisors.lastAction = next.monthIndex;
-          var ae = typeof adv2.effect === 'function' ? adv2.effect(next) : adv2.effect;
           R.applyEffect(next, ae);
           R.normalizeFactions(next);
-          next.log.push({ turn: next.turn, kind: 'advisor', zh: adv2.zh + '：' + adv2.action.zh, it: adv2.it + ': ' + adv2.action.it });
-          result.toast = { kind: 'ok', text: adv2.zh + ' — ' + adv2.action.zh };
+          next.log.push({ turn: next.turn, kind: 'advisor', zh: adv2.zh + '：' + directive.text.zh, it: adv2.it + ': ' + directive.text.it });
+          result.toast = { kind: 'ok', text: Core.L(adv2) + ' — ' + Core.L(directive.text) };
           break;
         }
 
@@ -650,15 +810,6 @@
         case 'SET_TAX': {
           var key = action.tax, val = clamp(action.value, 0, 0.9);
           next.taxRates[key] = val;
-          break;
-        }
-
-        /* ---------- Sandbox ---------- */
-        case 'SANDBOX_EDIT': {
-          if (next.difficulty !== 'sandbox') break;
-          var path = action.path.split('.'), obj = next;
-          for (var p = 0; p < path.length - 1; p++) obj = obj[path[p]];
-          obj[path[path.length - 1]] = action.value;
           break;
         }
 
@@ -714,6 +865,15 @@
       delete o.legionari;
       delete o.civicGuard;
       delete s.laws.statuto;
+      /* Diplomatic actors are a closed list in W.DIPLO_ACTORS. Old saves — and
+         effects written before the Soviet actor was renamed — can carry keys
+         that no longer name an actor (Hungary, the Vatican, `comintern`); drop
+         them so neither the diplomacy panel nor its previews can show ghosts. */
+      if (s.diplo) {
+        var knownDiplo = {};
+        W.DIPLO_ACTORS.forEach(function (a) { knownDiplo[a.id] = true; });
+        Object.keys(s.diplo).forEach(function (k) { if (!knownDiplo[k]) delete s.diplo[k]; });
+      }
       if (s.journals) delete s.journals.guardia;
       if (s.monotonic) { delete s.monotonic.guardCreated; delete s.monotonic.guardDissolved; }
       /* Seats are keyed by advisor id, and the roster is data that can lose an

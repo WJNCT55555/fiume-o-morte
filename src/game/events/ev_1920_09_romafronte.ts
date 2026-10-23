@@ -17,10 +17,13 @@ export const ev192009Romafronte: GameEvent = {
     const front: string[] = world.availableForzaFront(s);
     var n = front.filter(function (k: string) { return (z[k] || 0) >= 80; }).length;
     /* Early window: two forces are enough to try, but only from September 1920,
-       and only while the journal is still live. */
+       and only while the journal is still live. The upper bound is October 1922
+       because the journal itself now runs to 28 October 1922 — the day Mussolini
+       reaches Rome. The journal's own `marciaClosed` guard still closes the line
+       on the 31 October turn, so this window and the deadline cannot disagree. */
     if (n < 2) return false;
     var ym = s.date.y * 12 + s.date.m;
-    return ym >= 1920 * 12 + 9 && ym <= 1922 * 12 + 3;
+    return ym >= 1920 * 12 + 9 && ym <= 1922 * 12 + 10;
   },
   title: { zh: '1920 年 9 月：占领工厂', it: 'Settembre 1920: l\'occupazione delle fabbriche' },
   body: { zh: '都灵和米兰的工厂被工人占领了。不是罢工——是占领：工人自己开动机器，自己发工资，' +
@@ -42,7 +45,7 @@ export const ev192009Romafronte: GameEvent = {
     {
       id: 'adesso', text: { zh: '现在就走。窗口不会开第二次。', it: 'Partire adesso. La finestra non si aprirà due volte.' },
       subtitle: { zh: '只有两股力量就出发：纵队会散，但历史只记这一次。', it: 'Partire con due forze soltanto: la colonna si sfalderà, ma la storia ricorderà questa volta.' },
-      preview: [{ zh: '提前进军：成功率大幅下降', label: 'marcia anticipata' }, { zh: '开启终局链', label: 'epilogo' }, { zh: '未结盟者转为敌对', label: 'le forze escluse ostili' }],
+      preview: [{ zh: '提前进军：跳过万人/军官团门槛', label: 'marcia anticipata' }, { zh: '终局按力量对比判定', label: 'esito calcolato' }, { zh: '未结盟者可能转为敌对', label: 'le forze escluse ostili' }],
       effect: function () {
         return {
           flags: { marcia_1920_open: true, marcia_1920_early: true },

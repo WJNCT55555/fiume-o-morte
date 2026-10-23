@@ -10,6 +10,7 @@ export interface ViewState {
   district: string;
   modal: string | null;
   deck: string | null;
+  advisor: string | null;
   scenario: string;
   difficulty: string;
   force: string;
@@ -37,7 +38,7 @@ export function createGameStore(): GameStore {
   let snapshot: Snapshot = {
     state: null,
     ui: { screen: 'start', tab: 'azioni', lawFocus: 'elettorale', mapMode: 'adriatic', district: 'centro',
-      modal: null, deck: null, scenario: '1919-09', difficulty: 'historical', force: 'LEG' },
+      modal: null, deck: null, advisor: null, scenario: '1919-09', difficulty: 'historical', force: 'LEG' },
     notice: null,
     resume: auto && auto.date && !auto.ending ? auto : null,
   };
@@ -110,6 +111,14 @@ export function createGameStore(): GameStore {
       if (next?.pendingCard) change({}, { modal: 'card' });
     },
     openSettings: () => change({}, { modal: 'settings' }),
+    openSandbox: () => {
+      if (snapshot.state?.difficulty === 'sandbox' && !snapshot.state.ending) change({}, { modal: 'sandbox' });
+    },
+    closeSandbox: () => change({}, { modal: snapshot.state?.pendingCard ? 'card' : snapshot.state?.currentEvent ? 'event' : null }),
+    sandboxEdit: (path: string, value: number) => dispatch({ type: 'SANDBOX_EDIT', path, value }),
+    sandboxClearCooldowns: () => dispatch({ type: 'SANDBOX_CLEAR_COOLDOWNS' }),
+    sandboxAddCard: (cardId: string) => dispatch({ type: 'SANDBOX_ADD_CARD', cardId }),
+    sandboxEvent: (eventId: string) => dispatch({ type: 'SANDBOX_EVENT', eventId }),
     openAchievements: () => change({}, { modal: 'ach' }),
     openSaves: () => change({}, { modal: 'save' }),
     setLanguage: (id: string) => { if (I18N.setLang(id)) refresh(); else notice('warn', I18N.t('set.lang.locked')); },
@@ -130,8 +139,15 @@ export function createGameStore(): GameStore {
     openAdvisorDeck: () => change({}, { modal: 'advdeck' }),
     closeAdvisorDeck: () => change({}, { modal: null }),
     hireAdvisor: (advisorId: string) => { dispatch({ type: 'HIRE_ADVISOR', advisorId }); change({}, { modal: null }); },
-    fireAdvisor: (advisorId: string) => dispatch({ type: 'FIRE_ADVISOR', advisorId }),
-    useAdvisor: (advisorId: string) => dispatch({ type: 'USE_ADVISOR', advisorId }),
+    openAdvisor: (advisorId: string) => {
+      if (snapshot.state?.advisors.active.includes(advisorId)) change({}, { advisor: advisorId, modal: 'advisor' });
+    },
+    fireAdvisor: (advisorId: string) => { dispatch({ type: 'FIRE_ADVISOR', advisorId }); change({}, { advisor: null, modal: null }); },
+    useAdvisor: (advisorId: string, optionId: string) => {
+      const before = snapshot.state;
+      const next = dispatch({ type: 'USE_ADVISOR', advisorId, optionId });
+      if (next && next.log.length > before.log.length) change({}, { advisor: null, modal: null });
+    },
     setPosture: (posture: string) => dispatch({ type: 'SET_POSTURE', posture }),
     setTax: (tax: string, value: number) => dispatch({ type: 'SET_TAX', tax, value }),
     advance: () => {
@@ -140,7 +156,7 @@ export function createGameStore(): GameStore {
       dispatch({ type: 'ADVANCE' });
     },
     about: () => change({}, { modal: 'about' }),
-    closeModal: () => change({}, { modal: snapshot.state?.currentEvent ? 'event' : null }),
+    closeModal: () => change({}, { advisor: null, modal: snapshot.state?.currentEvent ? 'event' : null }),
     toggleEventBoard: () => change({}, { modal: snapshot.ui.modal === 'evboard' ? null : 'evboard' }),
     saveMenu: () => change({}, { modal: 'save' }),
     saveTo: (slot: number | 'auto') => {

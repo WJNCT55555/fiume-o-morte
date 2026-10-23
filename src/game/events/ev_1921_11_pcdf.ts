@@ -13,8 +13,8 @@ export const ev192111Pcdf: GameEvent = {
     options: [
       {
         id: 'a', text: { zh: '按法律登记它。让最小的党拿到最大的合法性。', it: 'Registrarlo: dare al partito più piccolo la legittimità più grande.' },
-        preview: [{ zh: '军团民意 +', label: 'legittimità +' }, { zh: '产业工人支持 +', label: 'operai +' }, { zh: '教廷 −', label: 'Santa Sede −' }],
-        effect: function () { return { support: [['operai', 'LEG', 2], ['portuali', 'LEG', 2]], parties: { PSI: 2 }, diplo: { vatican: -5, comintern: 8 }, order: { fervour: 3 } }; }
+        preview: [{ zh: '军团民意 +', label: 'legittimità +' }, { zh: '产业工人支持 +', label: 'operai +' }],
+        effect: function () { return { support: [['operai', 'LEG', 2], ['portuali', 'LEG', 2]], parties: { PSI: 2 }, order: { fervour: 3 } }; }
       },
       {
         id: 'b', text: { zh: '让宪兵盯着他们，但不动手。', it: 'Farli sorvegliare, senza toccarli.' },
