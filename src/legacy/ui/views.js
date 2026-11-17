@@ -1402,21 +1402,363 @@
       return col;
     }
 
-    function lawSteps(L) {
-      var steps = h('span', { class: 'law-tile__steps', 'aria-hidden': 'true' });
-      L.levels.forEach(function (_, n) {
-        steps.appendChild(h('span', { class: 'law-tile__step' +
-          (n < L.level ? ' is-lower' : n === L.level ? ' is-current' : '') }));
+    /* ============================================================
+       La lira del Carnaro — the statute book as one instrument
+       Eleven strings in three registers on a 440×520 grid that the CSS only
+       paints. The drawing is one image for assistive tech: the register beside
+       it is the list, and strings and register rows both dispatch the same
+       `setLawFocus`.
+       ============================================================ */
+    /* ============================================================
+       La lira del Carnaro — the statute book as one instrument
+       A wide kithara on a 660×560 grid: eleven strings spaced far enough to
+       read, a sunburst behind them, and a narrow register beside it. The
+       drawing is one image for assistive tech; the register is the list.
+       ============================================================ */
+    var LIRA = {
+      bottom: 400, firstX: 226, pitch: 18, gap: 14,
+      viewBox: '92 78 476 446',
+      chapters: [
+        { roman: 'I', name: 'leg.chapterCivic', ids: ['elettorale', 'cittadinanza', 'lingua', 'stampa', 'scuola'] },
+        { roman: 'II', name: 'leg.chapterLabour', ids: ['orario', 'lavoro'] },
+        { roman: 'III', name: 'leg.chapterState', ids: ['ordine', 'portofranco', 'dogana', 'fisco'] }
+      ]
+    };
+
+    /* String x positions: one pitch inside a register, pitch + gap across a
+       seam, so the three chapters read as three groups under the yoke. */
+    function liraStrings() {
+      var out = [], x = LIRA.firstX, prev = -1;
+      LIRA.chapters.forEach(function (chapter, ci) {
+        chapter.ids.forEach(function (id) {
+          if (prev !== -1) x += LIRA.pitch + (ci !== prev ? LIRA.gap : 0);
+          out.push({ id: id, x: x, chapter: ci });
+          prev = ci;
+        });
       });
-      return steps;
+      return out;
     }
 
-    function lawDossier(L, act, charterProgrammed) {
+    /* The yoke's underside at x — the quadratic the strings hang from. */
+    function liraYokeY(x) {
+      var t = (x - 150) / 360;
+      return 170 - 44 * t * (1 - t);
+    }
+
+    function liraChapterOf(id) {
+      var roman = '';
+      LIRA.chapters.forEach(function (c) { if (c.ids.indexOf(id) >= 0) roman = c.roman; });
+      return roman;
+    }
+
+    /* The instrument, its nameplate, and the register that reads it out. */
+    function lawLira(laws, focused, charter, act) {
+      var byId = {}, indexOf = {};
+      laws.forEach(function (L, i) { byId[L.id] = L; indexOf[L.id] = i; });
+
+      var plateNum = h('span', { class: 'lira__pnum' });
+      var plateChapter = h('span', { class: 'lira__pchap' });
+      var plateName = h('strong', { class: 'lira__pname' });
+      var plateLevel = h('span', { class: 'lira__plevel' });
+      var plate = h('figcaption', { class: 'lira__plate' },
+        [plateNum, plateChapter, plateName, plateLevel]);
+      var stringEls = {};
+
+      function paint(id) {
+        var L = byId[id]; if (!L) return;
+        plateNum.textContent = String((indexOf[id] || 0) + 1).padStart(2, '0');
+        plateChapter.textContent = liraChapterOf(id);
+        plateName.textContent = Core.L(L);
+        plateLevel.textContent = L.level + ' / ' + L.max + ' · ' +
+          Core.L({ zh: L.label, it: L.labelIt });
+      }
+      function clearHover() {
+        Object.keys(rows).forEach(function (k) { rows[k].classList.remove('is-hover'); });
+        Object.keys(stringEls).forEach(function (k) { stringEls[k].classList.remove('is-hover'); });
+      }
+      function hover(id) {
+        paint(id);
+        Object.keys(rows).forEach(function (k) { rows[k].classList.toggle('is-hover', k === id); });
+        Object.keys(stringEls).forEach(function (k) { stringEls[k].classList.toggle('is-hover', k === id); });
+      }
+      function select(id) {
+        act.setLawFocus(id);
+        requestAnimationFrame(function () {
+          var panel = document.getElementById('law-dossier');
+          if (panel) panel.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+            block: 'nearest'
+          });
+        });
+      }
+
+      var drawing = Core.svg('svg', {
+        viewBox: LIRA.viewBox, class: 'lira__drawing', role: 'img',
+        'aria-label': T('leg.lira.aria'), focusable: 'false'
+      });
+      var title = Core.svg('title');
+      title.textContent = T('leg.lira.aria');
+      drawing.appendChild(title);
+      function add(tag, attrs) { drawing.appendChild(Core.svg(tag, attrs)); }
+      function label(x, y, str, cls) {
+        drawing.appendChild(Core.svgText(x, y, str, { class: cls, 'text-anchor': 'middle' }));
+      }
+
+      /* A rising sun across the whole plate, its centre on the soundbox: the
+         fine radial texture that makes the figure read as an engraving. */
+      for (var ray = 0; ray <= 60; ray++) {
+        var angle = (180 + ray * 3) * Math.PI / 180;
+        add('line', {
+          class: 'lira__sun',
+          x1: 330 + Math.cos(angle) * 8, y1: LIRA.bottom + Math.sin(angle) * 8,
+          x2: 330 + Math.cos(angle) * 320, y2: LIRA.bottom + Math.sin(angle) * 320
+        });
+      }
+
+      /* Frame: a narrow stepped box, two horns splaying outward to a wide yoke,
+         and a fan of strings between them — a lyre opens upward, never inward. */
+      /* Two tapered horns, generated so the taper follows the curve. The box's
+         top edge is the arm's footprint; the tips meet the yoke. */
+      function armPoints() {
+        var N = 26, out = [], inn = [];
+        for (var i = 0; i <= N; i++) {
+          var t = i / N, u = 1 - t;
+          var cx = u * u * 204 + 2 * t * u * 186 + t * t * 150;
+          var cy = u * u * 400 + 2 * t * u * 290 + t * t * 162;
+          var dx = 2 * u * (116 - 204) + 2 * t * (150 - 122);
+          var dy = 2 * u * (290 - 400) + 2 * t * (162 - 290);
+          var len = Math.sqrt(dx * dx + dy * dy) || 1;
+          var nx = -dy / len, ny = dx / len;
+          var w = (30 - 18 * t) / 2;
+          out.push([cx + nx * w, cy + ny * w]);
+          inn.push([cx - nx * w, cy - ny * w]);
+        }
+        return { out: out, inn: inn };
+      }
+      function polyline(pts, close) {
+        return 'M' + pts.map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join('L') + (close ? 'Z' : '');
+      }
+      function between(a, b, frac) {
+        return a.map(function (p, i) { return [p[0] + (b[i][0] - p[0]) * frac, p[1] + (b[i][1] - p[1]) * frac]; });
+      }
+      var armL = armPoints();
+      var armR = {
+        out: armL.out.map(function (p) { return [660 - p[0], p[1]]; }),
+        inn: armL.inn.map(function (p) { return [660 - p[0], p[1]]; })
+      };
+      [armL, armR].forEach(function (a) {
+        add('path', { class: 'lira__arm', d: polyline(a.out.concat(a.inn.slice().reverse()), true) });
+        add('path', { class: 'lira__flute', d: polyline(between(a.out, a.inn, .34), false) });
+        add('path', { class: 'lira__flute', d: polyline(between(a.out, a.inn, .68), false) });
+        add('path', { class: 'lira__edge', d: polyline(a.out, false) });
+      });
+      add('path', { class: 'lira__yoke', d: 'M156 140H504V162H156Z' });
+      add('line', { class: 'lira__yoke-line', x1: 164, y1: 149, x2: 496, y2: 149 });
+      for (var fin = 0; fin <= 6; fin++) {
+        var finAngle = (-90 + (fin - 3) * 13) * Math.PI / 180;
+        add('line', {
+          class: 'lira__crown', x1: 330, y1: 132,
+          x2: 330 + Math.cos(finAngle) * 26, y2: 132 + Math.sin(finAngle) * 26
+        });
+      }
+      add('path', { class: 'lira__stud', d: 'M330 96l5 5-5 5-5-5z' });
+      add('circle', { class: 'lira__bind', cx: 156, cy: 159, r: 6 });
+      add('circle', { class: 'lira__bind', cx: 504, cy: 159, r: 6 });
+      add('circle', { class: 'lira__bind', cx: 156, cy: 159, r: 2 });
+      add('circle', { class: 'lira__bind', cx: 504, cy: 159, r: 2 });
+      add('path', { class: 'lira__body', d: 'M188 400H472L464 466Q330 484 196 466Z' });
+      add('path', { class: 'lira__inner', d: 'M197 409H463L456 458Q330 475 204 458Z' });
+      add('line', { class: 'lira__bridge', x1: 196, y1: 400, x2: 464, y2: 400 });
+      add('rect', { class: 'lira__cartouche', x: 264, y: 426, width: 132, height: 20 });
+      label(330, 440, 'LEX · ORDO · LIBERTAS', 'lira__motto');
+      add('rect', { class: 'lira__plinth', x: 182, y: 478, width: 296, height: 8 });
+      add('rect', { class: 'lira__plinth', x: 206, y: 486, width: 248, height: 5 });
+
+      liraStrings().forEach(function (s) {
+        var L = byId[s.id]; if (!L) return;
+        var on = focused.id === L.id;
+        /* The frame flares; the strings themselves stay vertical — a lyre,
+           not a fan. */
+        var bx = s.x;
+        var tx = bx;
+        var top = liraYokeY(tx);
+        var bands = LIRA.bottom - top;
+        var share = Math.max(0, Math.min(1, L.level / (L.max || 1)));
+        var lit = share * bands;
+        var ratio = bands ? lit / bands : 0;
+        var fx = bx + (tx - bx) * ratio;
+        var fy = LIRA.bottom - lit;
+        var full = L.level >= L.max;
+        var g = Core.svg('g', { class: 'lira__string' + (on ? ' is-on' : ''), 'data-law': L.id });
+        g.appendChild(Core.svg('line', { class: 'lira__glow', x1: tx, y1: top, x2: bx, y2: LIRA.bottom }));
+        g.appendChild(Core.svg('line', { class: 'lira__wire', x1: tx, y1: top, x2: bx, y2: LIRA.bottom }));
+        for (var k = 1; k < L.max; k++) {
+          var f = k / L.max;
+          var ty = LIRA.bottom - f * bands;
+          var txk = bx + (tx - bx) * f;
+          g.appendChild(Core.svg('line', { class: 'lira__tick', x1: txk - 2.6, y1: ty, x2: txk + 2.6, y2: ty }));
+        }
+        if (lit > 0) {
+          g.appendChild(Core.svg('line', {
+            class: 'lira__charge' + (full ? ' is-full' : ''),
+            x1: bx, y1: LIRA.bottom, x2: fx, y2: fy
+          }));
+          g.appendChild(Core.svg('line', {
+            class: 'lira__fill' + (full ? ' is-full' : ''),
+            x1: bx, y1: LIRA.bottom, x2: fx, y2: fy
+          }));
+        }
+        g.appendChild(Core.svg('path', {
+          class: 'lira__bead' + (full ? ' is-full' : ''),
+          d: 'M' + fx + ' ' + (fy - 3.6) + 'l3.2 3.2-3.2 3.2-3.2-3.2z'
+        }));
+        g.appendChild(Core.svg('circle', { class: 'lira__pin', cx: bx, cy: 401, r: 2.1 }));
+        g.appendChild(Core.svg('circle', { class: 'lira__pin', cx: tx, cy: top - 1, r: 2.4 }));
+        stringEls[L.id] = g;
+        g.appendChild(Core.svg('rect', {
+          class: 'lira__hit', x: s.x - 9, y: 140, width: 18, height: 300,
+          'data-law': L.id, title: Core.L(L) + ' · ' + L.level + '/' + L.max,
+          onclick: function () { select(L.id); },
+          onmouseenter: function () { hover(L.id); },
+          onmouseleave: function () { clearHover(); paint(focused.id); }
+        }));
+        drawing.appendChild(g);
+      });
+
+      /* The register: eleven rows, three chapters, the narrow index. */
+      var rows = {};
+      var rowEls = [];
+      var register = h('div', { class: 'law-register' });
+      register.appendChild(h('div', { class: 'law-register__head' }, [
+        h('span', { class: 'law-register__eyebrow' }, T('leg.register')),
+        h('span', { class: 'law-register__hint' }, T('leg.register.hint'))
+      ]));
+      LIRA.chapters.forEach(function (chapter) {
+        var group = h('div', { class: 'law-register__group' });
+        group.appendChild(h('div', { class: 'law-register__ghead' }, [
+          h('span', { class: 'law-register__roman' }, chapter.roman),
+          h('span', { class: 'law-register__gname' }, T(chapter.name)),
+          h('span', { class: 'law-register__gcount' },
+            String(chapter.ids.length).padStart(2, '0') + ' / ' + String(laws.length).padStart(2, '0'))
+        ]));
+        chapter.ids.forEach(function (id) {
+          var L = byId[id]; if (!L) return;
+          var on = focused.id === L.id;
+          var met = L.charterTarget != null && charter.programmed && L.level >= L.charterTarget;
+          var pips = h('span', { class: 'lira-row__pips', 'aria-hidden': 'true' });
+          for (var k = 0; k < L.max; k++) {
+            pips.appendChild(h('i', { class: 'lira-row__pip' + (k < L.level ? ' is-on' : '') }));
+          }
+          var goal = L.charterTarget != null
+            ? h('span', {
+              class: 'lira-row__goal' + (met ? ' is-met' : ''),
+              title: charter.programmed ? T('leg.charterTarget', { n: L.charterTarget }) : T('leg.awaitProgram')
+            }, charter.programmed ? '◆' + L.charterTarget : '◇')
+            : h('span', { class: 'lira-row__goal is-free', title: T('leg.independent') }, '·');
+          var row = h('button', {
+            class: 'lira-row' + (on ? ' is-on' : ''), type: 'button',
+            'data-law': L.id, 'aria-pressed': on ? 'true' : 'false', 'aria-controls': 'law-dossier',
+            onclick: function () { select(L.id); },
+            onmouseenter: function () { hover(L.id); },
+            onmouseleave: clearHover,
+            onkeydown: function (event) {
+              var n = rowEls.indexOf(event.currentTarget), target = null;
+              if (event.key === 'ArrowDown') target = rowEls[(n + 1) % rowEls.length];
+              else if (event.key === 'ArrowUp') target = rowEls[(n - 1 + rowEls.length) % rowEls.length];
+              else if (event.key === 'Home') target = rowEls[0];
+              else if (event.key === 'End') target = rowEls[rowEls.length - 1];
+              if (!target) return;
+              event.preventDefault();
+              target.focus();
+            }
+          }, [
+            h('span', { class: 'lira-row__num' }, String(indexOf[L.id] + 1).padStart(2, '0')),
+            h('span', { class: 'lira-row__name' }, Core.L(L)),
+            goal,
+            pips,
+            h('span', { class: 'lira-row__level' }, L.level + '/' + L.max)
+          ]);
+          rows[L.id] = row; rowEls.push(row);
+          group.appendChild(row);
+        });
+        register.appendChild(group);
+      });
+
+      paint(focused.id);
+      var figure = h('figure', { class: 'lira' }, [drawing, plate]);
+      return h('section', { class: 'lira-stage', 'aria-label': T('leg.lira') }, [
+        h('div', { class: 'lira-stage__head' }, [
+          h('div', {}, [
+            h('h3', { class: 'lira-stage__title' }, T('leg.lira')),
+            h('p', { class: 'lira-stage__sub' }, T('leg.lira.sub'))
+          ]),
+          h('span', { class: 'lira-stage__hint' }, T('leg.lira.hint'))
+        ]),
+        h('div', { class: 'lira-stage__body' }, [figure, register])
+      ]);
+    }
+
+    /* The Charter's implementation programme, as a narrow frieze above the
+       instrument. Its requirement chips still jump the dossier to a law. */
+    function charterFrieze(charter, act) {
+      var el = h('section', { class: 'law-frieze', 'aria-label': T('leg.charter') });
+      el.appendChild(h('div', { class: 'law-frieze__head' }, [
+        h('div', {}, [
+          h('span', { class: 'law-frieze__eyebrow' }, 'DE AMBRIS · CARTA DEL CARNARO'),
+          h('h2', {}, T('leg.charter')),
+          h('p', {}, T('leg.charterIntro'))
+        ]),
+        h('div', { class: 'law-frieze__progress' }, [
+          h('strong', {}, (charter.programmed ? charter.met : '—') + ' / ' + charter.total),
+          h('span', {}, T('leg.requirementsMet'))
+        ])
+      ]));
+      var steps = h('ol', { class: 'law-frieze__steps' });
+      [[T('leg.stageDraft'), charter.drafted], [T('leg.stageProgram'), charter.programmed],
+        [T('leg.stagePromulgate'), charter.promulgated], [T('leg.stageArengo'), charter.arengo],
+        [T('leg.stageComplete'), charter.done]].forEach(function (stage, index) {
+        steps.appendChild(h('li', { class: 'law-frieze__step' + (stage[1] ? ' is-done' : '') }, [
+          h('span', { class: 'law-frieze__step-num' }, String(index + 1).padStart(2, '0')),
+          h('span', { class: 'law-frieze__step-name' }, stage[0])
+        ]));
+      });
+      el.appendChild(steps);
+      if (charter.programmed) {
+        var reqs = h('div', { class: 'law-frieze__reqs' });
+        charter.requirements.forEach(function (r) {
+          reqs.appendChild(h('button', {
+            type: 'button', class: 'law-frieze__req' + (r.met ? ' is-met' : ''),
+            'aria-label': Core.L(r) + ' · ' + r.current + ' / ' + r.level,
+            onclick: function () {
+              act.setLawFocus(r.id);
+              requestAnimationFrame(function () {
+                var panel = document.getElementById('law-dossier');
+                if (panel) panel.scrollIntoView({
+                  behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+                  block: 'nearest'
+                });
+              });
+            }
+          }, [
+            h('span', { class: 'law-frieze__check', 'aria-hidden': 'true' }, r.met ? '◆' : '◇'),
+            h('span', {}, Core.L(r)),
+            h('strong', {}, r.current + ' / ' + r.level)
+          ]));
+        });
+        el.appendChild(reqs);
+      }
+      el.appendChild(h('div', { class: 'law-frieze__caption' },
+        charter.programmed ? T('leg.charterGoals') : T('leg.charterLocked')));
+      return el;
+    }
+
+    function lawDossier(L, act, charterProgrammed, stringNumber) {
       var dossier = h('section', { class: 'law-dossier', id: 'law-dossier', tabindex: '-1',
         'aria-label': Core.L({ zh: L.zh, it: L.it }) + ' · ' + T('leg.allLevels') });
       dossier.appendChild(h('div', { class: 'law-dossier__head' }, [
         h('div', { class: 'law-dossier__name' }, [
-          h('span', { class: 'law-dossier__eyebrow' }, T('leg.dossier')),
+          h('span', { class: 'law-dossier__eyebrow' },
+            T('leg.dossier') + (stringNumber ? ' · ' + T('leg.string', { n: stringNumber }) : '')),
           h('h2', {}, Core.L(L))
         ]),
         h('div', { class: 'law-dossier__seal' }, [
@@ -1475,97 +1817,11 @@
           h('div', {}, [h('strong', {}, String(complete)), h('span', {}, T('leg.complete'))])
         ])
       ]));
-      var charterBoard = h('section', { class: 'charter-board', 'aria-label': T('leg.charter') });
-      charterBoard.appendChild(h('div', { class: 'charter-board__head' }, [
-        h('div', {}, [
-          h('span', { class: 'charter-board__eyebrow' }, 'DE AMBRIS · CARTA DEL CARNARO'),
-          h('h2', {}, T('leg.charter')),
-          h('p', {}, T('leg.charterIntro'))
-        ]),
-        h('div', { class: 'charter-board__progress' }, [
-          h('strong', {}, (charter.programmed ? charter.met : '—') + ' / ' + charter.total),
-          h('span', {}, T('leg.requirementsMet'))
-        ])
-      ]));
-      var stageRow = h('ol', { class: 'charter-board__stages' });
-      [[T('leg.stageDraft'), charter.drafted], [T('leg.stageProgram'), charter.programmed],
-        [T('leg.stagePromulgate'), charter.promulgated], [T('leg.stageArengo'), charter.arengo],
-        [T('leg.stageComplete'), charter.done]].forEach(function (stage, index) {
-        stageRow.appendChild(h('li', { class: 'charter-board__stage' + (stage[1] ? ' is-done' : '') }, [
-          h('span', { class: 'charter-board__stage-number' }, String(index + 1).padStart(2, '0')),
-          h('span', {}, stage[0])
-        ]));
-      });
-      charterBoard.appendChild(stageRow);
-      charterBoard.appendChild(h('div', { class: 'charter-board__caption' },
-        charter.programmed ? T('leg.charterGoals') : T('leg.charterLocked')));
-      var reqGrid = h('div', { class: 'charter-board__requirements' });
-      if (charter.programmed) charter.requirements.forEach(function (r) {
-        reqGrid.appendChild(h('button', { type: 'button',
-          class: 'charter-board__requirement' + (r.met ? ' is-met' : ''),
-          onclick: function () {
-            act.setLawFocus(r.id);
-            requestAnimationFrame(function () {
-              var panel = document.getElementById('law-dossier');
-              if (panel) panel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' });
-            });
-          }
-        }, [
-          h('span', { class: 'charter-board__check', 'aria-hidden': 'true' }, r.met ? '◆' : '◇'),
-          h('span', {}, Core.L(r)),
-          h('strong', {}, r.current + ' / ' + r.level)
-        ]));
-      });
-      charterBoard.appendChild(reqGrid);
-      b.appendChild(charterBoard);
-      var chapters = [
-        { number: 'I', zh: T('leg.chapterCivic'), it: 'CITTADINI E LIBERTÀ',
-          ids: ['elettorale', 'cittadinanza', 'lingua', 'stampa', 'scuola'] },
-        { number: 'II', zh: T('leg.chapterLabour'), it: 'IL LAVORO',
-          ids: ['orario', 'lavoro'] },
-        { number: 'III', zh: T('leg.chapterState'), it: 'LA CITTÀ E IL PORTO',
-          ids: ['ordine', 'portofranco', 'dogana', 'fisco'] }
-      ];
-      chapters.forEach(function (chapter) {
-        var folio = h('section', { class: 'law-chapter', 'aria-label': Core.L(chapter) });
-        folio.appendChild(h('div', { class: 'law-chapter__heading' }, [
-          h('span', { class: 'law-chapter__roman', 'aria-hidden': 'true' }, chapter.number),
-          h('div', {}, [h('h3', {}, Core.L(chapter))]),
-          h('span', { class: 'law-chapter__count' }, String(chapter.ids.length).padStart(2, '0') + ' / ' + String(laws.length).padStart(2, '0'))
-        ]));
-        var grid = h('div', { class: 'laws-atlas__grid', 'aria-label': T('leg.select') });
-        chapter.ids.forEach(function (id) {
-          var L = laws.filter(function (entry) { return entry.id === id; })[0];
-          if (!L) return;
-          var index = laws.indexOf(L);
-          grid.appendChild(h('button', {
-          class: 'law-tile' + (focused.id === L.id ? ' is-selected' : ''), type: 'button',
-          'aria-pressed': focused.id === L.id ? 'true' : 'false', 'aria-controls': 'law-dossier',
-          onclick: function () {
-            act.setLawFocus(L.id);
-            requestAnimationFrame(function () {
-              var panel = document.getElementById('law-dossier');
-              if (panel) panel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' });
-            });
-          }
-        }, [
-          h('span', { class: 'law-tile__top' }, [
-            h('span', { class: 'law-tile__index' }, String(index + 1).padStart(2, '0')),
-            h('span', { class: 'law-tile__level' }, L.level + ' / ' + L.max)
-          ]),
-          h('strong', { class: 'law-tile__name' }, Core.L(L)),
-          h('span', { class: 'law-tile__current' }, Core.L({ zh: L.label, it: L.labelIt })),
-          L.charterTarget != null ? h('span', { class: 'law-tile__target' +
-            (charter.programmed && L.level >= L.charterTarget ? ' is-met' : '') },
-            charter.programmed ? T('leg.charterTarget', { n: L.charterTarget }) : T('leg.awaitProgram')) :
-            h('span', { class: 'law-tile__independent' }, T('leg.independent')),
-          lawSteps(L)
-          ]));
-        });
-        folio.appendChild(grid);
-        b.appendChild(folio);
-      });
-      b.appendChild(lawDossier(focused, act, charter.programmed));
+      /* The Charter's programme first, then the instrument that carries the
+         statute book, then the file on the law the instrument points at. */
+      b.appendChild(charterFrieze(charter, act));
+      b.appendChild(lawLira(laws, focused, charter, act));
+      b.appendChild(lawDossier(focused, act, charter.programmed, laws.indexOf(focused) + 1));
       return h('div', { class: 'col' }, [frame('', [banner(T('leg.title'), T('leg.sub')), b])]);
     }
 

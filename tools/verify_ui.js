@@ -604,24 +604,32 @@ class CDP {
       }
       if (key === 'leggi') {
         const lawOverview = await evalJs(`(() => ({
-          tiles: document.querySelectorAll('.law-tile').length,
+          tiles: document.querySelectorAll('.lira-row').length,
+          strings: document.querySelectorAll('.lira__string').length,
+          lit: document.querySelectorAll('.lira__string.is-on').length,
           levels: document.querySelectorAll('.law-course__item').length,
           current: document.querySelectorAll('.law-course__item--current').length,
-          selected: document.querySelector('.law-tile[aria-pressed="true"] .law-tile__name')?.textContent
+          selected: document.querySelector('.lira-row[aria-pressed="true"] .lira-row__name')?.textContent,
+          plate: document.querySelector('.lira__pname')?.textContent
         }))()`);
-        if (lawOverview.tiles !== 11 || lawOverview.levels !== 4 || lawOverview.current !== 1 ||
-          lawOverview.selected !== '选举法' ||
-          await evalJs(`document.querySelectorAll('.charter-board__requirement').length`) !== 0)
-          problems.push('法律目录或默认等级路径显示错误');
-        await evalJs(`Array.from(document.querySelectorAll('.law-tile')).find(tile => tile.querySelector('.law-tile__name')?.textContent === '劳动保障')?.click()`);
+        if (lawOverview.tiles !== 11 || lawOverview.strings !== 11 || lawOverview.lit !== 1 ||
+          lawOverview.levels !== 4 || lawOverview.current !== 1 ||
+          lawOverview.selected !== '选举法' || lawOverview.plate !== '选举法' ||
+          await evalJs(`document.querySelectorAll('.law-frieze__req').length`) !== 0)
+          problems.push('法律目录、竖琴弦数或默认等级路径显示错误');
+        await evalJs(`Array.from(document.querySelectorAll('.lira-row')).find(row => row.querySelector('.lira-row__name')?.textContent === '劳动保障')?.click()`);
         await sleep(150);
         const lawSelection = await evalJs(`(() => ({
             title: document.querySelector('.law-dossier h2')?.textContent,
             levels: document.querySelectorAll('.law-course__item').length,
             stances: document.querySelectorAll('.law-stance').length,
-            selected: document.querySelector('.law-tile[aria-pressed="true"] .law-tile__name')?.textContent
+            selected: document.querySelector('.lira-row[aria-pressed="true"] .lira-row__name')?.textContent,
+            plate: document.querySelector('.lira__pname')?.textContent,
+            eyebrow: document.querySelector('.law-dossier__eyebrow')?.textContent
         }))()`);
-        if (lawSelection.title !== '劳动保障' || lawSelection.levels !== 4 || lawSelection.stances !== 0 || lawSelection.selected !== '劳动保障')
+        if (lawSelection.title !== '劳动保障' || lawSelection.levels !== 4 || lawSelection.stances !== 0 ||
+          lawSelection.selected !== '劳动保障' || lawSelection.plate !== '劳动保障' ||
+          !/第 10 弦/.test(lawSelection.eyebrow || ''))
           problems.push('选择法律后条款档案未更新');
         await shot('03-tab-leggi-selected.png');
         await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: false });
